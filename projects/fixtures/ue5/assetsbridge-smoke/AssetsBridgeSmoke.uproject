@@ -1,0 +1,29 @@
+{
+  "FileVersion": 3,
+  "EngineAssociation": "5.7",
+  "Category": "",
+  "Description": "AI Native AssetsBridge smoke project",
+  "Modules": [],
+  "Plugins": [
+    {
+      "Name": "AssetsBridge",
+      "Enabled": true
+    },
+    {
+      "Name": "EditorScriptingUtilities",
+      "Enabled": true
+    },
+    {
+      "Name": "DatasmithImporter",
+      "Enabled": true
+    },
+    {
+      "Name": "DatasmithContent",
+      "Enabled": true
+    },
+    {
+      "Name": "PythonScriptPlugin",
+      "Enabled": true
+    }
+  ]
+}

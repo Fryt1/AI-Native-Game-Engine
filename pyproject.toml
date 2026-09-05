@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ai-native-game-engine"
+version = "0.1.0"
+description = "Agent-authored dynamic Stage orchestration with structured Tool evidence and deterministic acceptance."
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+ainative-tools = "ainative.tools:main"
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-ra"
+
+
+[tool.ruff.lint.per-file-ignores]
+# These files execute inside Blender/UE5 and intentionally use host-specific
+# broad exception handling or dynamic Blender class attributes.
+"src/ainative/toolsets/blender_editor/execution/blender_addon/__init__.py" = ["RUF012"]
+"src/ainative/toolsets/transfer_assetsbridge/execution/blender_endpoint.py" = ["BLE001"]
+"src/ainative/toolsets/ue5_editor/execution/bridge_entry.py" = ["BLE001", "S110", "TRY004"]

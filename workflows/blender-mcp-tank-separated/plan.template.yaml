@@ -1,0 +1,23 @@
+version: 1
+workflow_id: blender-mcp-tank-separated
+route: host_operation
+calls:
+  - kind: mcp
+    call_id: inspect-scene
+    server_id: blender
+    tool_name: execute_blender_code
+    usage: observe
+  - kind: mcp
+    call_id: build-tank
+    server_id: blender
+    tool_name: execute_blender_code
+    usage: execute
+  - kind: mcp
+    call_id: verify-tank
+    server_id: blender
+    tool_name: execute_blender_code
+    usage: verify
+acceptance:
+  - all required functional parts are separate named Blender objects
+  - the .blend file exists
+  - the render preview exists

@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 504.71 503.94">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: url(#linear-gradient-2);
+      }
+
+      .cls-2 {
+        fill: #3e5959;
+      }
+
+      .cls-3 {
+        fill: url(#linear-gradient-6);
+      }
+
+      .cls-4 {
+        fill: url(#linear-gradient-5);
+      }
+
+      .cls-5 {
+        fill: url(#linear-gradient-3);
+      }
+
+      .cls-6 {
+        fill: url(#linear-gradient);
+      }
+
+      .cls-7 {
+        fill: url(#linear-gradient-4);
+      }
+    </style>
+    <linearGradient id="linear-gradient" x1="-888.65" y1="934.48" x2="-704.56" y2="491.67" gradientTransform="translate(757.59 618.09) scale(.7 -.7)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffe177"/>
+      <stop offset="1" stop-color="#fe9738"/>
+    </linearGradient>
+    <linearGradient id="linear-gradient-2" x1="-896.77" y1="696.54" x2="-618.93" y2="302.51" xlink:href="#linear-gradient"/>
+    <linearGradient id="linear-gradient-3" x1="-735.06" y1="383.5" x2="-735.06" y2="228.6" gradientTransform="translate(757.59 618.09) scale(.7 -.7)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fe9738" stop-opacity="0"/>
+      <stop offset="1" stop-color="#f46700"/>
+    </linearGradient>
+    <linearGradient id="linear-gradient-4" x1="-588.23" y1="525.36" x2="-785.75" y2="995.27" xlink:href="#linear-gradient-3"/>
+    <linearGradient id="linear-gradient-5" x1="-817.11" y1="844.89" x2="-757.41" y2="733.55" gradientTransform="translate(757.59 618.09) scale(.7 -.7)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#eef5f6"/>
+      <stop offset="1" stop-color="#cbe5e8"/>
+    </linearGradient>
+    <linearGradient id="linear-gradient-6" x1="-795.41" y1="322.56" x2="-622.39" y2="149.54" gradientTransform="translate(520.05 1072.78) rotate(90)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#c1e9af"/>
+      <stop offset="1" stop-color="#4fc123"/>
+    </linearGradient>
+  </defs>
+  <g>
+    <g>
+      <path class="cls-6" d="m452.82,444.34H32.22C14.43,444.34,0,429.91,0,412.11V32.22C0,14.43,14.43,0,32.22,0h68.63l91.09,11.19L278.92,0h173.9C470.61,0,485.04,14.43,485.04,32.22v379.89c0,17.8-14.43,32.22-32.22,32.22Z"/>
+      <path class="cls-1" d="m356.15,444.34H32.22C14.43,444.34,0,429.91,0,412.11V32.22C0,14.43,14.43,0,32.22,0h89.56l69.64,11.19L266.69,0h89.46C373.95,0,388.37,14.43,388.37,32.22v379.89c0,17.8-14.43,32.22-32.22,32.22h0Z"/>
+      <path class="cls-5" d="m0,242.52v169.59c0,17.8,14.43,32.22,32.22,32.22h420.59c17.8,0,32.22-14.43,32.22-32.22v-169.59H0Z"/>
+    </g>
+    <path class="cls-7" d="m129,90.97l345.2,345.2c6.63-5.9,10.84-14.48,10.84-24.06v-193.76L266.69,0l-67.15,38.87-76.16,45.77c0,4.19,5.62,6.32,5.62,6.32h0Z"/>
+    <path class="cls-4" d="m121.68,0v84.64c0,5.69,6.88,8.54,10.9,4.52,2.49-2.49,6.54-2.49,9.03,0,8.01,8.02,21.01,8.02,29.02,0,2.49-2.49,6.54-2.49,9.03,0,8.01,8.02,21.01,8.02,29.02,0,2.49-2.49,6.54-2.49,9.03,0,8.01,8.02,21.01,8.02,29.03,0,2.49-2.49,6.54-2.49,9.03,0,4.02,4.02,10.9,1.17,10.9-4.52V0H121.68Z"/>
+    <g>
+      <path class="cls-2" d="m177.14,323.69H58.99c-3.72,0-6.73-3.01-6.73-6.73v-9.18c0-3.72,3.01-6.73,6.73-6.73h118.15c3.72,0,6.73,3.01,6.73,6.73v9.18c0,3.72-3.01,6.73-6.73,6.73Z"/>
+      <path class="cls-2" d="m177.14,361.64H58.99c-3.72,0-6.73-3.01-6.73-6.73v-9.18c0-3.72,3.01-6.73,6.73-6.73h118.15c3.72,0,6.73,3.01,6.73,6.73v9.18c0,3.72-3.01,6.73-6.73,6.73Z"/>
+      <path class="cls-2" d="m117.15,399.59h-58.16c-3.72,0-6.73-3.01-6.73-6.73v-9.18c0-3.72,3.01-6.73,6.73-6.73h58.15c3.72,0,6.73,3.01,6.73,6.73v9.18c0,3.72-3.01,6.73-6.73,6.73h0Z"/>
+    </g>
+  </g>
+  <path class="cls-3" d="m490.55,324.17l-186.38-122.25c-20.96-13.75-48.89,1.19-48.89,26.15v57.16H104.57c-16.72,0-30.27,13.55-30.27,30.27v69.64c0,16.72,13.55,30.27,30.27,30.27h150.71v57.16c0,24.95,27.93,39.89,48.89,26.15l186.38-122.25c18.88-12.38,18.88-39.91,0-52.29h0Z"/>
+</svg>

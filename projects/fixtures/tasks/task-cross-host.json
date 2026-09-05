@@ -1,0 +1,14 @@
+{
+  "task_id": "fixture-cross-host-001",
+  "objective": "Modify a UE5 Static Mesh in Blender and return it to UE5",
+  "route": "asset_transfer",
+  "profile": "default",
+  "asset_type": "static_mesh",
+  "direction": "ue5_to_blender_to_ue5",
+  "preserve_relations": ["asset_identity", "material_slots", "transform"],
+  "acceptable_loss": [],
+  "source_context": {"app": "ue5", "asset_id": "fixture-asset"},
+  "target_context": {"app": "ue5"}
+}
+
+

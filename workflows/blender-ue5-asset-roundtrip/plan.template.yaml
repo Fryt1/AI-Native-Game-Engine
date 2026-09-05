@@ -1,0 +1,103 @@
+version: 1
+workflow_id: blender-ue5-asset-roundtrip
+route: asset_transfer
+profile: default
+
+inputs:
+  source_asset: <path>
+  target_project: <path>
+  preserve_relations: [asset_identity, transform]
+
+steps:
+  - step_id: inspect-source
+    purpose: Inspect the source host before changing it.
+    stages:
+      - stage_id: inspect-source-state
+        stage_kind: investigation
+        purpose: Read the source scene and identify the target asset.
+        calls:
+          - kind: mcp
+            call_id: inspect-source
+            server_id: blender
+            tool_name: get_scene_info
+            arguments: {}
+            depends_on: []
+            usage: observe
+        execution_checklist:
+          - item_id: source-inspected
+            description: The source scene was read.
+            required: true
+            call_ids: [inspect-source]
+            evidence_required: true
+        acceptance_checklist:
+          - check_id: source-asset-found
+            description: The requested asset exists in the source scene.
+            required: true
+            call_ids: [inspect-source]
+            source_call_id: inspect-source
+            operator: exists
+            actual_path: [objects]
+            expected: null
+            tolerance: null
+            evidence_required: true
+
+  - step_id: prepare-and-transfer
+    purpose: Prepare the asset and transfer it with the selected backend.
+    stages:
+      - stage_id: prepare-source-asset
+        stage_kind: change
+        purpose: Run the registered Blender workflow Tool.
+        calls:
+          - kind: tool
+            call_id: prepare-asset
+            toolset_id: blender.workflow
+            tool_id: blender.workflow.prepare_unreal_asset
+            arguments: {}
+            depends_on: []
+            usage: execute
+        execution_checklist:
+          - item_id: asset-prepared
+            description: The Blender workflow Tool completed.
+            required: true
+            call_ids: [prepare-asset]
+            evidence_required: true
+        acceptance_checklist:
+          - check_id: prepared-file-exists
+            description: The prepared output file exists.
+            required: true
+            call_ids: [prepare-asset]
+            source_call_id: prepare-asset
+            operator: exists
+            actual_path: [output_file]
+            expected: null
+            tolerance: null
+            evidence_required: true
+
+      - stage_id: transfer-asset
+        stage_kind: change
+        purpose: Transfer through the explicitly selected backend.
+        calls:
+          - kind: tool
+            call_id: transfer-asset
+            toolset_id: transfer.assetsbridge
+            tool_id: transfer.assetsbridge.transfer_to_edit_host
+            arguments: {}
+            depends_on: [prepare-asset]
+            usage: execute
+        execution_checklist:
+          - item_id: asset-transferred
+            description: The selected transfer Tool completed.
+            required: true
+            call_ids: [transfer-asset]
+            evidence_required: true
+        acceptance_checklist:
+          - check_id: transfer-succeeded
+            description: The transfer returned a successful structured result.
+            required: true
+            call_ids: [transfer-asset]
+            source_call_id: transfer-asset
+            operator: tool_succeeded
+            actual_path: []
+            expected: null
+            tolerance: null
+            evidence_required: true

@@ -1,0 +1,17 @@
+version: 1
+workflow_id: blender-ue5-asset-roundtrip
+requires:
+  project_tools:
+    - transfer.assetsbridge.transfer_to_edit_host
+    - validation.workflow.validate
+    - blender.workflow.prepare_unreal_asset
+  mcp_tools:
+    - server_id: blender
+      tool_name: get_scene_info
+    - server_id: ue5
+      tool_name: set_actor_transform
+    - server_id: ue5
+      tool_name: save_level
+  fixtures:
+    - projects/fixtures/blender
+    - projects/fixtures/ue5/actor-fixture

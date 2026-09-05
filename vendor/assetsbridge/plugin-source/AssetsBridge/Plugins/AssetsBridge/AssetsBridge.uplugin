@@ -1,0 +1,39 @@
+{
+  "FileVersion": 3,
+  "Version": 3,
+  "VersionName": "2.1",
+  "EngineVersion": "5.7.0",
+  "FriendlyName": "AssetsBridge",
+  "Description": "Bidirectional asset bridge between Blender and Unreal Engine.",
+  "Category": "Editor Utilities",
+  "CreatedBy": "Nitecon Studios LLC.",
+  "CreatedByURL": "",
+  "DocsURL": "",
+  "SupportURL": "",
+  "CanContainContent": true,
+  "IsBetaVersion": false,
+  "IsExperimentalVersion": false,
+  "Installed": false,
+  "Modules": [
+    {
+      "Name": "AssetsBridge",
+      "Type": "Editor",
+      "LoadingPhase": "Default",
+      "PlatformAllowList": [ "Win64", "Mac" ]
+    }
+  ],
+  "Plugins": [
+    {
+      "Name": "EditorScriptingUtilities",
+      "Enabled": true
+    },
+    {
+      "Name": "DatasmithImporter",
+      "Enabled": true
+    },
+    {
+      "Name": "DatasmithContent",
+      "Enabled": true
+    }
+  ]
+}

@@ -1,0 +1,96 @@
+{
+  "workflow": {
+    "workflow_id": "host-operation",
+    "route": "host_operation",
+    "profile": "default",
+    "authority_id": "host-operation",
+    "plan_id": "<task-id>:plan",
+    "revision": 1,
+    "status": "draft",
+    "supersedes_plan_id": null,
+    "replan_reason": null,
+    "steps": [
+      {
+        "step_id": "change",
+        "purpose": "Apply and verify the requested host change",
+        "depends_on": [],
+        "optional": false,
+        "stages": [
+          {
+            "stage_id": "stage.change",
+            "stage_kind": "change",
+            "purpose": "Apply and verify the local change",
+            "operation": "<operation-label>",
+            "execution_checklist": [
+              {
+                "item_id": "change_executed",
+                "description": "The requested change was executed",
+                "required": true,
+                "evidence_required": true,
+                "metadata": {},
+                "call_ids": [
+                  "change-1",
+                  "verify-1"
+                ]
+              }
+            ],
+            "acceptance_checklist": [
+              {
+                "check_id": "result_matches",
+                "description": "Read-back state matches the requested result",
+                "required": true,
+                "source_call_id": "verify-1",
+                "actual_path": [
+                  "value"
+                ],
+                "operator": "equals",
+                "expected": "<expected-value>",
+                "tolerance": null,
+                "evidence_required": true,
+                "metadata": {},
+                "call_ids": [
+                  "verify-1"
+                ]
+              }
+            ],
+            "depends_on": [],
+            "input_keys": [],
+            "output_keys": [],
+            "required": true,
+            "recovery": "retry_or_replan",
+            "calls": [
+              {
+                "kind": "tool",
+                "call_id": "change-1",
+                "toolset_id": "<project Toolset>",
+                "tool_id": "<project Tool>",
+                "arguments": {},
+                "depends_on": [],
+                "usage": "execute"
+              },
+              {
+                "kind": "mcp",
+                "call_id": "verify-1",
+                "server_id": "<MCP Server>",
+                "tool_name": "<MCP Tool>",
+                "arguments": {},
+                "depends_on": [
+                  "change-1"
+                ],
+                "usage": "verify"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "validation_items": [],
+    "recovery_pointer": null,
+    "warnings": []
+  },
+  "transfer_backend": null,
+  "blender_call_surface": null,
+  "modification_method": "<selected-method>",
+  "host_app": "<ue5-or-blender>",
+  "host_call_surface": "<selected-surface>"
+}

@@ -1,0 +1,16 @@
+{
+  "FileVersion": 3,
+  "EngineAssociation": "{1683C69B-4C4C-C3FF-9603-2682BDE8A313}",
+  "Category": "",
+  "Description": "AI Native Actor capability fixture",
+  "Plugins": [
+    {
+      "Name": "EditorScriptingUtilities",
+      "Enabled": true
+    },
+    {
+      "Name": "PythonScriptPlugin",
+      "Enabled": true
+    }
+  ]
+}

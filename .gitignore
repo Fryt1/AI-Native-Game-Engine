@@ -1,0 +1,56 @@
+# --- Python / build ---
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+dist/
+build/
+*.egg-info/
+*.pyc
+
+# --- Local env / editors ---
+.env
+.vscode/
+.idea/
+
+# --- Artifacts: keep only README/.gitkeep placeholders, ignore generated data ---
+artifacts/*
+!artifacts/README.md
+!artifacts/**/README.md
+!artifacts/**/.gitkeep
+artifacts/evidence/*
+!artifacts/evidence/README.md
+artifacts/archive/*
+!artifacts/archive/README.md
+artifacts/exports/*
+!artifacts/exports/README.md
+!artifacts/exports/.gitkeep
+artifacts/manifests/*
+!artifacts/manifests/README.md
+!artifacts/manifests/.gitkeep
+artifacts/runs/*
+!artifacts/runs/.gitkeep
+artifacts/session-reports/
+artifacts/scratch/*
+!artifacts/scratch/.gitkeep
+
+# --- Vendored external repos: never commit nested .git / LFS / packfiles ---
+vendor/**/.git/
+vendor/**/.gitignore
+vendor/**/*.idx
+vendor/**/*.pack
+# keep vendored source files (they are small); only nested git metadata is ignored
+
+# --- Unreal generated state (keep source fixtures) ---
+projects/**/Binaries/
+projects/**/Plugins/**/Binaries/
+projects/**/Plugins/**/Intermediate/
+projects/**/DerivedDataCache/
+projects/**/Intermediate/
+projects/**/Saved/
+projects/**/.vs/
+projects/**/Build/
+projects/**/*.sln
+projects/**/*.suo
+projects/fixtures/ue5/level-template-fixture/Content/*.umap
