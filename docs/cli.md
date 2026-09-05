@@ -20,7 +20,7 @@ ainative-tools --help
 
 ```json
 {
-  "blender": {"executable": "E:/Blender/blender.exe"},
+  "blender": {"executable": "E:/blender/blender.exe"},
   "ue5": {
     "executable": "D:/UnrealEngine/ue5.7.1/UnrealEngine/Engine/Binaries/Win64/UnrealEditor-Cmd.exe",
     "project": "D:/project/Game.uproject",
@@ -40,6 +40,20 @@ python -m ainative.tools --config runtime.json --task task.json --toolset transf
 
 输出一个结构化 `ExecutionResult`（JSON）。退出码仅当状态为
 `succeeded`/`degraded` 时为 0。
+
+### 运行语义与安全边界
+
+- CLI 只执行调用方明确选择的 `ToolCall`，不会替 Agent 选择具体 Tool。
+- 如果传入 `--task`，CLI 会重新计算 Task 的 Route/Workflow 选择，并把
+  Backend、Host 和 Blender call surface 传给执行层；这对 Direct Transfer 很重要。
+- 配置了 `ue5` 时，AssetsBridge 使用真实的 `UnrealEditorPythonExecutor`。
+  没有 `ue5` 时必须显式设置 `"protocol_only": true`，这才会启用协议文件
+  测试模式；该模式不执行真实 UE5 资产导入/导出。
+- 如果 Task 带有 AssetsBridge，CLI 会按 task id 使用独立交换目录；同一个
+  逻辑 task 的多个阶段仍共享该目录，避免不同 task 互相污染。
+- 交换 JSON 使用原子写入；结果文件会在执行前清理，旧结果、错误状态、超时
+  和非法 JSON 都会返回结构化 `blocked`/`failed` 结果。
+
 
 CLI 只解析 Registry 中的确切 Tool 并执行项目实现，不读 plan、不调度 Stage。
 CLI 返回后，Agent 再把结构化结果交给 `WorkflowSession.record_execution_result()`

@@ -7,6 +7,18 @@ from ainative.orchestration.contracts.task import ProfileName, TaskContract, Tas
 
 from .runtime_context import RuntimeContext
 
+
+def _confirmation_gate(task: TaskContract) -> GateResult | None:
+    if not task.confirmation_required:
+        return None
+    reason = str(task.metadata.get("clarification_reason", "task intent requires confirmation"))
+    return GateResult(
+        False,
+        (f"Task intent requires confirmation: {reason}",),
+        next_action="clarify the target host, direction, or requested lifecycle and create a revised TaskContract",
+    )
+
+
 DEFAULT = ProfileName.DEFAULT.value
 SUPPORTED_PROFILES = {DEFAULT, ProfileName.INTERACTIVE.value, ProfileName.HEADLESS_BATCH.value}
 
@@ -23,6 +35,8 @@ class HostOperationAuthority:
         return profile in SUPPORTED_PROFILES
 
     def check_preconditions(self, task: TaskContract, plan: ExecutionPlan, runtime: RuntimeContext) -> GateResult:
+        if confirmation_gate := _confirmation_gate(task):
+            return confirmation_gate
         # Direct MCP calls are executed by the Agent's configured MCP client.
         # The project-side route guard only validates the plan shape; it does
         # not own MCP connections or server readiness.
@@ -50,6 +64,8 @@ class AssetRoundtripAuthority:
         return profile in SUPPORTED_PROFILES
 
     def check_preconditions(self, task: TaskContract, plan: ExecutionPlan, runtime: RuntimeContext) -> GateResult:
+        if confirmation_gate := _confirmation_gate(task):
+            return confirmation_gate
         blocked: list[str] = []
         source_app = str(task.source_context.get("app", "ue5")).lower()
         target_app = str(task.target_context.get("app", "ue5")).lower()
@@ -84,6 +100,8 @@ class ArtifactApplyAuthority:
         return profile in SUPPORTED_PROFILES
 
     def check_preconditions(self, task: TaskContract, plan: ExecutionPlan, runtime: RuntimeContext) -> GateResult:
+        if confirmation_gate := _confirmation_gate(task):
+            return confirmation_gate
         blocked: list[str] = []
         if runtime.artifact_provider is None and not runtime.artifact_providers:
             blocked.append("artifact provider is not ready")

@@ -34,3 +34,23 @@ def test_unknown_operation_returns_explicit_error():
 
     assert result["status"] == "failed"
     assert "unsupported Blender operation" in result["errors"][0]
+
+
+def test_bridge_import_rejects_a_document_from_another_transfer(tmp_path: Path):
+    bridge = tmp_path / "bridge"
+    bridge.mkdir()
+    (bridge / "from-unreal.json").write_text(
+        '{"operation":"UnrealExport","transfer_id":"old-transfer","objects":[]}',
+        encoding="utf-8",
+    )
+    units = SimpleNamespace(system="METRIC", scale_length=0.01)
+    bpy = SimpleNamespace(context=SimpleNamespace(scene=SimpleNamespace(unit_settings=units), active_object=None))
+
+    result = execute_operation(
+        "import-bridge-json",
+        {"bridge_dir": str(bridge), "transfer_id": "current-transfer"},
+        bpy,
+    )
+
+    assert result["status"] == "failed"
+    assert "old-transfer" in result["errors"][0]

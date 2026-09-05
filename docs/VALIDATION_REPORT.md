@@ -12,7 +12,7 @@ WorkflowPlan 生成与结构化验收。既有 UE5 证据与自动化回归套�
 
 ```text
 python -m pytest -q
-57 passed
+75 passed
 
 python -m compileall -q src scripts skills tests
 passed
@@ -26,12 +26,41 @@ ok: true（含 toolsets/*/TOOLSET.md 契约）
 python scripts\workflows\validate_workflow.py workflows\blender-ue5-asset-roundtrip --json
 ok: true
 
+python scripts\e2e\ue5\run_actor_operation_e2e.py --timeout 120
+passed（真实 UE5.7.1：Actor 读取、Transform 修改、保存、读回；可见 Editor
+窗口证据已记录，测试 harness 的主动清理可能产生预期的非零进程码）
+
+BLENDER_EXECUTABLE=E:\blender\blender.exe python -m pytest -q
+tests\integration\blender\test_cli.py tests\integration\transfer\test_direct_workflow_real_blender.py
+tests\integration\transfer\test_full_bridge_workflow.py
+passed（真实 Blender 5.2.1 LTS：CLI create/modify/export/import/inspect、
+Direct Transfer、AssetsBridge JSON round-trip）
+
 workflow create → validate → promote smoke lifecycle
 passed（发布产物 smoke 后已清理）
 
 WorkflowPlan template JSON / JSON Schema / SVG XML parse
 passed
 ```
+
+## Current execution safeguards
+
+- The runtime has no built-in prompt router. The Agent supplies the TaskContract
+  and owns Route/Workflow judgment; the runtime never selects an exact Project
+  Tool or MCP Tool. An explicitly injected Agent/LLM interpreter is optional.
+- WorkflowPlan runtime dimensions must match the selected Route/Workflow,
+  including authority, host, Backend, call surface, and modification method.
+- Superseded, completed, failed, or invalid plan revisions cannot be started.
+- CLI task loading derives the same selection context used by the Agent, so
+  Direct Transfer receives its Backend context instead of silently skipping the
+  Blender import/export seam. AssetsBridge tasks receive an isolated per-task
+  exchange directory.
+- AssetsBridge JSON writes are atomic and carry a transfer identity when the
+  protocol owns the document. Validators compare source/result snapshots rather
+  than treating field presence as proof of preservation.
+- Host process result files are cleared before execution and malformed statuses,
+  stale result IDs, invalid CLI JSON, missing Tool arguments/outputs, and process
+  timeouts fail closed.
 
 ## WorkflowGuide / CLI 架构
 
@@ -61,7 +90,7 @@ Project Tool 另有进程 CLI（`python -m ainative.tools ...`）供 Agent 直�
 ```text
 Project ToolCall 只经 Project Tool Registry 解析
 McpCall 契约由 Python 在 Agent MCP Client 执行后校验
-MCP target/schema/result 契约校验（执行仍是 Agent MCP Client 职责）
+MCP target 与结构化 result shape 校验；远端 schema/可用性仍由 Agent MCP Client 负责
 Stage 中 McpCall 可与 Project ToolCall 并列
 MCP 结构化输出参与确定性验收
 Python-script-backed Workflow Tools 发布为普通 Project Tools
@@ -128,3 +157,5 @@ AssetsBridge export/import
 
 **仍需要一次真实 Blender MCP / UE5 MCP host 运行**，才能把这些路径升级为
 live MCP evidence；自动化 MCP 测试目前用确定性 fake session 验证契约，不是真实编辑器。
+项目自己的 Blender CLI / Direct Transfer / AssetsBridge JSON 真实宿主路径
+已在本机 Blender 5.2.1 上验证通过。

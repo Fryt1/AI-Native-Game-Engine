@@ -90,7 +90,11 @@ def validate_plan_structure(plan: ExecutionPlan) -> None:
                     )
                 )
 
-            stage_call_ids = {call.call_id for call in stage.calls}
+            stage_call_ids = {
+                call_id
+                for call in stage.calls
+                if (call_id := getattr(call, "call_id", None))
+            }
             referenced_calls: set[str] = set()
             for item in stage.execution_checklist:
                 if not item.item_id or not item.description:
@@ -138,33 +142,36 @@ def validate_plan_structure(plan: ExecutionPlan) -> None:
                 )
 
             for call in stage.calls:
+                call_id = getattr(call, "call_id", None)
                 if isinstance(call, ToolCall):
-                    valid = bool(call.call_id and call.toolset_id and call.tool_id)
+                    valid = bool(call_id and call.toolset_id and call.tool_id)
                     message = "ToolCall needs call_id, toolset_id, and tool_id"
                 elif isinstance(call, McpCall):
-                    valid = bool(call.call_id and call.server_id and call.tool_name)
+                    valid = bool(call_id and call.server_id and call.tool_name)
                     message = "McpCall needs call_id, server_id, and tool_name"
                 else:
                     valid = False
                     message = "Stage calls must be ToolCall or McpCall"
                 if not valid:
                     issues.append(PlanIntegrityIssue(f"stage:{stage.stage_id}.calls", message))
-                if call.call_id in known_calls:
+                if not call_id:
+                    continue
+                if call_id in known_calls:
                     issues.append(
                         PlanIntegrityIssue(
-                            f"call:{call.call_id}",
+                            f"call:{call_id}",
                             "Call IDs must be unique across the complete Workflow Plan",
                         )
                     )
-                for dependency in call.depends_on:
+                for dependency in getattr(call, "depends_on", ()):
                     if dependency not in known_calls:
                         issues.append(
                             PlanIntegrityIssue(
-                                f"call:{call.call_id}.depends_on",
-                                f"Call {call.call_id} depends on a call that is not earlier: {dependency}",
+                                f"call:{call_id}.depends_on",
+                                f"Call {call_id} depends on a call that is not earlier: {dependency}",
                             )
                         )
-                known_calls.add(call.call_id)
+                known_calls.add(call_id)
             known_stages.add(stage.stage_id)
         known_steps.add(step.step_id)
 

@@ -10,14 +10,18 @@ from ainative.cli.execute import (
 )
 from ainative.orchestration import RuntimeContext
 from ainative.orchestration.contracts import (
+    BlenderCallSurface,
     TaskContract,
     TaskResult,
     TaskRoute,
     TaskStatus,
     ToolCall,
     ToolExecutionKind,
+    TransferBackendKind,
 )
+from ainative.orchestration.contracts.manifest import TransferManifest
 from ainative.registry import toolset_from_operations
+from ainative.toolsets.transfer_direct import DirectTransferBackend
 
 
 class FakeHost:
@@ -69,3 +73,77 @@ def test_project_tool_cli_execution_round_trip(tmp_path: Path):
     payload = json.dumps(execution.to_dict(), ensure_ascii=False)
     assert '"kind": "tool"' in payload
     assert '"tool_id": "blender.editor.set_location"' in payload
+
+
+class FakeDirectIO:
+    def __init__(self):
+        self.events = []
+
+    def is_ready(self):
+        return True
+
+    def export_source(self, manifest):
+        self.events.append("export_source")
+        return TaskResult(status=TaskStatus.SUCCEEDED, route=TaskRoute.ASSET_TRANSFER.value)
+
+    def import_target(self, manifest):
+        self.events.append("import_target")
+        return TaskResult(status=TaskStatus.SUCCEEDED, route=TaskRoute.ASSET_TRANSFER.value)
+
+
+class FakeTransferBlender:
+    def __init__(self, events):
+        self.events = events
+
+    def execute(self, request):
+        self.events.append(request.operation)
+        return TaskResult(status=TaskStatus.SUCCEEDED, route=TaskRoute.ASSET_TRANSFER.value)
+
+    def can_use(self, surface):
+        return True
+
+    def is_ready(self):
+        return True
+
+
+def test_direct_transfer_execution_uses_blender_import_and_export_seams():
+    events = []
+    io = FakeDirectIO()
+    backend = DirectTransferBackend(io)
+    task = TaskContract(
+        task_id="direct-execution",
+        objective="move a file through Blender",
+        route=TaskRoute.ASSET_TRANSFER,
+        preferred_backend=TransferBackendKind.DIRECT,
+        source_context={"app": "ue5"},
+        target_context={"app": "ue5"},
+    )
+    runtime = RuntimeContext(
+        blender=FakeTransferBlender(events),
+        transfer_backends={TransferBackendKind.DIRECT: backend},
+    )
+    manifest = TransferManifest.from_task(task)
+    call = ToolCall(
+        call_id="direct-transfer",
+        toolset_id="transfer.direct",
+        tool_id="transfer.direct.transfer_to_edit_host",
+    )
+    resolved = runtime.resolve_tool(call)
+
+    result = execute_resolved(
+        runtime,
+        call,
+        resolved,
+        ToolExecutionContext(
+            task=task,
+            manifest=manifest,
+            plan_route=TaskRoute.ASSET_TRANSFER.value,
+            plan_host_app="blender",
+            plan_blender_call_surface=BlenderCallSurface.CLI_PYTHON.value,
+            plan_transfer_backend=TransferBackendKind.DIRECT.value,
+        ),
+    )
+
+    assert result.status is TaskStatus.SUCCEEDED
+    assert io.events == ["export_source"]
+    assert events == ["import-glb"]

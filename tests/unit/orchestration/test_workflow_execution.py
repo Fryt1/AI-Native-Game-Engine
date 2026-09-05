@@ -1,4 +1,6 @@
-from ainative.agent import WorkflowGuide
+import pytest
+
+from ainative.agent import WorkflowGuide, WorkflowPlanError
 from ainative.orchestration import RuntimeContext
 from ainative.orchestration.contracts import (
     CheckResult,
@@ -172,3 +174,57 @@ def test_agent_can_create_a_stage_with_no_calls_as_a_local_checkpoint():
 
     assert session.complete_stage("stage.checkpoint").status is TaskStatus.SUCCEEDED
     assert session.finish().status is TaskStatus.SUCCEEDED
+
+
+def test_agent_cannot_record_a_call_before_its_dependency():
+    events = []
+    task = TaskContract(
+        task_id="dependency-order",
+        objective="Read and move an Actor",
+        route=TaskRoute.HOST_OPERATION,
+        target_context={"app": "ue5"},
+    )
+    plan = actor_plan(task)
+    session = WorkflowGuide().start(task, plan, RuntimeContext(ue5=FakeUE5(events)))
+    stage = plan.workflow.stage_requests[0]
+
+    with pytest.raises(WorkflowPlanError, match="incomplete dependencies"):
+        session.check_call_ready(stage.calls[1].call_id)
+    assert events == []
+
+
+
+def test_agent_cannot_prepare_a_call_from_a_later_dependent_stage():
+    events = []
+    task = TaskContract(
+        task_id="stage-dependency-order",
+        objective="Read and move an Actor",
+        route=TaskRoute.HOST_OPERATION,
+        target_context={"app": "ue5"},
+    )
+    first = stage_plan("stage.first", "Read", "read_actor_transform", (call("ue5.editor", "ue5", "read_actor_transform", "read"),))
+    later_call = call("ue5.editor", "ue5", "set-actor-transform", "set", {"expected_location": [1, 2, 3]})
+    later = stage_plan("stage.later", "Move", "set_actor_transform", (later_call,), depends_on=("stage.first",))
+    plan = plan_for(task, (StepPlan("first", "Read", (first,)), StepPlan("later", "Move", (later,), depends_on=("first",))))
+    session = WorkflowGuide().start(task, plan, RuntimeContext(ue5=FakeUE5(events)))
+
+    with pytest.raises(WorkflowPlanError, match="incomplete dependencies"):
+        session.check_call_ready("set")
+    assert events == []
+
+
+
+def test_agent_cannot_overwrite_a_recorded_execution_attempt():
+    events = []
+    task = TaskContract(
+        task_id="duplicate-result",
+        objective="Read an Actor",
+        route=TaskRoute.HOST_OPERATION,
+        target_context={"app": "ue5"},
+    )
+    plan = one_stage_plan(task, stage_plan("stage.read", "Read", "read_actor_transform", (call("ue5.editor", "ue5", "read_actor_transform", "read"),)))
+    session = WorkflowGuide().start(task, plan, RuntimeContext(ue5=FakeUE5(events)))
+    result = execute_local_tool_and_submit(session, plan.workflow.stage_requests[0], plan.workflow.stage_requests[0].calls[0])
+
+    with pytest.raises(WorkflowPlanError, match="already been recorded"):
+        session.record_execution_result(result)

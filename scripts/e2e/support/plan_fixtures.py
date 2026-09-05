@@ -28,6 +28,7 @@ from ainative.orchestration.contracts import (
     StageRequest,
     StepPlan,
     TaskContract,
+    TaskStatus,
     ToolCall,
     ToolCallUsage,
     WorkflowPlan,
@@ -343,6 +344,7 @@ def execute_agent_plan(task: TaskContract, plan: ExecutionPlan, runtime, manifes
     for stage in plan.workflow.stage_requests:
         for call in stage.calls:
             try:
+                session.check_call_ready(call.call_id)
                 resolved = runtime.resolve_tool(call)
                 ctx = ToolExecutionContext(
                     task=task,
@@ -357,7 +359,7 @@ def execute_agent_plan(task: TaskContract, plan: ExecutionPlan, runtime, manifes
                 )
                 task_result = execute_resolved(runtime, call, resolved, ctx)
             except Exception as exc:  # noqa: BLE001 - fixture must keep running on failure
-                from ainative.orchestration.contracts import ExecutionResult, TaskStatus
+                from ainative.orchestration.contracts import ExecutionResult
                 task_result = None
                 result = ExecutionResult(call_id=call.call_id, kind="tool", toolset_id=call.toolset_id, tool_id=call.tool_id, status=TaskStatus.BLOCKED, errors=(str(exc),))
                 session.record_execution_result(result)

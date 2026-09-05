@@ -13,7 +13,12 @@ def main() -> int:
     bridge = Path(os.environ["AINATIVE_BRIDGE_DIR"])
     operation = os.environ["AINATIVE_BLENDER_OPERATION"]
     result_file = Path(os.environ["AINATIVE_BLENDER_RESULT_FILE"])
-    result = {"blender_version": bpy.app.version_string, "operation": operation, "status": "failed"}
+    result = {
+        "blender_version": bpy.app.version_string,
+        "operation": operation,
+        "transfer_id": os.environ.get("AINATIVE_TRANSFER_ID"),
+        "status": "failed",
+    }
     try:
         bpy.ops.preferences.addon_enable(module="AssetsBridge")
         preferences = bpy.context.preferences.addons["AssetsBridge"].preferences

@@ -33,7 +33,7 @@ from tests.support.plan_factory import (
     stage_plan,
 )
 
-BLENDER = Path(os.environ.get("BLENDER_EXECUTABLE", r"D:\Blender\Blender-4.2.0\blender-4.2.0-windows-x64\blender.exe"))
+BLENDER = Path(os.environ.get("BLENDER_EXECUTABLE", r"E:\blender\blender.exe"))
 
 
 class ReadyJsonUE5:
@@ -101,7 +101,18 @@ def test_full_assetsbridge_json_workflow_with_real_blender(tmp_path: Path):
         preserve_relations=frozenset({"asset_identity", "material_slots", "transform"}),
         source_context={"app": "ue5", "asset_id": "/Game/Meshes/SM_Test"},
         target_context={"app": "ue5"},
-        metadata={"edit_app": "blender", "source_export_file": str(source), "export_file": str(modified_glb), "blender_edit_file": str(edit_file), "modified_blend_file": str(modified_file), "delta": [1, 0, 0], "file_format": "glb"},
+        metadata={
+            "edit_app": "blender",
+            "source_export_file": str(source),
+            "export_file": str(modified_glb),
+            "blender_edit_file": str(edit_file),
+            "modified_blend_file": str(modified_file),
+            "delta": [1, 0, 0],
+            "file_format": "glb",
+            "objectMaterials": [
+                {"name": "WorldGridMaterial", "idx": 0, "internalPath": "/Engine/EngineMaterials/WorldGridMaterial", "originalIdx": -1}
+            ],
+        },
     )
     protocol.write("from_unreal", protocol.document_for_manifest(TransferManifest.from_task(task), "UnrealExport"))
 

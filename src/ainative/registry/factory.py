@@ -30,6 +30,8 @@ def toolset_from_operations(
     title: str = "",
     description: str = "",
     metadata: dict[str, Any] | None = None,
+    input_schemas: Mapping[str, dict[str, Any]] | None = None,
+    output_schemas: Mapping[str, dict[str, Any]] | None = None,
 ) -> ToolsetDefinition:
     operation_descriptions = (
         dict(operations)
@@ -46,6 +48,8 @@ def toolset_from_operations(
                 operation=operation,
                 execution_kind=execution_kind,
                 description=tool_description,
+                input_schema=dict((input_schemas or {}).get(operation, {"type": "object"})),
+                output_schema=dict((output_schemas or {}).get(operation, {"type": "object"})),
             ),
         )
     tools = tuple(tools_by_id.values())

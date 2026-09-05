@@ -42,7 +42,7 @@ def test_agent_plan_stores_exact_calls_without_requirements_or_binding_pass():
         preferred_backend=TransferBackendKind.ASSETSBRIDGE,
         preserve_relations=frozenset({"asset_identity", "transform"}),
     )
-    tool_call = call("blender.editor", "blender", "translate-active", "modify-1")
+    tool_call = call("blender.editor", "blender", "translate-active", "modify-1", {"delta": [0, 0, 0]})
     plan = plan_for(
         task,
         (StepPlan("modify-asset", "Modify the edit-host asset", (stage_plan("stage.modify_asset", "Modify", "translate-active", (tool_call,)),)),),
@@ -61,7 +61,7 @@ def test_full_plan_feasibility_checks_agent_selected_calls_before_execution(tmp_
         preferred_backend=TransferBackendKind.ASSETSBRIDGE,
     )
     calls = (
-        call("blender.editor", "blender", "translate-active", "modify-1"),
+        call("blender.editor", "blender", "translate-active", "modify-1", {"delta": [0, 0, 0]}),
         call("transfer.assetsbridge", "assetsbridge", "return_to_target", "return-1", depends_on=("modify-1",)),
         call("validation.workflow", "validator", "validate", "validate-1", depends_on=("return-1",)),
     )

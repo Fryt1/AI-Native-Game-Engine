@@ -24,7 +24,7 @@ from ainative.orchestration.contracts.results import (
     TaskStatus,
 )
 from ainative.orchestration.contracts.task import TaskContract
-from ainative.orchestration.contracts.tools import McpCall
+from ainative.orchestration.contracts.tools import McpCall, ToolCall
 from ainative.orchestration.planning import (
     PlanIntegrityError,
     ToolPlanIssue,
@@ -32,9 +32,9 @@ from ainative.orchestration.planning import (
     validate_plan_structure,
 )
 from ainative.orchestration.route_guards import ROUTE_AUTHORITIES
-from ainative.registry import ToolsetRegistry
+from ainative.registry import ToolResolutionError, ToolsetRegistry
 
-from .intent import HeuristicIntentInterpreter, IntentInterpreter
+from .intent import IntentInterpreter
 from .skill import AINativeWorkflowSkill, SkillSession
 
 
@@ -67,6 +67,7 @@ class WorkflowSession:
     _execution_item_results: dict[tuple[str, str], ExecutionItemResult] = field(default_factory=dict, init=False)
     _check_results: dict[tuple[str, str], CheckResult] = field(default_factory=dict, init=False)
     _call_locations: dict[str, tuple[str, StageRequest]] = field(default_factory=dict, init=False)
+    _tool_definitions: dict[str, Any] = field(default_factory=dict, init=False)
     _completed_stages: list[str] = field(default_factory=list, init=False)
     _stage_results: dict[str, StageResult] = field(default_factory=dict, init=False)
 
@@ -75,6 +76,13 @@ class WorkflowSession:
             for stage in step.stages:
                 for call in stage.calls:
                     self._call_locations[call.call_id] = (step.step_id, stage)
+                    if isinstance(call, ToolCall):
+                        try:
+                            self._tool_definitions[call.call_id] = self.registry.describe_tool(call.toolset_id, call.tool_id)
+                        except ToolResolutionError:
+                            # Invalid plan tools are already represented by
+                            # ``tool_issues``; keep their blocked result recordable.
+                            pass
 
     @property
     def ready(self) -> bool:
@@ -143,18 +151,53 @@ class WorkflowSession:
         self._invalidate_stage_result(stage_id)
         return result
 
+    def check_call_ready(self, call_id: str) -> None:
+        """Fail closed when an Agent tries to run a call before its dependencies."""
+
+        location = self._call_locations.get(call_id)
+        if location is None:
+            raise WorkflowPlanError(f"Call is not declared in the WorkflowPlan: {call_id}")
+        step_id, stage = location
+        step = next(step for step in self.plan.workflow.steps if step.step_id == step_id)
+        call = next(call for call in stage.calls if call.call_id == call_id)
+        missing: list[str] = []
+        failed: list[str] = []
+        missing_steps = set(step.depends_on) - set(self.completed_step_ids)
+        if missing_steps:
+            missing.append("step:" + ",step:".join(sorted(missing_steps)))
+        missing_stages = set(stage.depends_on) - set(self._completed_stages)
+        if missing_stages:
+            missing.append("stage:" + ",stage:".join(sorted(missing_stages)))
+        for dependency in call.depends_on:
+            dependency_result = self._call_executions.get(dependency)
+            if dependency_result is None:
+                missing.append(dependency)
+            elif dependency_result.status not in {TaskStatus.SUCCEEDED, TaskStatus.DEGRADED}:
+                failed.append(dependency)
+        if missing or failed:
+            reasons = []
+            if missing:
+                reasons.append("incomplete dependencies: " + ", ".join(missing))
+            if failed:
+                reasons.append("failed dependencies: " + ", ".join(failed))
+            raise WorkflowPlanError(f"Call {call_id} cannot execute; " + "; ".join(reasons))
+
     def record_execution_result(self, result: ExecutionResult) -> ExecutionResult:
         """Record a raw Tool/MCP result returned by the Agent's tool client.
 
         This is the only execution entry point of this Session. Python never
         invokes the Tool or MCP Server; it validates the submitted contract,
-        target, and shape, then records it as evidence for the Stage.
+        target, dependency order, and shape, then records it as evidence for the
+        Stage.
         """
         location = self._call_locations.get(result.call_id)
         if location is None:
             raise WorkflowPlanError(f"Execution result references an undeclared call: {result.call_id}")
+        if result.call_id in self._call_executions:
+            raise WorkflowPlanError(f"Execution result has already been recorded: {result.call_id}")
         _, stage = location
         call = next(call for call in stage.calls if call.call_id == result.call_id)
+        self.check_call_ready(result.call_id)
         expected_kind = "mcp" if isinstance(call, McpCall) else "tool"
         if result.kind != expected_kind:
             raise WorkflowPlanError(
@@ -167,6 +210,11 @@ class WorkflowSession:
             raise WorkflowPlanError(f"Project Tool target mismatch for {result.call_id}")
         if not isinstance(result.outputs, dict):
             raise WorkflowPlanError(f"Execution result outputs must be an object: {result.call_id}")
+        if isinstance(call, ToolCall) and not any(issue.call_id == call.call_id for issue in self.tool_issues):
+            try:
+                self.registry.validate_output(call, result.outputs, self._tool_definitions.get(call.call_id))
+            except ToolResolutionError as exc:
+                raise WorkflowPlanError(str(exc)) from exc
         task_result = TaskResult(
             status=result.status,
             route=self.plan.route.value,
@@ -408,7 +456,7 @@ class WorkflowGuide:
 
     def __init__(self, skill: AINativeWorkflowSkill | None = None, interpreter: IntentInterpreter | None = None) -> None:
         self.skill = skill or AINativeWorkflowSkill()
-        self.interpreter = interpreter or HeuristicIntentInterpreter()
+        self.interpreter = interpreter
 
     def load_skill(self, task: TaskContract) -> SkillSession:
         return self.skill.load(task)
@@ -445,16 +493,51 @@ class WorkflowGuide:
         )
 
     def task_from_prompt(self, prompt: str, task_id: str) -> TaskContract:
+        if self.interpreter is None:
+            raise WorkflowPlanError(
+                "No Agent-owned IntentInterpreter is configured; construct TaskContract explicitly "
+                "or inject an Agent/LLM interpreter"
+            )
         return self.interpreter.interpret(prompt, task_id)
 
     @staticmethod
     def _validate_plan_matches_selection(task: TaskContract, plan: ExecutionPlan, session: SkillSession) -> None:
         mismatches: list[str] = []
+        selection = session.selection
         if plan.route is not task.route:
             mismatches.append(f"plan route {plan.route.value} does not match task route {task.route.value}")
-        if plan.workflow_id != session.workflow_id:
-            mismatches.append(f"plan workflow {plan.workflow_id} does not match selected Workflow {session.workflow_id}")
-        if plan.profile != session.profile:
-            mismatches.append(f"plan profile {plan.profile} does not match selected profile {session.profile}")
+        if plan.workflow_id != selection.workflow_id:
+            mismatches.append(f"plan workflow {plan.workflow_id} does not match selected Workflow {selection.workflow_id}")
+        if plan.profile != selection.profile:
+            mismatches.append(f"plan profile {plan.profile} does not match selected profile {selection.profile}")
+        if plan.authority_id != selection.authority_id:
+            mismatches.append(f"plan authority {plan.authority_id} does not match selected authority {selection.authority_id}")
+        if plan.transfer_backend != selection.transfer_backend:
+            mismatches.append(
+                f"plan transfer backend {getattr(plan.transfer_backend, 'value', None)} does not match "
+                f"selected backend {getattr(selection.transfer_backend, 'value', None)}"
+            )
+        if plan.blender_call_surface != selection.blender_call_surface:
+            mismatches.append(
+                f"plan Blender call surface {getattr(plan.blender_call_surface, 'value', None)} does not match "
+                f"selected surface {getattr(selection.blender_call_surface, 'value', None)}"
+            )
+        if plan.modification_method != selection.modification_method:
+            mismatches.append(
+                f"plan modification method {plan.modification_method} does not match selected method {selection.modification_method}"
+            )
+        if plan.host_app != selection.host_app:
+            mismatches.append(f"plan host app {plan.host_app} does not match selected host app {selection.host_app}")
+        if plan.host_call_surface != selection.host_call_surface:
+            mismatches.append(
+                f"plan host call surface {plan.host_call_surface} does not match selected surface {selection.host_call_surface}"
+            )
+        if plan.plan_status in {
+            WorkflowPlanStatus.COMPLETED,
+            WorkflowPlanStatus.FAILED,
+            WorkflowPlanStatus.INVALID,
+            WorkflowPlanStatus.SUPERSEDED,
+        }:
+            mismatches.append(f"plan revision {plan.revision_id} is not executable in status {plan.plan_status.value}")
         if mismatches:
             raise WorkflowPlanError("; ".join(mismatches))

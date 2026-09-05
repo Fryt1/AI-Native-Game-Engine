@@ -43,6 +43,14 @@ Required failures, unknowns, and human decisions block completion. A Stage with
 only warnings completes as `degraded`; all required items passing completes as
 `succeeded`.
 
+## Intent and Tool ownership
+
+The runtime has no built-in prompt router. The Agent must supply the
+`TaskContract`, inspect the selected Workflow guidance and live Tool/MCP
+surfaces, then author the exact `WorkflowPlan`. An optional
+`IntentInterpreter` may be injected only when it is implemented and owned by
+the Agent/LLM integration; the runtime never guesses a Route or Tool.
+
 ## Agent-facing API
 
 ```python

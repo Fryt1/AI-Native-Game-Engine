@@ -13,17 +13,12 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from ainative.agent import WorkflowGuide
-from ainative.orchestration.contracts import TaskContract, TaskRoute
+from ainative.cli.runner import task_from_dict
+from ainative.orchestration.contracts import TaskContract
 
 
 def load_task(path: Path) -> TaskContract:
-    raw = json.loads(path.read_text(encoding="utf-8"))
-    raw["route"] = TaskRoute(raw["route"])
-    if "preserve_relations" in raw:
-        raw["preserve_relations"] = frozenset(raw["preserve_relations"])
-    if "acceptable_loss" in raw:
-        raw["acceptable_loss"] = frozenset(raw["acceptable_loss"])
-    return TaskContract(**raw)
+    return task_from_dict(json.loads(path.read_text(encoding="utf-8")))
 
 
 def main() -> int:

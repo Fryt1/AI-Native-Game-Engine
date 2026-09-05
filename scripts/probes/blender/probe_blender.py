@@ -11,7 +11,8 @@ from pathlib import Path
 
 def find_executable() -> str | None:
     configured = os.environ.get("BLENDER_EXECUTABLE")
-    candidates = [configured, shutil.which("blender"), r"D:\Blender\Blender-5.0.0\blender-5.0.0-windows-x64\blender.exe", r"D:\Blender\Blender-4.2.0\blender-4.2.0-windows-x64\blender.exe", r"D:\Blender\4.2\blender.exe"]
+    candidates = [configured, shutil.which("blender"), r"E:\blender\blender.exe",
+        r"D:\Blender\Blender-5.0.0\blender-5.0.0-windows-x64\blender.exe", r"D:\Blender\Blender-4.2.0\blender-4.2.0-windows-x64\blender.exe", r"D:\Blender\4.2\blender.exe"]
     for candidate in candidates:
         if candidate and Path(candidate).exists():
             return str(Path(candidate).resolve())

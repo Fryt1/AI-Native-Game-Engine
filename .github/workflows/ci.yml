@@ -1,0 +1,27 @@
+name: CI
+
+"on":
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install test and lint dependencies
+        run: python -m pip install --upgrade pip pytest ruff
+      - name: Run tests
+        run: python -m pytest -q
+      - name: Compile Python sources
+        run: python -m compileall -q src scripts skills tests
+      - name: Run lint
+        run: ruff check src/ainative scripts/e2e scripts/agent scripts/docs scripts/workflows tests
+      - name: Validate workflow package
+        run: python skills/ai-native-workflow-orchestration/scripts/integrity_gate.py --json
+      - name: Validate reusable workflow
+        run: python scripts/workflows/validate_workflow.py workflows/blender-ue5-asset-roundtrip --json

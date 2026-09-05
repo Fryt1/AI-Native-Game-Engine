@@ -38,12 +38,14 @@ validator.
 
 ## Current AssetsBridge checks
 
-`AssetsBridgeValidator` currently checks the `from-blender.json` payload for:
+`AssetsBridgeValidator` currently checks the `from-unreal.json` and
+`from-blender.json` payloads for:
 
 ```text
+matching transfer_id
 matching objectId / model identity
-objectMaterials presence
-worldData location / rotation / scale
+material slot equivalence (ignoring exporter-only originalIdx bookkeeping)
+expected worldData location / rotation / scale, including an explicit delta when declared
 ```
 
 It returns:

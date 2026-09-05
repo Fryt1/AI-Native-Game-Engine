@@ -122,7 +122,36 @@ class ToolsetRegistry:
         if len(matches) != 1:
             raise ToolResolutionError(f"Selected Tool is not uniquely available: {call.toolset_id}/{call.tool_id}")
         self._check_ready(matches[0])
+        self._check_arguments(call, matches[0].tool)
         return matches[0]
+
+    def validate_output(
+        self,
+        call: ToolCall,
+        outputs: dict[str, Any],
+        tool: ToolDefinition | None = None,
+    ) -> None:
+        """Validate a Tool output without re-checking provider readiness.
+
+        A caller that already opened a plan may pass the ToolDefinition captured
+        at plan start; this keeps result validation stable if a provider changes
+        its published set after the external process has finished.
+        """
+
+        if tool is None:
+            matches = [
+                candidate
+                for _, _, toolset in self._published()
+                if toolset.toolset_id == call.toolset_id
+                for candidate in toolset.tools
+                if candidate.tool_id == call.tool_id
+            ]
+            if len(matches) != 1:
+                raise ToolResolutionError(f"Selected Tool is not uniquely available: {call.toolset_id}/{call.tool_id}")
+            tool = matches[0]
+        error = self._schema_error(outputs, tool.output_schema or {"type": "object"}, "$outputs")
+        if error:
+            raise ToolResolutionError(f"Invalid output for {call.toolset_id}/{call.tool_id}: {error}")
 
     @staticmethod
     def _check_ready(resolved: ResolvedTool) -> None:
@@ -131,6 +160,56 @@ class ToolsetRegistry:
             raise ToolResolutionError(
                 f"Tool provider is not ready: {resolved.toolset.toolset_id}/{resolved.tool.tool_id}"
             )
+
+
+    @staticmethod
+    def _check_arguments(call: ToolCall, tool: ToolDefinition) -> None:
+        """Validate the small JSON-schema subset used by project Tool contracts."""
+
+        schema = tool.input_schema or {"type": "object"}
+        error = ToolsetRegistry._schema_error(call.arguments, schema, "$arguments")
+        if error:
+            raise ToolResolutionError(f"Invalid arguments for {call.toolset_id}/{call.tool_id}: {error}")
+
+    @classmethod
+    def _schema_error(cls, value: Any, schema: dict[str, Any], path: str) -> str | None:
+        expected_type = schema.get("type")
+        if expected_type == "object":
+            if not isinstance(value, dict):
+                return f"{path} must be an object"
+            for key in schema.get("required", []):
+                if key not in value:
+                    return f"{path}.{key} is required"
+            properties = schema.get("properties", {})
+            for key, child_schema in properties.items():
+                if key in value:
+                    error = cls._schema_error(value[key], child_schema, f"{path}.{key}")
+                    if error:
+                        return error
+        elif expected_type == "array":
+            if not isinstance(value, (list, tuple)):
+                return f"{path} must be an array"
+            if "minItems" in schema and len(value) < int(schema["minItems"]):
+                return f"{path} must contain at least {schema['minItems']} items"
+            if "maxItems" in schema and len(value) > int(schema["maxItems"]):
+                return f"{path} must contain at most {schema['maxItems']} items"
+            item_schema = schema.get("items")
+            if isinstance(item_schema, dict):
+                for index, item in enumerate(value):
+                    error = cls._schema_error(item, item_schema, f"{path}[{index}]")
+                    if error:
+                        return error
+        elif expected_type == "string" and not isinstance(value, str):
+            return f"{path} must be a string"
+        elif expected_type == "number" and (not isinstance(value, (int, float)) or isinstance(value, bool)):
+            return f"{path} must be a number"
+        elif expected_type == "integer" and (not isinstance(value, int) or isinstance(value, bool)):
+            return f"{path} must be an integer"
+        elif expected_type == "boolean" and not isinstance(value, bool):
+            return f"{path} must be a boolean"
+        if "enum" in schema and value not in schema["enum"]:
+            return f"{path} must be one of {schema['enum']}"
+        return None
 
     @staticmethod
     def _tokens(value: str) -> tuple[str, ...]:

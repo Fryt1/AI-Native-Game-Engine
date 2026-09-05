@@ -1,3 +1,7 @@
+from dataclasses import replace
+
+import pytest
+
 from ainative.agent import WorkflowGuide, WorkflowPlanError
 from ainative.orchestration import RuntimeContext
 from ainative.orchestration.contracts import (
@@ -9,12 +13,17 @@ from ainative.orchestration.contracts import (
     TaskStatus,
     ToolCall,
     WorkflowPlan,
+    WorkflowPlanStatus,
 )
 from ainative.toolsets.blender_editor.execution import (
     BlenderAddonSurface,
     BlenderExecutor,
 )
-from tests.support.plan_factory import execute_local_tool_and_submit, stage_plan
+from tests.support.plan_factory import (
+    execute_local_tool_and_submit,
+    plan_for,
+    stage_plan,
+)
 
 
 def test_agent_does_not_execute_when_only_skill_is_loaded():
@@ -163,3 +172,39 @@ def test_agent_rejects_plan_for_a_different_workflow():
         assert "does not match selected Workflow" in str(exc)
     else:
         raise AssertionError("a plan for another Workflow was accepted")
+
+
+def test_agent_rejects_plan_that_changes_selected_host_dimensions():
+    task = TaskContract(
+        task_id="selection-mismatch",
+        objective="Inspect the UE5 level",
+        route=TaskRoute.HOST_OPERATION,
+        target_context={"app": "ue5"},
+    )
+    plan = plan_for(task, (StepPlan("step", "Inspect", (stage_plan("stage", "Inspect"),)),))
+    wrong = replace(plan, host_app="blender", host_call_surface="blender_cli_python")
+
+    with pytest.raises(WorkflowPlanError, match="host app"):
+        WorkflowGuide().start(task, wrong, RuntimeContext())
+
+
+def test_agent_rejects_superseded_plan_revision():
+    task = TaskContract(
+        task_id="superseded-plan",
+        objective="Inspect the UE5 level",
+        route=TaskRoute.HOST_OPERATION,
+        target_context={"app": "ue5"},
+    )
+    plan = plan_for(task, (StepPlan("step", "Inspect", (stage_plan("stage", "Inspect"),)),))
+    superseded = replace(plan, workflow=replace(plan.workflow, status=WorkflowPlanStatus.SUPERSEDED))
+
+    with pytest.raises(WorkflowPlanError, match="not executable"):
+        WorkflowGuide().start(task, superseded, RuntimeContext())
+
+
+
+def test_prompt_entry_requires_an_explicit_agent_owned_interpreter():
+    guide = WorkflowGuide()
+
+    with pytest.raises(WorkflowPlanError, match="No Agent-owned IntentInterpreter"):
+        guide.task_from_prompt("处理一下这个模型", "ambiguous-task")

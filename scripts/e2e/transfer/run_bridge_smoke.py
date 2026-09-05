@@ -23,10 +23,10 @@ for path in (SRC, SKILL_ROOT):
 
 from support.plan_fixtures import asset_roundtrip_plan, execute_agent_plan
 
-from ainative.agent import WorkflowGuide
 from ainative.orchestration import RuntimeContext
 from ainative.orchestration.contracts import (
     BlenderCallSurface,
+    TaskContract,
     TaskResult,
     TaskRoute,
     TaskStatus,
@@ -52,6 +52,7 @@ def find_blender() -> Path | None:
     candidates = [
         configured,
         shutil.which("blender"),
+        r"E:\blender\blender.exe",
         r"D:\Blender\Blender-5.0.0\blender-5.0.0-windows-x64\blender.exe",
         r"D:\Blender\Blender-4.2.0\blender-4.2.0-windows-x64\blender.exe",
     ]
@@ -99,8 +100,20 @@ def main() -> int:
     protocol = AssetsBridgeJsonProtocol(out)
     blender = BlenderExecutor({BlenderCallSurface.CLI_PYTHON: cli})
     backend = AssetsBridgeBackend(JsonUE5BridgeConnector(protocol), LocalBlenderBridgeConnector(blender, out, BlenderCallSurface.CLI_PYTHON))
-    task = WorkflowGuide().task_from_prompt("把 UE5 的 Static Mesh 拿到 Blender 修改，保留资产身份、材质槽和 Transform，回到原资产", "bridge-smoke")
-    task = __import__("dataclasses").replace(task, preferred_backend=TransferBackendKind.ASSETSBRIDGE, preferred_call_surface=BlenderCallSurface.CLI_PYTHON, source_context={"app": "ue5", "asset_id": "/Game/Meshes/SM_Test"}, target_context={"app": "ue5"}, metadata={"edit_app": "blender", "source_export_file": str(source_glb), "export_file": str(modified_glb), "blender_edit_file": str(edit), "modified_blend_file": str(modified), "blender_operation": "translate-active", "delta": [1, 0, 0], "file_format": "glb", "result_dir": str(out)})
+    task = TaskContract(
+        task_id="bridge-smoke",
+        objective="Edit the UE5 Static Mesh in Blender and return it to the original asset.",
+        route=TaskRoute.ASSET_TRANSFER,
+        profile="default",
+        asset_type="static_mesh",
+        direction="ue5_to_blender_to_ue5",
+        preserve_relations=frozenset({"asset_identity", "material_slots", "transform"}),
+        preferred_backend=TransferBackendKind.ASSETSBRIDGE,
+        preferred_call_surface=BlenderCallSurface.CLI_PYTHON,
+        source_context={"app": "ue5", "asset_id": "/Game/Meshes/SM_Test"},
+        target_context={"app": "ue5"},
+        metadata={"edit_app": "blender", "source_export_file": str(source_glb), "export_file": str(modified_glb), "blender_edit_file": str(edit), "modified_blend_file": str(modified), "blender_operation": "translate-active", "delta": [1, 0, 0], "file_format": "glb", "result_dir": str(out)},
+    )
     manifest = TransferManifest.from_task(task)
     protocol.write("from_unreal", protocol.document_for_manifest(manifest, "UnrealExport"))
     runtime = RuntimeContext(blender=blender, ue5=ReadyJsonUE5(), transfer_backends={TransferBackendKind.ASSETSBRIDGE: backend}, validator=AssetsBridgeValidator(protocol))

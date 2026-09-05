@@ -13,7 +13,7 @@ dependencies = []
 ainative-tools = "ainative.tools:main"
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "ruff>=0.8"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

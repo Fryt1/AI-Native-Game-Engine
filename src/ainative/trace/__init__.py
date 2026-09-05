@@ -10,17 +10,18 @@ Python validates/records/aggregates, and nothing here decides the next call.
 from __future__ import annotations
 
 import json
+import os
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Self
 
-TRACE_DIR = Path(r"D:\work\AI-Native-Game-Engine\artifacts\traces")
+TRACE_DIR = Path(os.environ.get("AINATIVE_TRACE_DIR", Path(__file__).resolve().parents[3] / "artifacts" / "traces"))
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
+    return datetime.now(UTC).isoformat(timespec="milliseconds")
 
 
 @dataclass(slots=True)
@@ -56,14 +57,14 @@ class AgentTrace:
         self.path = self.trace_dir / f"{self.run_id}.jsonl"
         self._events: list[TraceEvent] = []
 
-    def open(self) -> "AgentTrace":
+    def open(self) -> AgentTrace:
         self.trace_dir.mkdir(parents=True, exist_ok=True)
         return self
 
     def close(self) -> None:
         pass
 
-    def __enter__(self) -> "AgentTrace":
+    def __enter__(self) -> Self:
         return self.open()
 
     def __exit__(self, *exc: object) -> None:

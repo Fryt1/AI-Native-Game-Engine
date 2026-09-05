@@ -3,9 +3,17 @@
 from __future__ import annotations
 
 import json
+import os
+import uuid
 from pathlib import Path
 from typing import Any
 
+
+def _atomic_json_write(path: Path, document: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+    temp.write_text(json.dumps(document, ensure_ascii=False, indent=2), encoding="utf-8")
+    os.replace(temp, path)
 
 def _module(bpy_module: Any | None) -> Any:
     if bpy_module is not None:
@@ -80,9 +88,29 @@ def _bridge_import(bpy: Any, params: dict[str, Any]) -> dict[str, Any]:
     source = bridge / "from-unreal.json"
     if not source.is_file():
         return {"status": "failed", "errors": [f"Bridge file does not exist: {source}"]}
-    document = json.loads(source.read_text(encoding="utf-8"))
+    try:
+        document = json.loads(source.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return {"status": "failed", "errors": [f"Invalid Bridge JSON: {exc}"]}
+    if not isinstance(document, dict):
+        return {"status": "failed", "errors": ["Bridge JSON document must be an object"]}
+    objects = document.get("objects", [])
+    if not isinstance(objects, list):
+        return {"status": "failed", "errors": ["Bridge JSON objects must be an array"]}
+    expected_transfer_id = params.get("transfer_id")
+    if expected_transfer_id:
+        document_transfer_id = document.get("transfer_id") or document.get("transferId")
+        if document_transfer_id is None:
+            return {"status": "failed", "errors": ["Bridge input is missing transfer_id"]}
+        if str(document_transfer_id) != str(expected_transfer_id):
+            return {
+                "status": "failed",
+                "errors": [f"Bridge input belongs to transfer {document_transfer_id}, expected {expected_transfer_id}"],
+            }
     imported = []
-    for item in document.get("objects", []):
+    for item in objects:
+        if not isinstance(item, dict):
+            return {"status": "failed", "errors": ["Bridge JSON objects must contain objects"]}
         object_id = str(item.get("objectId", ""))
         existing = next((obj for obj in bpy.data.objects if obj.get("AB_objectId") == object_id), None) if object_id else None
         if existing is None:
@@ -95,7 +123,7 @@ def _bridge_import(bpy: Any, params: dict[str, Any]) -> dict[str, Any]:
             return {"status": "failed", "errors": ["Blender did not create an active object for Bridge import"]}
         _apply_bridge_item(existing, item)
         imported.append(_object_summary(existing))
-    return {"status": "succeeded", "objects": imported, "bridge_file": str(source)}
+    return {"status": "succeeded", "transfer_id": params.get("transfer_id"), "objects": imported, "bridge_file": str(source)}
 
 
 def _bridge_materials(obj: Any) -> list[dict[str, Any]]:
@@ -137,8 +165,11 @@ def _bridge_export(bpy: Any, params: dict[str, Any]) -> dict[str, Any]:
         "textures": {},
     }
     target = bridge / "from-blender.json"
-    target.write_text(json.dumps({"operation": "BlenderExport", "objects": [item]}, ensure_ascii=False, indent=2), encoding="utf-8")
-    return {"status": "succeeded", "objects": [item], "bridge_file": str(target)}
+    _atomic_json_write(
+        target,
+        {"operation": "BlenderExport", "transfer_id": params.get("transfer_id"), "objects": [item]},
+    )
+    return {"status": "succeeded", "transfer_id": params.get("transfer_id"), "objects": [item], "bridge_file": str(target)}
 
 
 def execute_operation(operation: str, parameters: dict[str, Any] | None = None, bpy_module: Any | None = None) -> dict[str, Any]:

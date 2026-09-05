@@ -17,7 +17,7 @@ import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
-PROJECT_ROOT = Path(r"D:\work\AI-Native-Game-Engine")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 TRACE_DIR = PROJECT_ROOT / "artifacts" / "traces"
 
 

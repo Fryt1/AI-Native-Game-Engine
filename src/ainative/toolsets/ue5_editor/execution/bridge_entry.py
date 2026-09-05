@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import time
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +27,17 @@ def _request_parameters() -> dict[str, Any]:
     payload = json.loads(Path(request_file).read_text(encoding="utf-8"))
     return dict(payload.get("parameters", {}))
 
+
+
+
+def _stamp_bridge_transfer(path: Path, transfer_id: str | None) -> None:
+    if not transfer_id or not path.is_file():
+        return
+    document = json.loads(path.read_text(encoding="utf-8"))
+    document["transfer_id"] = transfer_id
+    temp = path.with_name(f".{path.name}.{uuid.uuid4().hex}.ainative.tmp")
+    temp.write_text(json.dumps(document, ensure_ascii=False, indent=2), encoding="utf-8")
+    temp.replace(path)
 
 def _export_asset_from_manifest(manifest_file: Path, bridge_dir: Path) -> dict[str, object]:
     raw = json.loads(manifest_file.read_text(encoding="utf-8"))
@@ -54,6 +66,7 @@ def _export_asset_from_manifest(manifest_file: Path, bridge_dir: Path) -> dict[s
     json_ok, json_message = unreal.AssetsBridgeTools.write_bridge_export_file(bridge_export)
     if not json_ok:
         raise RuntimeError(str(json_message))
+    _stamp_bridge_transfer(bridge_dir / "from-unreal.json", str(raw.get("transfer_id", "")) or None)
     return {"export_path": str(export_path), "from_unreal": str(bridge_dir / "from-unreal.json"), "asset_info_message": str(info_message)}
 
 
@@ -408,7 +421,12 @@ def main() -> int:
     normalized = operation.replace("-", "_")
     output = Path(os.environ["AINATIVE_UE5_RESULT_FILE"])
     parameters = _request_parameters()
-    result = {"status": "failed", "operation": operation, "engine": unreal.SystemLibrary.get_engine_version()}
+    result = {
+        "status": "failed",
+        "operation": operation,
+        "engine": unreal.SystemLibrary.get_engine_version(),
+        "request_id": os.environ.get("AINATIVE_UE5_REQUEST_ID"),
+    }
     try:
         bridge_dir = Path(os.environ.get("AINATIVE_UE5_BRIDGE_DIR", "")).resolve() if os.environ.get("AINATIVE_UE5_BRIDGE_DIR") else None
         if bridge_dir:

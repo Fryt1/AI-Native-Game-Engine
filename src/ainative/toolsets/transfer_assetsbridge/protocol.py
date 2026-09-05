@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -33,12 +35,25 @@ class AssetsBridgeJsonProtocol:
         raise ValueError(f"unsupported AssetsBridge JSON direction: {direction}")
 
     def read(self, direction: str) -> dict[str, Any]:
-        return json.loads(self._path_for(direction).read_text(encoding="utf-8"))
+        document = json.loads(self._path_for(direction).read_text(encoding="utf-8"))
+        if not isinstance(document, dict):
+            raise TypeError(f"AssetsBridge JSON document must be an object: {self._path_for(direction)}")
+        return document
 
     def write(self, direction: str, document: dict[str, Any]) -> Path:
+        """Atomically publish one protocol document.
+
+        The bridge uses fixed filenames for compatibility with the UE5 plugin and
+        Blender add-on. A temp file plus replace prevents readers from observing
+        a partially-written JSON document; callers should still validate the
+        transfer id before accepting a result.
+        """
+
         path = self._path_for(direction)
         self.bridge_dir.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(document, ensure_ascii=False, indent=2), encoding="utf-8")
+        temp = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+        temp.write_text(json.dumps(document, ensure_ascii=False, indent=2), encoding="utf-8")
+        os.replace(temp, path)
         return path
 
     def document_for_manifest(self, manifest: TransferManifest, operation: str) -> dict[str, Any]:
@@ -58,4 +73,8 @@ class AssetsBridgeJsonProtocol:
             "materialChangeset": manifest.metadata.get("materialChangeset", {"added": [], "removed": [], "unchanged": []}),
             "textures": manifest.metadata.get("textures", {}),
         }
-        return {"operation": operation, "objects": [object_data]}
+        return {
+            "operation": operation,
+            "transfer_id": manifest.transfer_id,
+            "objects": [object_data],
+        }

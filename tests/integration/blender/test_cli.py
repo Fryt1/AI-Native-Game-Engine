@@ -10,7 +10,7 @@ from ainative.toolsets.blender_editor.execution import (
     BlenderOperationRequest,
 )
 
-BLENDER = Path(os.environ.get("BLENDER_EXECUTABLE", r"D:\Blender\Blender-4.2.0\blender-4.2.0-windows-x64\blender.exe"))
+BLENDER = Path(os.environ.get("BLENDER_EXECUTABLE", r"E:\blender\blender.exe"))
 
 
 @pytest.mark.skipif(not BLENDER.is_file(), reason="official Blender executable is not installed")

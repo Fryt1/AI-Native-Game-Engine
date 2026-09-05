@@ -1,10 +1,16 @@
+import pytest
+
 from ainative.orchestration.contracts import (
     ToolCall,
     ToolDefinition,
     ToolExecutionKind,
     ToolsetDefinition,
 )
-from ainative.registry import ToolsetRegistry, toolset_from_operations
+from ainative.registry import (
+    ToolResolutionError,
+    ToolsetRegistry,
+    toolset_from_operations,
+)
 
 
 class FakeToolOwner:
@@ -133,3 +139,65 @@ def test_registry_matches_dashed_operation_in_selected_call():
     )
 
     assert resolved.tool.operation == "set_actor_transform"
+
+
+def test_registry_rejects_missing_required_tool_arguments_before_execution():
+    class Owner:
+        def is_ready(self):
+            return True
+
+        def toolsets(self):
+            return (
+                toolset_from_operations(
+                    toolset_id="blender.editor",
+                    provider_id="blender",
+                    execution_kind=ToolExecutionKind.HOST,
+                    operations=("set-location",),
+                    input_schemas={
+                        "set-location": {
+                            "type": "object",
+                            "required": ["location"],
+                            "properties": {"location": {"type": "array", "minItems": 3, "maxItems": 3}},
+                        }
+                    },
+                ),
+            )
+
+    with pytest.raises(ToolResolutionError, match="location is required"):
+        ToolsetRegistry({"blender": Owner()}).resolve_call(
+            ToolCall(
+                call_id="missing-location",
+                toolset_id="blender.editor",
+                tool_id="blender.editor.set_location",
+            )
+        )
+
+
+
+def test_registry_validates_recorded_tool_output_against_declared_schema():
+    class Owner:
+        def is_ready(self):
+            return True
+
+        def toolsets(self):
+            return (
+                toolset_from_operations(
+                    toolset_id="validator",
+                    provider_id="validator",
+                    execution_kind=ToolExecutionKind.VALIDATOR,
+                    operations=("check",),
+                    output_schemas={
+                        "check": {
+                            "type": "object",
+                            "required": ["valid"],
+                            "properties": {"valid": {"type": "boolean"}},
+                        }
+                    },
+                ),
+            )
+
+    registry = ToolsetRegistry({"validator": Owner()})
+    call = ToolCall(call_id="check", toolset_id="validator", tool_id="validator.check")
+
+    with pytest.raises(ToolResolutionError, match="valid is required"):
+        registry.validate_output(call, {})

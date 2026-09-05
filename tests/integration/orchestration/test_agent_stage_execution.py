@@ -128,7 +128,7 @@ def cross_host_runtime(events, backend):
 
 def roundtrip_plan(task):
     transfer = call("transfer.assetsbridge", "assetsbridge", "transfer_to_edit_host", "transfer-1")
-    modify = call("blender.editor", "blender", "translate-active", "modify-1", depends_on=(transfer.call_id,))
+    modify = call("blender.editor", "blender", "translate-active", "modify-1", {"delta": [1, 0, 0]}, depends_on=(transfer.call_id,))
     return_call = call("transfer.assetsbridge", "assetsbridge", "return_to_target", "return-1", depends_on=(modify.call_id,))
     validate = call("validation.workflow", "validator", "validate", "validate-1", depends_on=(return_call.call_id,))
     return plan_for(

@@ -155,6 +155,7 @@ def execute_local_tool_and_submit(session, stage: StageRequest, call: ToolCall) 
     )
     from ainative.registry import ToolResolutionError
 
+    session.check_call_ready(call.call_id)
     try:
         resolved = session.runtime.resolve_tool(call)
     except ToolResolutionError as exc:

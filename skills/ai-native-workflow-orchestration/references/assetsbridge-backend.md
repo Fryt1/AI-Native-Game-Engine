@@ -1,7 +1,8 @@
 # AssetsBridge Backend
 
-The current public AssetsBridge pair uses a shared bridge directory and two JSON
-files:
+The current public AssetsBridge pair uses a bridge directory and two JSON
+files. The CLI assigns one subdirectory per logical task; direct connector users
+may provide `metadata.bridge_dir` for the same isolation.
 
 ```text
 UE5 → Blender

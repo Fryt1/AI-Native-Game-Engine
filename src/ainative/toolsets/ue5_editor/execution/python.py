@@ -4,6 +4,7 @@ import json
 import os
 import shutil
 import subprocess
+import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Literal
@@ -17,6 +18,8 @@ from ainative.registry import toolset_from_operations
 from ainative.toolsets.ports.host_executor import HostOperationRequest
 
 UE5_OPERATIONS = (
+    "export_asset",
+    "import_asset",
     "list_actors",
     "create_actor",
     "create-actor",
@@ -82,6 +85,15 @@ class UnrealEditorPythonExecutor:
                 title="UE5 Editor Python",
                 description="UE5 actor, Level, asset, and project operations through Python.",
                 metadata={"executor_id": self.executor_id, "launch_mode": self.launch_mode},
+                input_schemas={
+                    "create_actor": {"type": "object", "properties": {"level_path": {"type": "string"}, "label": {"type": "string"}, "mesh_path": {"type": "string"}}},
+                    "create_level_from_template": {"type": "object", "properties": {"target_level": {"type": "string"}, "template_level": {"type": "string"}}},
+                    "inspect_level": {"type": "object", "properties": {"level_path": {"type": "string"}, "target_level": {"type": "string"}, "expected_default_objects": {"type": "array"}}},
+                    "resolve_actor": {"type": "object", "properties": {"actor_path": {"type": "string"}, "object_path": {"type": "string"}, "actor_name": {"type": "string"}, "label": {"type": "string"}}},
+                    "read_actor_transform": {"type": "object", "properties": {"actor_path": {"type": "string"}, "object_path": {"type": "string"}, "actor_name": {"type": "string"}, "label": {"type": "string"}}},
+                    "set_actor_transform": {"type": "object", "properties": {"actor_path": {"type": "string"}, "object_path": {"type": "string"}, "actor_name": {"type": "string"}, "label": {"type": "string"}, "location": {"type": "array", "minItems": 3, "maxItems": 3}, "delta": {"type": "array", "minItems": 3, "maxItems": 3}, "rotation": {"type": "array", "minItems": 3, "maxItems": 3}, "scale": {"type": "array", "minItems": 3, "maxItems": 3}}},
+                    "save_level": {"type": "object", "properties": {"level_path": {"type": "string"}}},
+                },
             ),
         )
 
@@ -139,16 +151,28 @@ class UnrealEditorPythonExecutor:
         run_dir.mkdir(parents=True, exist_ok=True)
         result_file = Path(str(supplied.get("result_file", run_dir / "result.json")))
         result_file.parent.mkdir(parents=True, exist_ok=True)
+        if result_file.exists():
+            result_file.unlink()
         request_file = run_dir / "request.json"
-        request_payload = {"operation": operation, "parameters": supplied}
+        request_id = str(
+            supplied.get("tool_call_id")
+            or (manifest.transfer_id if manifest is not None else "")
+            or f"{operation}-{time.time_ns()}"
+        )
+        request_payload = {"operation": operation, "parameters": supplied, "request_id": request_id}
         request_file.write_text(json.dumps(request_payload, ensure_ascii=False, indent=2, default=self._json_default), encoding="utf-8")
         env = os.environ.copy()
         env["AINATIVE_UE5_OPERATION"] = operation
         env["AINATIVE_UE5_RESULT_FILE"] = str(result_file)
         env["AINATIVE_UE5_REQUEST_FILE"] = str(request_file)
+        env["AINATIVE_UE5_REQUEST_ID"] = request_id
         env["AINATIVE_UE5_EXIT_AFTER_OPERATION"] = "1"
-        if self.bridge_dir:
-            env["AINATIVE_UE5_BRIDGE_DIR"] = str(self.bridge_dir)
+        bridge_dir = None
+        if manifest is not None:
+            bridge_dir = manifest.metadata.get("bridge_dir")
+        bridge_dir = bridge_dir or supplied.get("bridge_dir") or self.bridge_dir
+        if bridge_dir:
+            env["AINATIVE_UE5_BRIDGE_DIR"] = str(bridge_dir)
         if manifest is not None:
             manifest_file = run_dir / "manifest.json"
             manifest_file.write_text(json.dumps(manifest.to_dict(), ensure_ascii=False, indent=2, default=self._json_default), encoding="utf-8")
@@ -161,9 +185,15 @@ class UnrealEditorPythonExecutor:
             completed = self._runner(args, capture_output=True, text=True, encoding="utf-8", errors="replace", check=False, timeout=self.timeout, env=env)
         except subprocess.TimeoutExpired:
             return TaskResult(**base, errors=(f"UE5 Python command timed out after {self.timeout}s",), resume_pointer="stage.apply_change")
+        except OSError as exc:
+            return TaskResult(**base, errors=(f"UE5 Python command failed to start: {exc}",), resume_pointer="stage.apply_change")
         if not result_file.is_file() and completed.returncode != 0 and "Preparing to exit" in (completed.stdout or ""):
-            retry = self._runner(args, capture_output=True, text=True, encoding="utf-8", errors="replace", check=False, timeout=self.timeout, env=env)
-            completed = retry
+            try:
+                completed = self._runner(args, capture_output=True, text=True, encoding="utf-8", errors="replace", check=False, timeout=self.timeout, env=env)
+            except subprocess.TimeoutExpired:
+                return TaskResult(**base, errors=(f"UE5 Python retry timed out after {self.timeout}s",), resume_pointer="stage.apply_change")
+            except OSError as exc:
+                return TaskResult(**base, errors=(f"UE5 Python retry failed to start: {exc}",), resume_pointer="stage.apply_change")
         (run_dir / "process.stdout.log").write_text(completed.stdout or "", encoding="utf-8")
         (run_dir / "process.stderr.log").write_text(completed.stderr or "", encoding="utf-8")
         if not result_file.is_file():
@@ -173,7 +203,13 @@ class UnrealEditorPythonExecutor:
             payload = json.loads(result_file.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
             return TaskResult(**base, errors=(f"invalid UE5 result file: {exc}",), resume_pointer="stage.apply_change")
-        status = TaskStatus(payload.get("status", "failed"))
+        payload_request_id = payload.get("request_id")
+        if payload_request_id is not None and str(payload_request_id) != request_id:
+            return TaskResult(**base, errors=(f"UE5 result belongs to request {payload_request_id}, expected {request_id}",), resume_pointer="stage.apply_change")
+        try:
+            status = TaskStatus(payload.get("status", "failed"))
+        except ValueError as exc:
+            return TaskResult(**base, errors=(f"invalid UE5 result status: {exc}",), resume_pointer="stage.apply_change")
         artifact = ArtifactRef(artifact_id=f"ue5:{operation}", kind=ArtifactKind.BUNDLE, uri=str(result_file), provider_id="ue5-python")
         details = {key: value for key, value in payload.items() if key not in {"status", "warnings", "errors", "error"}}
         errors = tuple(payload.get("errors", ())) + ((str(payload["error"]),) if payload.get("error") else ())

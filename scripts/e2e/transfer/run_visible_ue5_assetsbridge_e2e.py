@@ -16,7 +16,6 @@ import subprocess
 import sys
 import time
 from ctypes import wintypes
-from dataclasses import replace
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -29,10 +28,10 @@ if str(E2E_ROOT) not in sys.path:
 
 from support.plan_fixtures import asset_roundtrip_plan, execute_agent_plan
 
-from ainative.agent import WorkflowGuide
 from ainative.orchestration import RuntimeContext
 from ainative.orchestration.contracts import (
     BlenderCallSurface,
+    TaskContract,
     TaskRoute,
     TransferBackendKind,
 )
@@ -51,7 +50,7 @@ from ainative.toolsets.validation_workflow import AssetsBridgeValidator
 DEFAULT_UE5_EDITOR = Path(
     r"D:\UnrealEngine\ue5.7.1\UnrealEngine\Engine\Binaries\Win64\UnrealEditor.exe"
 )
-DEFAULT_BLENDER = Path(r"D:\Blender\Blender-5.0.0\blender-5.0.0-windows-x64\blender.exe")
+DEFAULT_BLENDER = Path(r"E:\blender\blender.exe")
 DEFAULT_PROJECT = ROOT / "projects" / "fixtures" / "ue5" / "assetsbridge-smoke" / "AssetsBridgeSmoke.uproject"
 DEFAULT_ADDON = ROOT / "vendor" / "assetsbridge" / "blender-addon" / "AssetsBridgeAddon"
 
@@ -129,6 +128,7 @@ def _visible_editor_runner(args: list[str], **kwargs) -> subprocess.CompletedPro
         "window": None,
         "result_file_seen": False,
         "cleanup_after_result": False,
+        "termination_reason": None,
     }
     started = time.monotonic()
     process: subprocess.Popen[str] | None = None
@@ -172,6 +172,7 @@ def _visible_editor_runner(args: list[str], **kwargs) -> subprocess.CompletedPro
 
         if evidence["window_seen"] and evidence["result_file_seen"] and process.poll() is None:
             evidence["cleanup_after_result"] = True
+            evidence["termination_reason"] = "harness_cleanup_after_result"
             _terminate_process_tree(process)
 
         remaining = max(1.0, min(10.0, deadline - time.monotonic()))
@@ -182,6 +183,8 @@ def _visible_editor_runner(args: list[str], **kwargs) -> subprocess.CompletedPro
             stdout, stderr = process.communicate(timeout=10)
             evidence["process_timeout"] = True
         returncode = process.returncode
+        if evidence["termination_reason"] == "harness_cleanup_after_result":
+            evidence["returncode_expected_nonzero"] = True
     except Exception as exc:  # noqa: BLE001 - convert any native process/window failure into evidence
         evidence.update({"runner_error_type": type(exc).__name__, "runner_error": str(exc)})
         if process is not None and process.poll() is None:
@@ -201,13 +204,14 @@ def _build_task(out: Path):
     edit_file = bridge / "edit.blend"
     modified_file = bridge / "modified.blend"
     export_file = bridge / "Engine" / "BasicShapes" / "Cube.glb"
-    task = WorkflowGuide().interpreter.interpret(
-        "把 UE5 的 Static Mesh 拿到 Blender 修改，保留资产身份、材质槽和 Transform，回到原资产",
-        "visible-ue5-assetsbridge-roundtrip",
-    )
-    return replace(
-        task,
+    return TaskContract(
+        task_id="visible-ue5-assetsbridge-roundtrip",
+        objective="Edit the UE5 Static Mesh in Blender and return it to the original asset.",
         route=TaskRoute.ASSET_TRANSFER,
+        profile="default",
+        asset_type="static_mesh",
+        direction="ue5_to_blender_to_ue5",
+        preserve_relations=frozenset({"asset_identity", "material_slots", "transform"}),
         preferred_backend=TransferBackendKind.ASSETSBRIDGE,
         preferred_call_surface=BlenderCallSurface.CLI_PYTHON,
         source_context={"app": "ue5", "asset_id": "/Engine/BasicShapes/Cube.Cube"},

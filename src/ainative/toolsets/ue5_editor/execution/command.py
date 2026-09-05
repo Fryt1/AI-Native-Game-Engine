@@ -25,11 +25,19 @@ class UnrealEditorCommandExecutor:
     executor_id = "ue5-command"
     host_id = "ue5"
 
-    def __init__(self, executable: str | Path, project_file: str | Path, command_builder: Callable[[str, TransferManifest], list[str]] | None = None, runner: Callable[..., subprocess.CompletedProcess[str]] | None = None) -> None:
+    def __init__(
+        self,
+        executable: str | Path,
+        project_file: str | Path,
+        command_builder: Callable[[str, TransferManifest], list[str]] | None = None,
+        runner: Callable[..., subprocess.CompletedProcess[str]] | None = None,
+        timeout: int = 300,
+    ) -> None:
         self.executable = str(executable)
         self.project_file = Path(project_file)
         self._command_builder = command_builder
         self._runner = runner or subprocess.run
+        self.timeout = timeout
 
     def is_ready(self) -> bool:
         path = Path(self.executable)
@@ -45,6 +53,13 @@ class UnrealEditorCommandExecutor:
                 title="UE5 Command Surface",
                 description="Project-specific UE5 command execution tools.",
                 metadata={"executor_id": self.executor_id, "surface": "ue5-command"},
+                input_schemas={
+                    "create_actor": {"type": "object", "properties": {"level_path": {"type": "string"}, "label": {"type": "string"}, "mesh_path": {"type": "string"}}},
+                    "create_level_from_template": {"type": "object", "properties": {"target_level": {"type": "string"}, "template_level": {"type": "string"}}},
+                    "inspect_level": {"type": "object", "properties": {"level_path": {"type": "string"}, "target_level": {"type": "string"}}},
+                    "set_actor_transform": {"type": "object", "properties": {"actor_path": {"type": "string"}, "actor_name": {"type": "string"}, "label": {"type": "string"}, "location": {"type": "array", "minItems": 3, "maxItems": 3}, "delta": {"type": "array", "minItems": 3, "maxItems": 3}, "rotation": {"type": "array", "minItems": 3, "maxItems": 3}, "scale": {"type": "array", "minItems": 3, "maxItems": 3}}},
+                    "save_level": {"type": "object", "properties": {"level_path": {"type": "string"}}},
+                },
             ),
         )
 
@@ -66,7 +81,24 @@ class UnrealEditorCommandExecutor:
         if operation in {"export_asset", "import_asset"} and manifest is None:
             return TaskResult(status=TaskStatus.BLOCKED, route=route, call_surface="ue5-command", errors=("TransferManifest is required for asset transfer",), next_action="provide a TransferManifest")
         args = self._command_builder(operation, manifest)  # type: ignore[arg-type]
-        completed = self._runner(args, capture_output=True, text=True, check=False)
+        try:
+            completed = self._runner(args, capture_output=True, text=True, check=False, timeout=self.timeout)
+        except subprocess.TimeoutExpired:
+            return TaskResult(
+                status=TaskStatus.FAILED,
+                route=route,
+                call_surface="ue5-command",
+                errors=(f"UE5 command timed out after {self.timeout}s",),
+                resume_pointer="stage.apply_change",
+            )
+        except OSError as exc:
+            return TaskResult(
+                status=TaskStatus.FAILED,
+                route=route,
+                call_surface="ue5-command",
+                errors=(f"UE5 command failed to start: {exc}",),
+                resume_pointer="stage.apply_change",
+            )
         if completed.returncode != 0:
             return TaskResult(status=TaskStatus.FAILED, route=route, call_surface="ue5-command", errors=(completed.stderr or completed.stdout or "UE5 command failed",), resume_pointer="stage.apply_change")
         return TaskResult(status=TaskStatus.SUCCEEDED, route=route, call_surface="ue5-command", details={"operation": operation})

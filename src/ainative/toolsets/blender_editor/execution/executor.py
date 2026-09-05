@@ -69,6 +69,16 @@ class BlenderExecutor:
                 title="Blender Editor",
                 description="Blender scene, object, asset, and file operations.",
                 metadata={"call_surfaces": [surface.value for surface in self._surfaces]},
+                input_schemas={
+                    "create-cube": {"type": "object", "properties": {"location": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "number"}}}},
+                    "import-glb": {"type": "object", "required": ["filepath"], "properties": {"filepath": {"type": "string"}}},
+                    "translate-active": {"type": "object", "required": ["delta"], "properties": {"delta": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "number"}}}},
+                    "set-location": {"type": "object", "required": ["location"], "properties": {"location": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "number"}}}},
+                    "set-scale": {"type": "object", "required": ["scale"], "properties": {"scale": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "number"}}}},
+                    "rename-active": {"type": "object", "required": ["name"], "properties": {"name": {"type": "string"}}},
+                    "save-mainfile": {"type": "object", "required": ["filepath"], "properties": {"filepath": {"type": "string"}}},
+                    "export-glb": {"type": "object", "required": ["filepath"], "properties": {"filepath": {"type": "string"}}},
+                },
             ),
         )
 

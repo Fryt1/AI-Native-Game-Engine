@@ -1,53 +1,35 @@
-from ainative.agent import HeuristicIntentInterpreter, WorkflowGuide
-from ainative.orchestration.contracts import TaskRoute, TransferBackendKind
+import pytest
+
+from ainative.agent import WorkflowGuide, WorkflowPlanError
+from ainative.orchestration.contracts import TaskContract, TaskRoute
 
 
-def test_heuristic_agent_interpretation_selects_roundtrip_route():
-    task = HeuristicIntentInterpreter().interpret("把 UE5 的模型拿到 Blender 修改，保留材质槽和 Transform，回到原资产", "intent-1")
+def test_agent_supplies_task_contract_and_guide_only_loads_selected_workflow():
+    task = TaskContract(
+        task_id="agent-task",
+        objective="Edit a UE5 mesh in Blender and return it",
+        route=TaskRoute.ASSET_TRANSFER,
+        direction="ue5_to_blender_to_ue5",
+        source_context={"app": "ue5"},
+        target_context={"app": "ue5"},
+    )
 
-    assert task.route is TaskRoute.ASSET_TRANSFER
-    assert task.preserve_relations == frozenset({"asset_identity", "material_slots", "transform"})
-    assert task.preferred_backend is None
-
-
-def test_heuristic_agent_interpretation_can_explicitly_choose_direct():
-    task = HeuristicIntentInterpreter().interpret("直接导出 GLB 给 UE5，不需要回原资产", "intent-2")
-
-    assert task.route is TaskRoute.ASSET_TRANSFER
-    assert task.preferred_backend is TransferBackendKind.DIRECT
-
-
-def test_agent_host_loads_skill_without_generating_a_plan():
-    agent = WorkflowGuide()
-    task = HeuristicIntentInterpreter().interpret("修改 Blender 模型", "intent-3")
-
-    session = agent.load_skill(task)
+    session = WorkflowGuide().load_skill(task)
 
     assert session.skill_id == "ai-native-workflow-orchestration"
-    assert session.route is TaskRoute.HOST_OPERATION
-    assert session.workflow_id == "native-blender-operation"
+    assert session.route is TaskRoute.ASSET_TRANSFER
+    assert session.workflow_id == "asset-roundtrip"
     assert session.knowledge_index_document.is_file()
     assert session.plan_template_document.is_file()
     assert session.plan_schema_document.is_file()
-    assert not hasattr(session, "plan")
-    assert not hasattr(agent, "run")
-    assert not hasattr(agent, "run_prompt")
 
 
-def test_heuristic_agent_interpretation_routes_ue5_actor_operation_to_host_operation():
-    task = HeuristicIntentInterpreter().interpret("把 UE5 里面的 Actor 移动到指定位置", "intent-ue5-object")
+def test_workflow_guide_has_no_default_prompt_interpreter():
+    guide = WorkflowGuide()
 
-    assert task.route is TaskRoute.HOST_OPERATION
-    assert task.direction == "none"
-
-
-def test_heuristic_agent_interpretation_selects_ue5_level_template_operation():
-    task = HeuristicIntentInterpreter().interpret("使用 UE5 默认光照模板新建并打开一个关卡", "intent-ue5-level-template")
-
-    assert task.route is TaskRoute.HOST_OPERATION
-    assert task.target_context == {"app": "ue5"}
-    assert task.metadata["operation"] == "create_level_from_template"
-    assert task.metadata["read_operation"] == "inspect_level"
+    assert guide.interpreter is None
+    with pytest.raises(WorkflowPlanError, match="No Agent-owned IntentInterpreter"):
+        guide.task_from_prompt("处理一下这个模型", "intent-ambiguous")
 
 
 def test_route_names_are_canonical():
