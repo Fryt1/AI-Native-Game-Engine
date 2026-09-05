@@ -1,53 +1,32 @@
 # Project Scripts
 
-Scripts are operational entrypoints, probes, fixture generators, and build
-commands. Concrete Tool implementations live under
-`D:\work\AI-Native-Game-Engine\src\ainative\toolsets\`; scripts call those
-implementations or launch host processes but do not redefine the architecture.
+Operational and test scripts for AI Native Game Engine. They are not runtime Python packages; they call the Toolset implementations under `src/ainative/toolsets/`.
 
 ## Layout
 
 ```text
-D:\work\AI-Native-Game-Engine\scripts\
-├── agent\       Agent/Skill inspection commands
-├── e2e\
-│   ├── ue5\     UE5 real-host runners
-│   ├── blender\ Blender real-host runners
-│   ├── transfer\ AssetsBridge/Direct transfer runners
-│   └── support\ deterministic Agent plan fixtures
-├── probes\
-│   ├── ue5\
-│   ├── blender\
-│   └── assetsbridge\
-├── fixtures\    fixture generators
-└── build\       build/package commands
+scripts/
+├── agent/        Skill/Workflow inspection entry point
+├── build/        packaging helpers
+├── docs/         command/API operational docs
+├── e2e/          host-driven end-to-end workflows (UE5/Blender/AssetsBridge)
+├── fixtures/     runner fixtures
+├── probes/       read-only host probes
+├── trace/        AgentTrace JSONL analysis
+└── workflows/    Workflow Definition lifecycle helpers
 ```
 
-## Commands
+## Run
+
+Execute from the repository root:
 
 ```powershell
-Set-Location D:\work\AI-Native-Game-Engine
-
-python scripts\agent\run_agent.py projects\fixtures\tasks\task-cross-host.json --plan-only
-python scripts\workflows\create_workflow.py my-workflow
-python scripts\workflows\validate_workflow.py workflows\blender-ue5-asset-roundtrip --json
-python scripts\probes\blender\probe_blender.py
-python scripts\probes\ue5\probe_ue5.py
-python scripts\probes\assetsbridge\probe_assetsbridge.py <bridge-dir> --ue5-plugin <plugin-dir> --blender-addon <addon-dir>
-
-python scripts\e2e\blender\real_blender_bpy_smoke.py
-python scripts\e2e\transfer\run_bridge_smoke.py
-python scripts\e2e\transfer\run_real_assetsbridge_roundtrip.py
-python scripts\e2e\ue5\run_actor_operation_e2e.py
-python scripts\e2e\ue5\run_level_template_e2e.py
-python scripts\e2e\transfer\run_visible_ue5_assetsbridge_e2e.py --uproject D:\path\to\Project.uproject
+python scripts/e2e/ue5/run_actor_operation_e2e.py --timeout 120
+python scripts/trace/analyze_trace.py <run-id-or-path>
 ```
 
-The Skill integrity command remains under the Skill package:
+## Maintain
 
-```powershell
-python skills\ai-native-workflow-orchestration\scripts\integrity_gate.py --json
-```
-
-Temporary output goes under `artifacts\scratch\`; reportable output goes under
-`artifacts\evidence\`; old runs belong under `artifacts\archive\`.
+- Scripts should not duplicate Toolset logic. Import from `ainative` when possible.
+- Probe/e2e outputs belong under `artifacts/evidence/` or `artifacts/scratch/`, never next to source.
+- Keep each script's operational contract in `scripts/docs/` when it changes.

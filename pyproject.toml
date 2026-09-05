@@ -7,6 +7,7 @@ name = "ai-native-game-engine"
 version = "0.1.0"
 description = "Agent-authored dynamic Stage orchestration with structured Tool evidence and deterministic acceptance."
 requires-python = ">=3.11"
+license = {text = "MIT"}
 dependencies = []
 
 [project.scripts]

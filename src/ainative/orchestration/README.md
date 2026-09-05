@@ -1,29 +1,23 @@
 # Orchestration Core
 
-This package owns the generic mechanics shared by every Agent Workflow and
-Toolset. It does not contain UE5, Blender, AssetsBridge, or provider-specific
-implementation.
+Generic mechanics shared by every Agent Workflow and Toolset. It does not contain UE5, Blender, AssetsBridge, or provider-specific implementation.
 
 ## Modules
 
 ```text
-D:\work\AI-Native-Game-Engine\src\ainative\orchestration\contracts\
+orchestration/contracts/
     Task, WorkflowPlan, Stage, checklist, ToolCall, and result contracts
 
-D:\work\AI-Native-Game-Engine\src\ainative\orchestration\planning\
-    Route/Workflow context selection, structural plan validation, and exact
-    selected-Tool feasibility
+orchestration/planning/
+    Route/Workflow context selection, structural plan validation, and exact selected-Tool feasibility
 
-D:\work\AI-Native-Game-Engine\src\ainative\orchestration\stages\
-    one selected ToolCall or McpCall execution seam
-
-D:\work\AI-Native-Game-Engine\src\ainative\orchestration\acceptance\
+orchestration/acceptance/
     deterministic execution/acceptance checklist evaluator
 
-D:\work\AI-Native-Game-Engine\src\ainative\orchestration\route_guards.py
-    coarse Route preconditions only
+route_guards.py
+    coarse Route preconditions
 
-D:\work\AI-Native-Game-Engine\src\ainative\orchestration\runtime_context.py
+runtime_context.py
     live Project Tool provider context and exact selected-call resolution
 ```
 
@@ -38,5 +32,4 @@ Agent-authored WorkflowPlan
     → StageResult
 ```
 
-The Agent owns the plan and chooses the next call. Python validates and executes
-only the selected call; it does not generate or schedule the complete plan.
+The Agent owns the plan and chooses the next call. Python validates and executes only the selected call; it does not generate or schedule the complete plan.

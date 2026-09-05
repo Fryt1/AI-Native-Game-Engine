@@ -1,8 +1,6 @@
 # Runtime Project Toolsets
 
-Each directory in this folder is one concrete maintenance unit for capabilities
-we own. The Project Tool Registry discovers these Toolsets and resolves exact
-ToolCalls. Direct MCP Tools do not appear here.
+Each directory in this folder is one concrete maintenance unit for capabilities we own. The Project Tool Registry discovers these Toolsets and resolves exact ToolCalls. Direct MCP Tools do not appear here.
 
 | Directory | Toolset ID | Owns |
 |---|---|---|
@@ -15,6 +13,4 @@ ToolCalls. Direct MCP Tools do not appear here.
 | `artifact_providers/` | `artifact.<provider_id>` | ComfyUI and future artifact-provider implementations |
 | `ports/` | — | Shared project Toolset interfaces |
 
-When changing one Toolset, update its implementation, its Agent-facing contract
-at `skills/ai-native-workflow-orchestration/toolsets/<toolset>/TOOLSET.md`, and
-the matching tests together.
+When changing one Toolset, update its implementation, its Agent-facing contract at `skills/ai-native-workflow-orchestration/toolsets/<toolset>/TOOLSET.md`, and the matching tests together.

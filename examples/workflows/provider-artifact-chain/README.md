@@ -24,5 +24,4 @@ Stage: validate host result
     Tool: validation.workflow.<concrete-validator>
 ```
 
-The chain uses normal Tools, structured CheckResults, and deterministic Stage
-aggregation. It does not require a new Route or a second validation Registry.
+The chain uses normal Tools, structured CheckResults, and deterministic Stage aggregation. It does not require a new Route or a second validation Registry.

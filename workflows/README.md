@@ -1,42 +1,28 @@
 # Reusable Workflows
 
-This directory contains **published Workflow Definitions**, not runtime Tool
-implementations.
+Published Workflow Definitions, not runtime Tool implementations.
 
-A Workflow Definition is reusable guidance and a plan template that an Agent can
-instantiate for a concrete task. Its calls may reference either a project-owned
-Tool in the Tool Registry or a direct MCP Server/tool pair.
+A Workflow Definition is reusable guidance and a plan template an Agent can instantiate for a concrete task. Its calls may reference either a project-owned Tool in the Project Tool Registry or a direct MCP Server/tool pair.
 
-Blender scripts, UE5 scripts, and ComfyUI graphs are registered as project Tools
-and live with their owning Toolset under `src/ainative/toolsets/`.
+Blender scripts, UE5 scripts, and ComfyUI graphs are registered as project Tools and live with their owning Toolset under `src/ainative/toolsets/`.
 
 ## Lifecycle
 
 ```text
-artifacts/scratch/workflow-drafts/<id>/<revision>/
-    -> validate structure and dependencies
-    -> run against projects/fixtures/
-    -> write machine evidence under artifacts/evidence/
-    -> record human review
-    -> promote to workflows/<id>/
+create/validate draft
+    → run against projects/fixtures/
+    → record machine evidence under artifacts/evidence/
+    → record human review when required
+    → promote as published
 ```
 
-A published Workflow package normally contains:
+Lifecycle helpers live in `scripts/workflows/`.
 
-```text
-<workflow-id>/
-├── WORKFLOW.md
-├── plan.template.yaml
-├── requirements.yaml
-├── examples/
-├── tests/
-└── verification/
-```
+## Current workflows
 
-Use the lifecycle scripts from the project root:
+- `blender-ue5-asset-roundtrip/` — UE5 ↔ Blender asset round-trip
+- `blender-mcp-tank-separated/` — experimental/tank workflow draft (see its README)
 
-```powershell
-python scripts\workflows\create_workflow.py blender-ue5-asset-roundtrip
-python scripts\workflows\validate_workflow.py artifacts\scratch\workflow-drafts\blender-ue5-asset-roundtrip\r1
-python scripts\workflows\promote_workflow.py artifacts\scratch\workflow-drafts\blender-ue5-asset-roundtrip\r1
-```
+## Maintain
+
+Change a Workflow Definition together with its requirements, plan template, tests, examples, and verification records. Only promote after machine evidence and required human review.

@@ -1,6 +1,6 @@
 # Artifacts
 
-Generated data is separated by lifecycle:
+Generated data separated by lifecycle:
 
 ```text
 artifacts/
@@ -11,6 +11,6 @@ artifacts/
 └── archive/   historical runs and obsolete previews
 ```
 
-Only `evidence/` is a current source of verification claims. Do not use an
-archived run as the current result without re-running or explicitly promoting
-it.
+Only `evidence/` is a current source of verification claims. Do not use an archived run as the current result without re-running or explicitly promoting it.
+
+The directory stays git-ignored except placeholder `README.md`/`.gitkeep` files.

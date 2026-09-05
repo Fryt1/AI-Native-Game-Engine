@@ -1,8 +1,6 @@
 # Operational Tool Documentation
 
-This directory documents exact tool behavior. It is intentionally separate from
-`SKILL.md` and Workflow prose so command details can change without changing
-the Agent's high-level rules.
+Documents exact tool behavior. Separate from `SKILL.md` and Workflow prose so command details can change without changing the Agent's high-level rules.
 
 ## What belongs here
 

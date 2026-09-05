@@ -6,7 +6,7 @@
 blender.editor
 ```
 
-This package owns Blender Tools and both call surfaces:
+Owns Blender Tools and both call surfaces:
 
 ```text
 execution/cli.py
@@ -19,6 +19,4 @@ execution/blender_addon/
     AI Native bpy operations used by the CLI and Add-on
 ```
 
-The Toolset publishes Scene, object, asset, and file operations through the
-unified Toolset Registry. The Agent-facing contract lives in
-`D:\work\AI-Native-Game-Engine\skills\ai-native-workflow-orchestration\toolsets\blender-editor\TOOLSET.md`.
+Publishes Scene, object, asset, and file operations through the unified Toolset Registry. Agent-facing contract: `skills/ai-native-workflow-orchestration/toolsets/blender-editor/TOOLSET.md`.

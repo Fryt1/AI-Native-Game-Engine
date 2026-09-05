@@ -6,7 +6,7 @@
 ue5.editor
 ```
 
-This package owns the UE5 Tools and their execution details:
+Owns UE5 Tools and execution details:
 
 ```text
 execution/python.py
@@ -16,9 +16,7 @@ execution/command.py
     injected project-specific command surface
 
 execution/bridge_entry.py
-    UE5-side Python entry used by the Tool implementations
+    UE5-side Python entry used by Tool implementations
 ```
 
-The Toolset publishes Actor, Level, and verified asset operations through the
-unified Toolset Registry. The Agent-facing contract lives in
-`D:\work\AI-Native-Game-Engine\skills\ai-native-workflow-orchestration\toolsets\ue5-editor\TOOLSET.md`.
+Publishes Actor, Level, and asset operations through the unified Toolset Registry. Agent-facing contract: `skills/ai-native-workflow-orchestration/toolsets/ue5-editor/TOOLSET.md`.
