@@ -54,3 +54,6 @@ projects/**/Build/
 projects/**/*.sln
 projects/**/*.suo
 projects/fixtures/ue5/level-template-fixture/Content/*.umap
+# --- One-off / session workflows (not promoted to reusable definitions) ---
+workflows/blender-mcp-leopard2a4/
+
