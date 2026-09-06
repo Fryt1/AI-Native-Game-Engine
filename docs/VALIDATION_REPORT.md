@@ -1,6 +1,6 @@
 # Validation Report
 
-> Latest validation: September 5, 2026（直接 MCP 调用、workflow-backed Tools、可复用 Workflow Definition 生命周期）。
+> Latest validation: September 6, 2026（直接 MCP 调用、live UE5 MCP transport、ComfyUI MCP process handshake、workflow-backed Tools、可复用 Workflow Definition 生命周期）。
 > 本文件是 `docs/` 精简版；旧版全文归档在 `artifacts/archive/docs/VALIDATION_REPORT.md`。
 
 ## Scope
@@ -155,7 +155,91 @@ DirectionalLight / SkyLight 读回
 AssetsBridge export/import
 ```
 
-**仍需要一次真实 Blender MCP / UE5 MCP host 运行**，才能把这些路径升级为
-live MCP evidence；自动化 MCP 测试目前用确定性 fake session 验证契约，不是真实编辑器。
+**UE5 native MCP live transport 已验证**；但仓库 fixture 仍未默认启动常驻 MCP Editor，且
+仍需要真实 Blender MCP host 运行，才能把 Blender MCP 路径升级为 live MCP evidence。自动化
+MCP 测试目前用确定性 fake session 验证契约，不是真实编辑器。
 项目自己的 Blender CLI / Direct Transfer / AssetsBridge JSON 真实宿主路径
 已在本机 Blender 5.2.1 上验证通过。
+
+## Live UE5 MCP transport
+
+2026-09-06 在仓库外的 UE5.8.2 测试项目中验证了原生 UE5 MCP 链路：
+
+```text
+ModelContextProtocol + AllToolsets mounted
+MCP endpoint: 127.0.0.1:8000/mcp
+initialize: passed
+tools/list: passed
+Toolset discovery: passed
+```
+
+这项验证证明了引擎插件、目标项目、Editor 进程和 Agent MCP Client 之间的 live
+transport。它不等于仓库 fixture 已经变成常驻 MCP Editor；fixture 的 Project Tool
+执行面与 live MCP 执行面仍然分开维护。
+
+## ComfyUI MCP live transport
+
+2026-09-06 在本机 ComfyUI 发行版环境中验证了完整的 ComfyUI MCP 链路：
+
+```text
+ComfyUI root: D:\work\Comfyui\ComfyUI-aki-v3.2
+ComfyUI workspace: D:\work\Comfyui\ComfyUI-aki-v3.2\ComfyUI
+ComfyUI core: v0.30.2
+comfy-cli: 1.18.0
+comfy-mcp: 0.10.0
+MCP transport: stdio
+MCP initialize: passed
+tools/list: passed (39 tools)
+ComfyUI API: http://127.0.0.1:8188
+server_info: passed
+system_stats: passed
+workflow validation: passed
+partner nodes: none
+spends credits: false
+run_workflow: queued -> completed
+job wait: completed
+fetch_outputs: passed
+output bytes: 220156
+```
+
+端到端调用使用的是 `comfy-mcp` 暴露的 `run_workflow`、`job` 和 `fetch_outputs`，不是
+绕过 MCP 的直接 HTTP 调用。验证文件和结果位于：
+
+```text
+artifacts/evidence/comfyui-mcp-live/minimal_sd15_v2.json
+artifacts/evidence/comfyui-mcp-live/verification.json
+artifacts/evidence/comfyui-mcp-live/outputs/c0bbe705_000.png
+```
+
+这项验证证明了：
+
+```text
+Codex MCP 配置
+  → comfy-mcp（stdio）
+  → comfy-cli
+  → ComfyUI HTTP API :8188
+  → RTX 2070 本地 GPU workflow
+  → output PNG
+```
+
+验证过程中还发现，当前 gallery 的 `generate_image(checkpoint=...)` 快速入口默认模板
+不一定暴露 checkpoint slot；指定 `DreamShaper_8_pruned.safetensors` 时应使用包含
+`CheckpointLoaderSimple` 的 API workflow，再通过 `run_workflow` 执行。
+
+
+## Hugging Face CLI / MCP integration
+
+2026-09-06 已完成 Hugging Face 两条接入面的配置检查：
+
+```text
+Hugging Face MCP server: hf-mcp-server
+MCP endpoint: https://huggingface.co/mcp?login
+Codex status: enabled
+Codex auth: OAuth
+Hugging Face CLI: hf 1.19.0
+CLI auth: not configured (`hf auth whoami` reports Not logged in)
+```
+
+HF MCP 可以用于 Hub 资源搜索和模型研究；本地 gated 模型下载仍需要在用户自己的终端
+完成 `hf auth login`，再用 `hf download` 写入 ComfyUI 的模型目录。Token 不进入项目
+详细契约见 `docs/DEPENDENCIES.md`（Hugging Face 节）。

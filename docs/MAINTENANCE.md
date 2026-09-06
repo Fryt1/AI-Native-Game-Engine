@@ -24,7 +24,7 @@ Task Contract
 - Stage 聚合是确定性的。
 - 复杂比较是普通 Project Tool，不引入第二个 checker Registry。
 - MCP Server 配置给 Agent；项目只定义 `McpCall` 契约，不带 MCP Client Runtime/Gateway。
-- 不静默替换 Tool/MCP Server/Backend/Provider/丢失策略。
+- 不静默替换 Tool/MCP Server/Backend/丢失策略。
 - 不重新引入 Capability / Python plan 生成 / 每运行快照。
 
 ## 知识维护
@@ -81,6 +81,8 @@ needs_human        → 等待决策
 | Project Tool | `src/ainative/toolsets/<unit>/` + `skills/.../toolsets/<unit>/TOOLSET.md` | Registry tests、E2E |
 | Project Registry | `src/ainative/registry/` | Registry tests |
 | MCP 契约 | `src/ainative/orchestration/contracts/tools.py` + Agent MCP 配置 | McpCall/result tests、Agent docs |
+| Host/MCP dependency policy | `docs/DEPENDENCIES.md` | README、Workflow requirements、live handshake evidence |
+| Model acquisition policy | `docs/DEPENDENCIES.md`（Hugging Face 节）+ concrete Workflow `requirements.yaml` | CLI auth/download evidence、model revision/hash、license review |
 | Plan 校验 | `src/ainative/orchestration/planning/lifecycle.py` | contract tests |
 | Stage 验收 | `src/ainative/orchestration/acceptance/evaluator.py` | acceptance tests |
 | Agent Session | `src/ainative/agent/` | integration tests |

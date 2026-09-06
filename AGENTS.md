@@ -13,6 +13,8 @@ D:\work\AI-Native-Game-Engine\AGENTS.md
     → stable WorkflowPlan template/schema
     → relevant Toolset guides
     → Agent-authored WorkflowPlan
+    → docs\DEPENDENCIES.md (when a host or MCP call is involved)
+    → docs\DEPENDENCIES.md section for the specific host/MCP (Blender/UE5/ComfyUI/HF)
     → exact Project Tool/MCP call feasibility
     → one-call-at-a-time execution
 ```
@@ -23,7 +25,7 @@ second project root from the current shell directory.
 ## Repository purpose
 
 This repository implements Agent-driven dynamic Stages across UE5, Blender,
-transfer backends, validators, and future providers such as ComfyUI.
+transfer backends, validators, and external tools such as ComfyUI.
 
 ```text
 Agent Intent
@@ -57,6 +59,9 @@ file as a script or decide which call comes next.
 - A change Stage checks the Project Tools and MCP calls required for execution and
   acceptance before its first side effect.
 - For a project capability, query the Project Tool Registry. For MCP, query the configured Agent MCP Client directly. Do not copy MCP Tools into the Project Registry.
+- Before selecting a host or MCP call, load docs\DEPENDENCIES.md and confirm the required Python, Blender, UE5, add-on/plugin, and Agent prerequisites.
+- Before selecting a Blender `McpCall`, load docs\DEPENDENCIES.md (Blender section) and confirm the Blender version, installed/started MCP Add-on bridge, and Agent client prerequisites; do not assume the vendored Add-on source alone is a live Blender MCP Server.
+- Before selecting a UE5 `McpCall`, also load docs\DEPENDENCIES.md (UE5 section) and confirm the engine, target project, Editor process, and Agent client prerequisites; do not assume this repository contains a live UE5 MCP Server.
 - The final plan stores exact calls. Every call supports at least one checklist
   item.
 - `usage` on a Tool Call (`execute`, `observe`, `verify`, `report`) records this
@@ -131,8 +136,9 @@ WorkflowPlan Stage calls[]
     └── McpCall  → Agent MCP Client → named MCP Server/tool
 ```
 
-Blender/UE5 scripts and ComfyUI graphs are registered as project Tools. They
-are not a third WorkflowPlan call type. Reusable Workflow Definitions live in
+Blender/UE5 scripts and ComfyUI graphs may be registered as project Tools; an external ComfyUI
+MCP is a direct McpCall. None of these introduces a third WorkflowPlan call type.
+Reusable Workflow Definitions live in
 `D:\work\AI-Native-Game-Engine\workflows\` and are promoted only after
 machine verification and required human review.
 
@@ -148,7 +154,7 @@ machine verification and required human review.
 - Freeze acceptance items before change-side effects. Do not delete an item
   merely because execution failed.
 - Preserve ExecutionResults, checklist results, StageResults, and Evidence.
-- Do not silently change Tool, Backend, Provider, or loss policy.
+- Do not silently change Tool, MCP Server, Backend, or loss policy.
 - Do not initialize or alter Git history unless explicitly requested.
 
 ## Verification commands

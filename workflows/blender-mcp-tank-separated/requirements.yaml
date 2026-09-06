@@ -5,4 +5,5 @@ requires:
     - server_id: blender
       tool_name: execute_blender_code
   host:
-    blender_version: ">=5.1"
+    blender_version: ">=5.1.0"
+    blender_mcp_addon: mcp

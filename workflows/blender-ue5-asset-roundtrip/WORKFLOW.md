@@ -5,6 +5,10 @@ constraint set, not a fixed five-step script. The Agent instantiates a
 WorkflowPlan after reading the task, current state, project Tool Registry, and
 MCP Server tool lists.
 
+Before instantiating a plan, satisfy the [dependency contract](../../docs/DEPENDENCIES.md)
+(Blender and UE5 sections),
+including the UE5.8.0 minimum and a running Agent MCP Client connection.
+
 ## Intent
 
 Prepare an asset in Blender, transfer it through the selected backend, configure

@@ -30,7 +30,7 @@ Agent 生成 WorkflowPlan
 Python 校验 WorkflowPlan
     ↓
 Agent 直接调用真实能力
-    ├── MCP Tool（Blender MCP / UE5 MCP）
+    ├── MCP Tool（Blender MCP / UE5 MCP / ComfyUI MCP）
     └── Project Tool（Tool Registry 中我们自己维护的 Tool）
     ↓
 原始 Tool/MCP Result
@@ -60,8 +60,8 @@ McpCall
 
 - MCP Server 直接配置给 Agent（如 Codex），项目不把 MCP Tool 镜像进自己的
   Tool Registry，也不做 MCP Gateway/Client Runtime。
-- 项目自有的 Blender/UE5 脚本、ComfyUI 图等是普通 Project Tool 的内部实现，
-  不是第三种调用类型。
+- 项目自有的 Blender/UE5 脚本、ComfyUI 图可以作为普通 Project Tool；外部 ComfyUI MCP
+  使用直接 McpCall；它们都不是第三种调用类型。
 - 每条调用都可带 `usage: execute|observe|verify|report`，只记录本次用途。
 
 ## Project Tool Registry
