@@ -97,7 +97,7 @@ def build_runtime(config: dict[str, Any]) -> RuntimeContext:
         surface = BlenderCliSurface(
             executable=blender_conf.get("executable"),
             timeout=int(blender_conf.get("timeout", 300)),
-    )
+        )
         blender = BlenderExecutor({BlenderCallSurface.CLI_PYTHON: surface})
 
     assetsbridge_conf = config.get("assetsbridge")
@@ -111,7 +111,7 @@ def build_runtime(config: dict[str, Any]) -> RuntimeContext:
             bridge_dir=Path(assetsbridge_conf["directory"]) if assetsbridge_conf else None,
             launch_mode=ue5_conf.get("launch_mode", "commandlet"),
             timeout=int(ue5_conf.get("timeout", 300)),
-    )
+        )
 
     transfer_backends = {}
     if assetsbridge_conf:
@@ -130,7 +130,7 @@ def build_runtime(config: dict[str, Any]) -> RuntimeContext:
                 bridge_dir,
                 BlenderCallSurface.CLI_PYTHON,
             ),
-    )
+        )
         transfer_backends[TransferBackendKind.ASSETSBRIDGE] = backend
 
     if "direct" in config:
