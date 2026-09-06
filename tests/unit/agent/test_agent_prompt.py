@@ -87,7 +87,7 @@ def test_agent_executes_one_explicit_tool_call_at_a_time():
         host_app="blender",
         host_call_surface=BlenderCallSurface.ADDON.value,
     )
-    runtime = RuntimeContext(blender=BlenderExecutor({BlenderCallSurface.ADDON: BlenderAddonSurface(execute)}))
+    runtime = RuntimeContext(executors={"blender": BlenderExecutor({BlenderCallSurface.ADDON: BlenderAddonSurface(execute)})})
 
     agent_session = WorkflowGuide().start(task, plan, runtime)
 
@@ -132,7 +132,7 @@ def test_agent_plan_with_missing_tool_is_blocked_before_any_tool_call():
         host_app="blender",
         host_call_surface=BlenderCallSurface.ADDON.value,
     )
-    runtime = RuntimeContext(blender=BlenderExecutor({BlenderCallSurface.ADDON: BlenderAddonSurface(execute)}))
+    runtime = RuntimeContext(executors={"blender": BlenderExecutor({BlenderCallSurface.ADDON: BlenderAddonSurface(execute)})})
 
     agent_session = WorkflowGuide().start(task, plan, runtime)
 

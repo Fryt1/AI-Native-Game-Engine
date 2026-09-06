@@ -92,7 +92,7 @@ def test_direct_transfer_workflow_uses_real_blender_and_reports_file_result(tmp_
         metadata={"edit_app": "blender", "export_file": str(exchange), "blender_edit_file": str(edit), "modified_blend_file": str(modified), "delta": [2, 0, 0], "result_dir": str(tmp_path)},
     )
     blender = BlenderExecutor({BlenderCallSurface.CLI_PYTHON: BlenderCliSurface(BLENDER)})
-    runtime = RuntimeContext(blender=blender, ue5=ReadyUE5(), transfer_backends={TransferBackendKind.DIRECT: DirectTransferBackend(FileTransferIO())}, validator=ManifestValidator())
+    runtime = RuntimeContext(executors={"blender": blender, "ue5": ReadyUE5()}, transfer_backends={TransferBackendKind.DIRECT: DirectTransferBackend(FileTransferIO())}, validator=ManifestValidator())
 
     plan = direct_plan(task)
     session = WorkflowGuide().start(task, plan, runtime)

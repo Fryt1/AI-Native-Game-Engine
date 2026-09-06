@@ -51,7 +51,7 @@ class FakeHost:
 
 def test_project_tool_cli_execution_round_trip(tmp_path: Path):
     host = FakeHost()
-    runtime = RuntimeContext(blender=host)
+    runtime = RuntimeContext(executors={"blender": host})
     task = TaskContract(
         task_id="cli-task",
         objective="Move an object",
@@ -119,7 +119,7 @@ def test_direct_transfer_execution_uses_blender_import_and_export_seams():
         target_context={"app": "ue5"},
     )
     runtime = RuntimeContext(
-        blender=FakeTransferBlender(events),
+        executors={"blender": FakeTransferBlender(events)},
         transfer_backends={TransferBackendKind.DIRECT: backend},
     )
     manifest = TransferManifest.from_task(task)

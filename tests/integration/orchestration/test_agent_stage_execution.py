@@ -119,8 +119,7 @@ class FakeValidator:
 def cross_host_runtime(events, backend):
     blender = BlenderExecutor({BlenderCallSurface.ADDON: FakeBlenderSurface(events)})
     return RuntimeContext(
-        blender=blender,
-        ue5=FakeUE5(events),
+        executors={"blender": blender, "ue5": FakeUE5(events)},
         transfer_backends={TransferBackendKind.ASSETSBRIDGE: backend},
         validator=FakeValidator(events),
     )

@@ -92,7 +92,7 @@ def test_tool_success_does_not_complete_stage_without_acceptance_evidence():
         ),
     )
     plan = plan_for(task, (StepPlan("change", "Change", (stage,)),))
-    session = WorkflowGuide().start(task, plan, RuntimeContext(ue5=FakeUE5()))
+    session = WorkflowGuide().start(task, plan, RuntimeContext(executors={"ue5": FakeUE5()}))
 
     mutate_result = execute_local_tool_and_submit(session, stage, mutate)
     assert mutate_result.status is TaskStatus.SUCCEEDED
@@ -144,7 +144,7 @@ def test_readback_check_deterministically_completes_the_stage():
     )
     plan = plan_for(task, (StepPlan("change", "Change", (stage,)),))
     host = FakeUE5()
-    session = WorkflowGuide().start(task, plan, RuntimeContext(ue5=host))
+    session = WorkflowGuide().start(task, plan, RuntimeContext(executors={"ue5": host}))
 
     execute_local_tool_and_submit(session, stage, mutate)
     execute_local_tool_and_submit(session, stage, readback)
@@ -185,7 +185,7 @@ def test_required_warning_completes_stage_as_degraded():
         ),
     )
     plan = plan_for(task, (StepPlan("inspect", "Inspect", (stage,)),))
-    session = WorkflowGuide().start(task, plan, RuntimeContext(ue5=FakeUE5(degraded=True)))
+    session = WorkflowGuide().start(task, plan, RuntimeContext(executors={"ue5": FakeUE5(degraded=True)}))
 
     execute_local_tool_and_submit(session, stage, observe)
     stage_result = session.complete_stage("stage.inspect")
@@ -257,7 +257,7 @@ def test_agent_cannot_override_a_deterministic_acceptance_check():
     session = WorkflowGuide().start(
         task,
         plan_for(task, (StepPlan("verify", "Verify", (stage,)),)),
-        RuntimeContext(ue5=FakeUE5()),
+        RuntimeContext(executors={"ue5": FakeUE5()}),
     )
 
     try:
@@ -297,7 +297,7 @@ def test_agent_cannot_override_tool_backed_execution_evidence():
     session = WorkflowGuide().start(
         task,
         plan_for(task, (StepPlan("change", "Change", (stage,)),)),
-        RuntimeContext(ue5=FakeUE5()),
+        RuntimeContext(executors={"ue5": FakeUE5()}),
     )
 
     try:

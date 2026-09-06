@@ -101,7 +101,7 @@ def test_agent_executes_selected_ue5_tools_only_when_agent_calls_them():
     )
     ue5 = FakeUE5(events)
     plan = actor_plan(task)
-    session = WorkflowGuide().start(task, plan, RuntimeContext(ue5=ue5))
+    session = WorkflowGuide().start(task, plan, RuntimeContext(executors={"ue5": ue5}))
 
     assert session.ready
     assert events == []
@@ -125,7 +125,7 @@ def test_agent_plan_blocks_before_side_effect_when_a_later_selected_tool_is_miss
     )
     ue5 = FakeUE5(events, operations=("read_actor_transform",))
     plan = actor_plan(task)
-    session = WorkflowGuide().start(task, plan, RuntimeContext(ue5=ue5))
+    session = WorkflowGuide().start(task, plan, RuntimeContext(executors={"ue5": ue5}))
 
     assert not session.ready
     assert not session.ready
@@ -143,7 +143,7 @@ def test_agent_calls_multiple_tools_in_one_stage_in_plan_order():
     )
     ue5 = FakeUE5(events)
     plan = actor_plan(task)
-    session = WorkflowGuide().start(task, plan, RuntimeContext(ue5=ue5))
+    session = WorkflowGuide().start(task, plan, RuntimeContext(executors={"ue5": ue5}))
 
     execute_local_tool_and_submit(session, plan.workflow.stage_requests[0], plan.workflow.stage_requests[0].calls[0])
     execute_local_tool_and_submit(session, plan.workflow.stage_requests[0], plan.workflow.stage_requests[0].calls[1])
@@ -162,7 +162,7 @@ def test_agent_can_create_a_stage_with_no_calls_as_a_local_checkpoint():
         target_context={"app": "ue5"},
     )
     plan = one_stage_plan(task, stage_plan("stage.checkpoint", "Record the checkpoint", "checkpoint"))
-    session = WorkflowGuide().start(task, plan, RuntimeContext(ue5=FakeUE5([])))
+    session = WorkflowGuide().start(task, plan, RuntimeContext(executors={"ue5": FakeUE5([])}))
     session.record_execution_item(
         "stage.checkpoint",
         ExecutionItemResult("stage.checkpoint.executed", CheckStatus.PASS, reason="checkpoint recorded"),
@@ -185,7 +185,7 @@ def test_agent_cannot_record_a_call_before_its_dependency():
         target_context={"app": "ue5"},
     )
     plan = actor_plan(task)
-    session = WorkflowGuide().start(task, plan, RuntimeContext(ue5=FakeUE5(events)))
+    session = WorkflowGuide().start(task, plan, RuntimeContext(executors={"ue5": FakeUE5(events)}))
     stage = plan.workflow.stage_requests[0]
 
     with pytest.raises(WorkflowPlanError, match="incomplete dependencies"):
@@ -206,7 +206,7 @@ def test_agent_cannot_prepare_a_call_from_a_later_dependent_stage():
     later_call = call("ue5.editor", "ue5", "set-actor-transform", "set", {"expected_location": [1, 2, 3]})
     later = stage_plan("stage.later", "Move", "set_actor_transform", (later_call,), depends_on=("stage.first",))
     plan = plan_for(task, (StepPlan("first", "Read", (first,)), StepPlan("later", "Move", (later,), depends_on=("first",))))
-    session = WorkflowGuide().start(task, plan, RuntimeContext(ue5=FakeUE5(events)))
+    session = WorkflowGuide().start(task, plan, RuntimeContext(executors={"ue5": FakeUE5(events)}))
 
     with pytest.raises(WorkflowPlanError, match="incomplete dependencies"):
         session.check_call_ready("set")
@@ -223,7 +223,7 @@ def test_agent_cannot_overwrite_a_recorded_execution_attempt():
         target_context={"app": "ue5"},
     )
     plan = one_stage_plan(task, stage_plan("stage.read", "Read", "read_actor_transform", (call("ue5.editor", "ue5", "read_actor_transform", "read"),)))
-    session = WorkflowGuide().start(task, plan, RuntimeContext(ue5=FakeUE5(events)))
+    session = WorkflowGuide().start(task, plan, RuntimeContext(executors={"ue5": FakeUE5(events)}))
     result = execute_local_tool_and_submit(session, plan.workflow.stage_requests[0], plan.workflow.stage_requests[0].calls[0])
 
     with pytest.raises(WorkflowPlanError, match="already been recorded"):

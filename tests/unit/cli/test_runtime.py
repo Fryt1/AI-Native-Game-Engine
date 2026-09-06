@@ -24,8 +24,8 @@ def test_build_runtime_wires_real_ue5_executor_into_assetsbridge(tmp_path: Path)
 
     backend = runtime.transfer_backends[TransferBackendKind.ASSETSBRIDGE]
     assert (tmp_path / "bridge").is_dir()
-    assert isinstance(runtime.ue5, UnrealEditorPythonExecutor)
-    assert backend.ue5_connector is runtime.ue5
+    assert isinstance(runtime.executor("ue5"), UnrealEditorPythonExecutor)
+    assert backend.ue5_connector is runtime.executor("ue5")
     assert not isinstance(backend.ue5_connector, JsonUE5BridgeConnector)
 
 

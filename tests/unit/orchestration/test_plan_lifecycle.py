@@ -110,7 +110,7 @@ def test_agent_execution_records_plan_revision_after_selected_tools_finish():
         task,
         (StepPlan("inspect", "Inspect", (stage_plan("stage.inspect", "Inspect", "inspect-active", (selected_call,)),)),),
     )
-    runtime = RuntimeContext(blender=BlenderExecutor({BlenderCallSurface.ADDON: BlenderAddonSurface(execute)}))
+    runtime = RuntimeContext(executors={"blender": BlenderExecutor({BlenderCallSurface.ADDON: BlenderAddonSurface(execute)})})
 
     result = execute_agent_plan(task, plan, runtime)
 
@@ -191,7 +191,7 @@ def test_agent_execution_session_returns_failure_after_selected_tool_fails():
         (StepPlan("read", "Read", (stage_plan("stage.read", "Read", "read_actor_transform", (selected_call,)),)),),
     )
 
-    session = WorkflowGuide().start(task, plan, RuntimeContext(ue5=FailingUE5()))
+    session = WorkflowGuide().start(task, plan, RuntimeContext(executors={"ue5": FailingUE5()}))
     stage = plan.workflow.steps[0].stages[0]
     tool_result = execute_local_tool_and_submit(session, stage, stage.calls[0])
     stage_result = session.complete_stage("stage.read")

@@ -116,7 +116,7 @@ def test_full_assetsbridge_json_workflow_with_real_blender(tmp_path: Path):
     )
     protocol.write("from_unreal", protocol.document_for_manifest(TransferManifest.from_task(task), "UnrealExport"))
 
-    runtime = RuntimeContext(blender=blender, ue5=ReadyJsonUE5(), transfer_backends={TransferBackendKind.ASSETSBRIDGE: backend}, validator=AssetsBridgeValidator(protocol))
+    runtime = RuntimeContext(executors={"blender": blender, "ue5": ReadyJsonUE5()}, transfer_backends={TransferBackendKind.ASSETSBRIDGE: backend}, validator=AssetsBridgeValidator(protocol))
     plan = bridge_plan(task)
     session = WorkflowGuide().start(task, plan, runtime)
     for stage in plan.workflow.stage_requests:
