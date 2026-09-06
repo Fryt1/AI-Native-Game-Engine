@@ -11,6 +11,7 @@ scripts/
 ├── docs/         command/API operational docs
 ├── e2e/          host-driven end-to-end workflows (UE5/Blender/AssetsBridge)
 ├── fixtures/     runner fixtures
+├── preflight/    unified read-only dependency preflight (run_preflight.py)
 ├── probes/       read-only host probes
 ├── trace/        AgentTrace JSONL analysis
 └── workflows/    Workflow Definition lifecycle helpers
@@ -30,3 +31,14 @@ python scripts/trace/analyze_trace.py <run-id-or-path>
 - Scripts should not duplicate Toolset logic. Import from `ainative` when possible.
 - Probe/e2e outputs belong under `artifacts/evidence/` or `artifacts/scratch/`, never next to source.
 - Keep each script's operational contract in `scripts/docs/` when it changes.
+
+## Preflight
+
+Before a Workflow with host/MCP requirements runs, verify the machine:
+
+```powershell
+python scripts\preflight\run_preflight.py --workflow-root workflows\blender-ue5-asset-roundtrip --config artifacts\scratch\preflight.local.json --json
+```
+
+Local host paths/endpoints belong in a machine-local JSON config (see `preflight.example.json`);
+preflight is read-only and never starts UE5 or Blender.

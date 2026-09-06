@@ -1,0 +1,10 @@
+{
+  "blender": {"executable": "<path-to-blender.exe>"},
+  "ue5": {
+    "executable": "<path-to-UnrealEditor.exe>",
+    "project": "<path-to-project.uproject>"
+  },
+  "blender_mcp": {"host": "127.0.0.1", "port": 9876},
+  "ue5_mcp": {"url": "http://127.0.0.1:8000/mcp"},
+  "timeout_sec": 10
+}
