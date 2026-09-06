@@ -86,7 +86,7 @@ def main() -> int:
     blender_connector = ExternalBlenderAssetsBridgeConnector(args.blender, args.addon_root, bridge, out, timeout=120)
     backend = AssetsBridgeBackend(ue5_executor, blender_connector)
     protocol = AssetsBridgeJsonProtocol(bridge)
-    runtime = RuntimeContext(blender=blender_executor, ue5=ue5_executor, transfer_backends={TransferBackendKind.ASSETSBRIDGE: backend}, validator=AssetsBridgeValidator(protocol))
+    runtime = RuntimeContext(executors={"blender": blender_executor, "ue5": ue5_executor}, transfer_backends={TransferBackendKind.ASSETSBRIDGE: backend}, validator=AssetsBridgeValidator(protocol))
     plan = asset_roundtrip_plan(task, "assetsbridge")
     run = execute_agent_plan(task, plan, runtime)
     result = {

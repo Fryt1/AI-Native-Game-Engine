@@ -42,7 +42,8 @@ contract must not invent a generic `apply-artifact` operation when the live
 Toolset does not publish one.
 
 The Stage receives Artifact references from `stage.provider_artifact`; it does
-not rediscover a provider file or silently replace the selected Provider.
+not rediscover a generator file or silently replace the selected generator or
+host Tool.
 
 ## Failure / Resume
 

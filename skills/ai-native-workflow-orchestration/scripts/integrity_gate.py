@@ -72,7 +72,6 @@ def check_package(package_root: Path) -> IntegrityReport:
         "toolsets/blender-editor/TOOLSET.md",
         "toolsets/transfer-assetsbridge/TOOLSET.md",
         "toolsets/transfer-direct/TOOLSET.md",
-        "toolsets/artifact-provider/TOOLSET.md",
         "toolsets/workflow-validation/TOOLSET.md",
         "references/blender-call-surfaces.md",
         "references/assetsbridge-backend.md",

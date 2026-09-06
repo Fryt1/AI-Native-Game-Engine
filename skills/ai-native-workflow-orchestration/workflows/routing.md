@@ -56,13 +56,13 @@ Typical requirements are:
 
 ```text
 Artifact Contract
-provider provenance
+generator provenance
 format and quality constraints
 application evidence
 host-side validation
 ```
 
-A Provider may be used as one Stage or as a preceding Workflow instance.
+A generator (ordinary project Tool or MCP Server tool) may be used as one Stage or as a preceding Workflow instance.
 
 ## Unknown or mixed intent
 

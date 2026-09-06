@@ -10,7 +10,6 @@ class ToolExecutionKind(StrEnum):
 
     HOST = "host"
     TRANSFER = "transfer"
-    ARTIFACT_PROVIDER = "artifact_provider"
     VALIDATOR = "validator"
 
 

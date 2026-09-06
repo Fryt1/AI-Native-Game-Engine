@@ -1,12 +1,12 @@
 ---
 name: ai-native-workflow-orchestration
-description: Agent-driven dynamic Stage planning, Tool execution, evidence, and acceptance across hosts and providers.
+description: Agent-driven dynamic Stage planning, Tool execution, evidence, and acceptance across hosts, transfer backends, validators, and external tools.
 ---
 
 # AI Native Workflow Orchestration Skill
 
 This Skill teaches an Agent to build dynamic but auditable Stages across UE5,
-Blender, transfer backends, validators, and artifact providers.
+Blender, transfer backends, validators, and external tools such as ComfyUI.
 
 ## Ownership rule
 

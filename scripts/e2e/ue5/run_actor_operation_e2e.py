@@ -116,7 +116,7 @@ def main() -> int:
     )
     commandlet = UnrealEditorPythonExecutor(args.ue5_cmd, args.project, script, timeout=args.timeout, launch_mode="commandlet")
     plan = actor_operation_plan(task)
-    result = execute_agent_plan(task, plan, RuntimeContext(ue5=commandlet))
+    result = execute_agent_plan(task, plan, RuntimeContext(executors={"ue5": commandlet}))
     ui_evidence = args.out / "ue5" / visible_operation / "editor-ui-evidence.json"
     payload = {
         "status": result.status.value,

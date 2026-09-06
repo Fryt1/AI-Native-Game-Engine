@@ -28,10 +28,10 @@ read back and validate the host result
 The Agent may omit optional phases or add additional validation Stages. The
 Workflow is not a fixed four-Step executor.
 
-## Toolset roles
+## Call roles
 
 ```text
-artifact.<provider_id>
+generator Tool or MCP Server tool (e.g. ComfyUI)
     generate or retrieve the external Artifact
 
 blender.editor / ue5.editor
@@ -41,23 +41,25 @@ validation.workflow
     validate the declared Artifact and host-side result when configured
 ```
 
-The provider's output is passed as an explicit Artifact Contract. The host does
-not guess a file path or a missing apply operation.
+Generators are reached as ordinary project Tools (`ToolCall`) or direct MCP
+Server tools (`McpCall`); there is no separate generator-specific seam. The
+generator's output is passed as an explicit Artifact Contract. The host does not
+guess a file path or a missing apply operation.
 
 ## Agent plan rule
 
-The Agent discovers the relevant Toolsets, writes exact Tool Calls in the
-WorkflowPlan, checks all calls before side effects, and invokes one Tool at a
-time. The Python runtime does not generate the provider/apply sequence.
+The Agent discovers the relevant Toolsets, writes exact Tool Calls / MCP Calls
+in the WorkflowPlan, checks all calls before side effects, and invokes one call
+at a time. The Python runtime does not generate the generate/apply sequence.
 
 ## Failure / recovery
 
 ```text
-provider failure       → retry or re-plan the provider Stage
-contract failure      → repair the Artifact Contract or re-plan
-host application fail → retry the selected apply Tool
-publish failure       → retry the selected publish Tool
-validation failure    → retry or re-plan validation
+generation failure     → retry or re-plan the generation Stage
+contract failure       → repair the Artifact Contract or re-plan
+host application fail  → retry the selected apply Tool
+publish failure        → retry the selected publish Tool
+validation failure     → retry or re-plan validation
 ```
 
 A result may hand off to an asset-edit Workflow through an explicit Artifact or

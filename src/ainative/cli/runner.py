@@ -97,7 +97,7 @@ def build_runtime(config: dict[str, Any]) -> RuntimeContext:
         surface = BlenderCliSurface(
             executable=blender_conf.get("executable"),
             timeout=int(blender_conf.get("timeout", 300)),
-        )
+    )
         blender = BlenderExecutor({BlenderCallSurface.CLI_PYTHON: surface})
 
     assetsbridge_conf = config.get("assetsbridge")
@@ -111,7 +111,7 @@ def build_runtime(config: dict[str, Any]) -> RuntimeContext:
             bridge_dir=Path(assetsbridge_conf["directory"]) if assetsbridge_conf else None,
             launch_mode=ue5_conf.get("launch_mode", "commandlet"),
             timeout=int(ue5_conf.get("timeout", 300)),
-        )
+    )
 
     transfer_backends = {}
     if assetsbridge_conf:
@@ -130,7 +130,7 @@ def build_runtime(config: dict[str, Any]) -> RuntimeContext:
                 bridge_dir,
                 BlenderCallSurface.CLI_PYTHON,
             ),
-        )
+    )
         transfer_backends[TransferBackendKind.ASSETSBRIDGE] = backend
 
     if "direct" in config:
@@ -142,9 +142,13 @@ def build_runtime(config: dict[str, Any]) -> RuntimeContext:
     elif "validator" in config or ue5 is not None:
         validator = ManifestValidator()
 
+    executors = {}
+    if blender is not None:
+        executors["blender"] = blender
+    if ue5 is not None:
+        executors["ue5"] = ue5
     return RuntimeContext(
-        blender=blender,
-        ue5=ue5,
+        executors=executors,
         transfer_backends=transfer_backends,
         validator=validator,
     )
@@ -184,7 +188,7 @@ def run_tool_call(args: argparse.Namespace) -> int:
             tool_id=args.tool if args.tool else tool_id_for(args.toolset, args.operation),
             arguments=arguments,
             usage=ToolCallUsage(args.usage),
-        )
+    )
         ctx = ToolExecutionContext(task=task, task_metadata=(dict(task.metadata) if task else None))
         if task is not None:
             selection = select_workflow(task)

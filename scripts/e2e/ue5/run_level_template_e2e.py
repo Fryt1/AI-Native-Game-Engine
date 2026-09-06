@@ -110,7 +110,7 @@ def main() -> int:
         },
     )
     plan = level_template_plan(task)
-    result = execute_agent_plan(task, plan, RuntimeContext(ue5=executor))
+    result = execute_agent_plan(task, plan, RuntimeContext(executors={"ue5": executor}))
     editor_evidence_path = out / "ue5" / "create_level_from_template" / "editor-ui-evidence.json"
     payload = {
         "status": result.status.value,

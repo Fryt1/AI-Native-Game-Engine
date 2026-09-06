@@ -12,10 +12,6 @@ from dataclasses import dataclass
 from typing import Any
 
 from ainative.orchestration import RuntimeContext
-from ainative.orchestration.contracts.artifacts import (
-    ArtifactGenerationRequest,
-    ArtifactKind,
-)
 from ainative.orchestration.contracts.manifest import TransferManifest
 from ainative.orchestration.contracts.plan import StageRequest
 from ainative.orchestration.contracts.results import (
@@ -110,37 +106,6 @@ def execute_resolved(
             return TaskResult(status=TaskStatus.BLOCKED, route=ctx.plan_route, errors=(f"Validator Tool has no implementation: {operation}",))
         return validate(ctx.task, manifest)
 
-    if kind is ToolExecutionKind.ARTIFACT_PROVIDER:
-        kind_value = str(call.arguments.get("artifact_kind", metadata.get("artifact_kind", "unknown")))
-        try:
-            artifact_kind = ArtifactKind(kind_value)
-        except ValueError:
-            artifact_kind = ArtifactKind.UNKNOWN
-        parameters = dict(metadata)
-        parameters.update(call.arguments)
-        request = ArtifactGenerationRequest(
-            task_id=ctx.task.task_id if ctx.task else "cli",
-            objective=ctx.task.objective if ctx.task else "",
-            kind=artifact_kind,
-            parameters=parameters,
-        )
-        if not callable(getattr(provider, "submit", None)) or not callable(getattr(provider, "get_result", None)):
-            return TaskResult(status=TaskStatus.BLOCKED, route=ctx.plan_route, errors=("Artifact Provider Tool does not implement submit/get_result",))
-        job = provider.submit(request)
-        artifact_result = provider.get_result(job.job_id)
-        status_map = {
-            "succeeded": TaskStatus.SUCCEEDED,
-            "failed": TaskStatus.FAILED,
-            "needs_review": TaskStatus.NEEDS_APPROVAL,
-            "requested": TaskStatus.RUNNING,
-            "running": TaskStatus.RUNNING,
-        }
-        status = status_map.get(artifact_result.status.value, TaskStatus.BLOCKED)
-        return TaskResult(status=status, route=ctx.plan_route, provider_id=getattr(provider, "provider_id", None), artifacts=artifact_result.artifacts, warnings=artifact_result.warnings, errors=artifact_result.errors, details={"job_id": job.job_id, "artifact_count": len(artifact_result.artifacts)})
-
-    return TaskResult(status=TaskStatus.BLOCKED, route=ctx.plan_route, errors=(f"Unsupported Tool execution kind: {kind}",))
-
-
 def to_execution_result(call: ToolCall, result: TaskResult) -> ExecutionResult:
     return ExecutionResult(
         call_id=call.call_id,
@@ -159,12 +124,12 @@ def to_execution_result(call: ToolCall, result: TaskResult) -> ExecutionResult:
 
 
 def _direct_blender_import(runtime: RuntimeContext, manifest: TransferManifest, ctx: ToolExecutionContext) -> TaskResult:
-    if runtime.blender is None:
+    if runtime.executor("blender") is None:
         return TaskResult(status=TaskStatus.BLOCKED, route=ctx.plan_route, errors=("Direct Transfer requires the Blender edit host",))
     metadata = ctx.task_metadata or (ctx.task.metadata if ctx.task else {})
     params = dict(metadata)
     params.update({"filepath": manifest.export_file, "blend_file": None, "save_after": metadata.get("blender_edit_file")})
-    return runtime.blender.execute(HostOperationRequest(
+    return runtime.executor("blender").execute(HostOperationRequest(
         task_id=f"{ctx.task.task_id if ctx.task else 'cli'}-transfer-import",
         operation="import-glb",
         call_surface=ctx.plan_blender_call_surface,
@@ -173,14 +138,14 @@ def _direct_blender_import(runtime: RuntimeContext, manifest: TransferManifest, 
 
 
 def _direct_blender_export(runtime: RuntimeContext, manifest: TransferManifest, ctx: ToolExecutionContext) -> TaskResult:
-    if runtime.blender is None:
+    if runtime.executor("blender") is None:
         return TaskResult(status=TaskStatus.BLOCKED, route=ctx.plan_route, errors=("Direct Transfer requires the Blender edit host",))
     metadata = ctx.task_metadata or (ctx.task.metadata if ctx.task else {})
     params = dict(metadata)
     params.update({"filepath": manifest.export_file})
     if metadata.get("modified_blend_file"):
         params["blend_file"] = metadata["modified_blend_file"]
-    return runtime.blender.execute(HostOperationRequest(
+    return runtime.executor("blender").execute(HostOperationRequest(
         task_id=f"{ctx.task.task_id if ctx.task else 'cli'}-return-export",
         operation="export-glb",
         call_surface=ctx.plan_blender_call_surface,

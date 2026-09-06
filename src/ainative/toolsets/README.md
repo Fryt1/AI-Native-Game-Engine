@@ -10,7 +10,8 @@ Each directory in this folder is one concrete maintenance unit for capabilities 
 | `transfer_assetsbridge/` | `transfer.assetsbridge` | AssetsBridge Backend, connectors, protocol, and endpoint |
 | `transfer_direct/` | `transfer.direct` | Explicit file-transfer Backend and I/O |
 | `validation_workflow/` | `validation.workflow` | Workflow validation Tools |
-| `artifact_providers/` | `artifact.<provider_id>` | ComfyUI and future artifact-provider implementations |
 | `ports/` | — | Shared project Toolset interfaces |
+
+Generators such as ComfyUI are not a separate Toolset category. They register as ordinary project Toolsets (for example under their own `Toolset ID`) or are reached as direct MCP Server tools; there is no generator-specific seam.
 
 When changing one Toolset, update its implementation, its Agent-facing contract at `skills/ai-native-workflow-orchestration/toolsets/<toolset>/TOOLSET.md`, and the matching tests together.

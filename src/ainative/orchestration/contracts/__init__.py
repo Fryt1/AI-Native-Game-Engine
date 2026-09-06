@@ -1,11 +1,4 @@
-from .artifacts import (
-    ArtifactGenerationRequest,
-    ArtifactKind,
-    ArtifactRef,
-    ArtifactResult,
-    ArtifactStatus,
-    ProviderJob,
-)
+from .artifacts import ArtifactKind, ArtifactRef
 from .checklists import (
     AcceptanceCheck,
     ChecklistSummary,
@@ -46,11 +39,8 @@ from .tools import (
 
 __all__ = [
     "AcceptanceCheck",
-    "ArtifactGenerationRequest",
     "ArtifactKind",
     "ArtifactRef",
-    "ArtifactResult",
-    "ArtifactStatus",
     "BlenderCallSurface",
     "CheckOperator",
     "CheckResult",
@@ -64,7 +54,6 @@ __all__ = [
     "GateResult",
     "McpCall",
     "ProfileName",
-    "ProviderJob",
     "StageKind",
     "StageRequest",
     "StageResult",

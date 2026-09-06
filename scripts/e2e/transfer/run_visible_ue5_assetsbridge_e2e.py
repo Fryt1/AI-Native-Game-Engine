@@ -295,8 +295,7 @@ def main() -> int:
     backend = AssetsBridgeBackend(ue5_executor, blender_connector)
     protocol = AssetsBridgeJsonProtocol(bridge)
     runtime = RuntimeContext(
-        blender=blender_executor,
-        ue5=ue5_executor,
+        executors={"blender": blender_executor, "ue5": ue5_executor},
         transfer_backends={TransferBackendKind.ASSETSBRIDGE: backend},
         validator=AssetsBridgeValidator(protocol),
     )

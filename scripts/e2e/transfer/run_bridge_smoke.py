@@ -116,7 +116,7 @@ def main() -> int:
     )
     manifest = TransferManifest.from_task(task)
     protocol.write("from_unreal", protocol.document_for_manifest(manifest, "UnrealExport"))
-    runtime = RuntimeContext(blender=blender, ue5=ReadyJsonUE5(), transfer_backends={TransferBackendKind.ASSETSBRIDGE: backend}, validator=AssetsBridgeValidator(protocol))
+    runtime = RuntimeContext(executors={"blender": blender, "ue5": ReadyJsonUE5()}, transfer_backends={TransferBackendKind.ASSETSBRIDGE: backend}, validator=AssetsBridgeValidator(protocol))
     plan = asset_roundtrip_plan(task, "assetsbridge")
     run = execute_agent_plan(task, plan, runtime, manifest=manifest)
     payload = {"status": run.status.value, "skill_id": "ai-native-workflow-orchestration", "route": run.route, "workflow_id": run.workflow_id, "profile": run.profile, "authority_id": run.authority_id, "backend": run.backend, "call_surface": run.call_surface, "steps_completed": list(run.steps_completed), "stages_completed": list(run.stages_completed), "preserved_relations": sorted(run.preserved_relations), "lost_relations": sorted(run.lost_relations), "artifacts": [artifact.uri for artifact in run.artifacts], "files": {name: path.is_file() for name, path in {"source_blend": source, "source_glb": source_glb, "edit_blend": edit, "modified_blend": modified, "modified_glb": modified_glb, "from_unreal": out / "from-unreal.json", "from_blender": out / "from-blender.json"}.items()}}

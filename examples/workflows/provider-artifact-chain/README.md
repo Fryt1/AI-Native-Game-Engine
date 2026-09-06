@@ -1,4 +1,4 @@
-# Example: Provider Artifact Chain
+# Example: Artifact Generate and Apply Chain
 
 ```text
 Stage kind: change
@@ -10,9 +10,9 @@ An Agent-authored plan may contain:
 
 ```text
 Stage: generate Artifact
-    execution checklist: provider inputs and generation handled
+    execution checklist: generator inputs and generation handled
     acceptance checklist: artifact exists, is readable, typed, and has provenance
-    Tool: artifact.<provider>.generate
+    Call: ordinary project Tool or MCP Server tool (e.g. ComfyUI)
 
 Stage: apply Artifact
     execution checklist: target and replacement policy resolved, apply performed
@@ -24,4 +24,6 @@ Stage: validate host result
     Tool: validation.workflow.<concrete-validator>
 ```
 
-The chain uses normal Tools, structured CheckResults, and deterministic Stage aggregation. It does not require a new Route or a second validation Registry.
+The chain uses normal Tools, structured CheckResults, and deterministic Stage
+aggregation. Generation is an ordinary ToolCall or McpCall; it does not require
+a generator-specific seam or a second Registry.

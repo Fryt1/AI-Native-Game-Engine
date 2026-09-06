@@ -88,7 +88,6 @@ current state and user requirements.
 - `toolsets/blender-editor/TOOLSET.md`
 - `toolsets/transfer-assetsbridge/TOOLSET.md`
 - `toolsets/transfer-direct/TOOLSET.md`
-- `toolsets/artifact-provider/TOOLSET.md`
 - `toolsets/workflow-validation/TOOLSET.md`
 
 ## Maintenance rules

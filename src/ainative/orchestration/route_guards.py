@@ -1,3 +1,5 @@
+"""Route guardrails (authorities) for planning gate checks."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -23,6 +25,27 @@ DEFAULT = ProfileName.DEFAULT.value
 SUPPORTED_PROFILES = {DEFAULT, ProfileName.INTERACTIVE.value, ProfileName.HEADLESS_BATCH.value}
 
 
+def _host_readiness_gate(plan: ExecutionPlan, runtime: RuntimeContext) -> GateResult:
+    """Shared host readiness check used by route authorities.
+
+    Direct MCP calls are executed by the Agent's configured MCP client. The
+    project-side route guard only validates the plan shape; it does not own
+    MCP connections or server readiness. Local host execution still requires
+    the matching host executor.
+    """
+
+    if plan.host_call_surface == "mcp":
+        return GateResult(True)
+    if plan.host_app == "ue5":
+        if runtime.executor("ue5") is None or not runtime.executor("ue5").is_ready():
+            return GateResult(False, ("UE5 host executor is not ready",), next_action="make the UE5 Tool executor ready")
+        return GateResult(True)
+    if runtime.executor("blender") is None or not runtime.executor("blender").can_use(plan.blender_call_surface):
+        surface = plan.blender_call_surface.value if plan.blender_call_surface else "unknown"
+        return GateResult(False, (f"Blender call surface is not ready: {surface}",), next_action="make the selected Blender call surface ready")
+    return GateResult(True)
+
+
 @dataclass(frozen=True, slots=True)
 class HostOperationAuthority:
     """Route guardrail for operations whose primary state is in one host."""
@@ -37,19 +60,7 @@ class HostOperationAuthority:
     def check_preconditions(self, task: TaskContract, plan: ExecutionPlan, runtime: RuntimeContext) -> GateResult:
         if confirmation_gate := _confirmation_gate(task):
             return confirmation_gate
-        # Direct MCP calls are executed by the Agent's configured MCP client.
-        # The project-side route guard only validates the plan shape; it does
-        # not own MCP connections or server readiness.
-        if plan.host_call_surface == "mcp":
-            return GateResult(True)
-        if plan.host_app == "ue5":
-            if runtime.ue5 is None or not runtime.ue5.is_ready():
-                return GateResult(False, ("UE5 host executor is not ready",), next_action="make the UE5 Tool executor ready")
-            return GateResult(True)
-        if runtime.blender is None or not runtime.blender.can_use(plan.blender_call_surface):
-            surface = plan.blender_call_surface.value if plan.blender_call_surface else "unknown"
-            return GateResult(False, (f"Blender call surface is not ready: {surface}",), next_action="make the selected Blender call surface ready")
-        return GateResult(True)
+        return _host_readiness_gate(plan, runtime)
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,13 +77,15 @@ class AssetRoundtripAuthority:
     def check_preconditions(self, task: TaskContract, plan: ExecutionPlan, runtime: RuntimeContext) -> GateResult:
         if confirmation_gate := _confirmation_gate(task):
             return confirmation_gate
+        if plan.host_call_surface == "mcp":
+            return GateResult(True)
         blocked: list[str] = []
         source_app = str(task.source_context.get("app", "ue5")).lower()
         target_app = str(task.target_context.get("app", "ue5")).lower()
-        if runtime.blender is None or not runtime.blender.can_use(plan.blender_call_surface):
+        if runtime.executor("blender") is None or not runtime.executor("blender").can_use(plan.blender_call_surface):
             surface = plan.blender_call_surface.value if plan.blender_call_surface else "unknown"
             blocked.append(f"Blender call surface is not ready: {surface}")
-        if (source_app == "ue5" or target_app == "ue5") and (runtime.ue5 is None or not runtime.ue5.is_ready()):
+        if (source_app == "ue5" or target_app == "ue5") and (runtime.executor("ue5") is None or not runtime.executor("ue5").is_ready()):
             blocked.append("UE5 executor is not ready")
         backend = runtime.transfer_backends.get(plan.transfer_backend) if plan.transfer_backend else None
         if backend is None or not backend.is_ready():
@@ -90,7 +103,12 @@ class AssetRoundtripAuthority:
 
 @dataclass(frozen=True, slots=True)
 class ArtifactApplyAuthority:
-    """Route guardrail for applying an external Artifact to a host."""
+    """Route guardrail for applying an external Artifact to a host.
+
+    Generation itself is an ordinary project Tool or an MCP Server tool; the
+    route guardrail only checks that the selected host is ready to apply or
+    publish the artifact.
+    """
 
     authority_id: str = "artifact-apply"
     route: TaskRoute = TaskRoute.ARTIFACT_PIPELINE
@@ -102,18 +120,7 @@ class ArtifactApplyAuthority:
     def check_preconditions(self, task: TaskContract, plan: ExecutionPlan, runtime: RuntimeContext) -> GateResult:
         if confirmation_gate := _confirmation_gate(task):
             return confirmation_gate
-        blocked: list[str] = []
-        if runtime.artifact_provider is None and not runtime.artifact_providers:
-            blocked.append("artifact provider is not ready")
-        if plan.host_app == "ue5":
-            if runtime.ue5 is None or not runtime.ue5.is_ready():
-                blocked.append("UE5 host executor is not ready")
-        elif runtime.blender is None or not runtime.blender.can_use(plan.blender_call_surface):
-            surface = plan.blender_call_surface.value if plan.blender_call_surface else "unknown"
-            blocked.append(f"Blender call surface is not ready: {surface}")
-        if blocked:
-            return GateResult(False, tuple(blocked), next_action="make the provider and selected host Tool ready")
-        return GateResult(True)
+        return _host_readiness_gate(plan, runtime)
 
 
 ROUTE_AUTHORITIES = {

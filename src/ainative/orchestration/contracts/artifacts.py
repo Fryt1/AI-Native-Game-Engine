@@ -1,3 +1,10 @@
+"""Shared artifact reference model for project Tools and hosts.
+
+ArtifactRef is a generic "produced file reference" used by host, transfer,
+and validator Tools. It is not tied to a generator-specific seam; ComfyUI
+and similar generators register as ordinary project Tools or MCP servers.
+"""
+
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
@@ -16,17 +23,9 @@ class ArtifactKind(StrEnum):
     UNKNOWN = "unknown"
 
 
-class ArtifactStatus(StrEnum):
-    REQUESTED = "requested"
-    RUNNING = "running"
-    SUCCEEDED = "succeeded"
-    FAILED = "failed"
-    NEEDS_REVIEW = "needs_review"
-
-
 @dataclass(frozen=True, slots=True)
 class ArtifactRef:
-    """A produced or staged artifact without knowing its provider implementation."""
+    """A produced or staged file reference without knowing its producer."""
 
     artifact_id: str
     kind: ArtifactKind
@@ -44,27 +43,3 @@ class ArtifactRef:
             "media_type": self.media_type,
             "metadata": self.metadata,
         }
-
-
-@dataclass(frozen=True, slots=True)
-class ArtifactGenerationRequest:
-    task_id: str
-    objective: str
-    kind: ArtifactKind
-    parameters: dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass(frozen=True, slots=True)
-class ProviderJob:
-    job_id: str
-    provider_id: str
-    status: ArtifactStatus
-
-
-@dataclass(frozen=True, slots=True)
-class ArtifactResult:
-    status: ArtifactStatus
-    job: ProviderJob
-    artifacts: tuple[ArtifactRef, ...] = ()
-    warnings: tuple[str, ...] = ()
-    errors: tuple[str, ...] = ()
