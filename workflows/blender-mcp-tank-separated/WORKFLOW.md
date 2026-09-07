@@ -1,5 +1,9 @@
 # Blender MCP: Separated Tank
 
+<!-- provenance: this Workflow Definition implements the shared guidance below. When the guidance changes, review and update this file; do not let the two diverge. -->
+
+- **Shared guidance:** [`host-operation.md`](../../skills/ai-native-workflow-orchestration/workflows/host-operation.md) (route: `host_operation`)
+
 ## Intent
 
 Build a stylized game-ready tank in Blender through the installed Blender MCP

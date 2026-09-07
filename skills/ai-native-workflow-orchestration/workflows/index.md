@@ -100,3 +100,10 @@ current state and user requirements.
 6. Do not maintain every host/object/operation combination as a recipe.
 7. Check exact Tool Calls and acceptance feasibility before change-side effects.
 8. Update this inventory and the integrity gate when canonical files change.
+9. Published Workflow packages declare a **Shared guidance** link in their
+   `WORKFLOW.md` (see `workflows/<id>/WORKFLOW.md`). When a guidance file in
+   this directory changes, review every published workflow that links to it
+   and update the package if the invariants or route changed.
+10. When a published Workflow's route or lifecycle changes, update both its
+    `plan.template.yaml` route and its `WORKFLOW.md` Shared guidance line so
+    they never diverge.

@@ -1,17 +1,13 @@
 # AI Native Game Engine
 
-An Agent-driven WorkflowPlan runtime for UE5, Blender, MCP servers, transfer backends, validators, and reusable ComfyUI/script-backed Tools.
+Agent-driven workflow orchestration for UE5, Blender, and ComfyUI with evidence-backed Stage acceptance.
 
-Agent intent is turned into a `TaskContract` and an Agent-authored `WorkflowPlan` by the Agent itself. The runtime never guesses a Route or Tool; it validates the plan, freezes execution/acceptance checklists per Stage, and lets the Agent execute one exact `ToolCall` or `McpCall` at a time. Every Stage completes only when structured checklist evidence proves it, never from a process exit code alone.
+An Agent-driven WorkflowPlan runtime for UE5, Blender, MCP servers, transfer backends, validators, and reusable ComfyUI/script-backed Tools. Agent intent is turned into a `TaskContract` and an Agent-authored `WorkflowPlan` by the Agent itself. The runtime never guesses a Route or Tool; it validates the plan, freezes execution and acceptance checklists per Stage, and lets the Agent execute one exact `ToolCall` or `McpCall` at a time. Every Stage completes only when structured checklist evidence proves it, never from a process exit code alone.
 
 ## Table of Contents
 
 - [Background](#background)
 - [Install](#install)
-- [Runtime dependencies](#runtime-dependencies)
-- [Blender MCP dependencies](#blender-mcp-dependencies)
-- [ComfyUI MCP dependencies](#comfyui-mcp-dependencies)
-- [Hugging Face CLI and MCP dependencies](#hugging-face-cli-and-mcp-dependencies)
 - [Usage](#usage)
 - [Architecture](#architecture)
 - [Security](#security)
@@ -31,66 +27,34 @@ The project keeps three firm boundaries:
 
 ## Install
 
-Requires Python 3.11+ on Windows with Unreal Engine 5 and Blender available when host operations are exercised. Install the editable package from the repository root:
+Requires Python 3.11+ on Windows. Unreal Engine 5 and Blender are required only when host operations are exercised; ComfyUI MCP requires a running ComfyUI server. Install the editable package from the repository root:
 
 ```powershell
 python -m pip install -e .[dev]
 ```
 
-Run from the repository root (the directory containing this README). The project is not published on PyPI and has no third-party runtime dependencies; `dev` extras add pytest and ruff.
+The project is not published on PyPI and has no third-party runtime dependencies; `dev` extras add pytest and ruff.
 
-## Runtime dependencies
+### Dependencies
 
-This repository is not a self-contained UE/Blender application. It owns the Python runtime,
-Workflow definitions, and Project Tools; the host applications and live MCP Servers are
-external dependencies.
+Runtime dependencies are external and version-baselined. See [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md) for the full Python, Blender, UE5, ComfyUI, AssetsBridge, Hugging Face, and MCP dependency contract, including version baselines, install/verification steps, failure triage, and security boundaries for each host/MCP integration.
 
-The supported baselines are Python 3.11+, Blender MCP 5.1.0+ (see [Blender MCP dependencies](#blender-mcp-dependencies)), and UE5 native MCP 5.8.0+.
-Blender 5.2.1 LTS and UE5.8.2 are currently validated. ComfyUI MCP is configured and
-live-validated locally with a minimal workflow and output read-back.
+Supported baselines:
 
-See [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md) for the full Python, Blender, UE5,
-ComfyUI, AssetsBridge, Hugging Face, and MCP dependency contract, including
-version baselines, install/verification steps, failure triage, and security
-boundaries for each host/MCP integration.
+```text
+Python          3.11+
+Blender MCP     5.1.0+  (5.2.1 LTS validated; add-on listens on localhost:9876)
+UE5 MCP         5.8.0+  (5.8.2 validated)
+comfy-cli       1.14.0+ (1.18.0 validated; default target http://127.0.0.1:8188)
+```
 
-## Blender MCP dependencies
-
-Blender MCP is a Blender Add-on (vendored under `vendor/mcp/blender/`), not an engine-internal
-server. The supported baseline is Blender 5.1.0+, with Blender 5.2.1 LTS currently validated,
-and it listens on the local TCP socket `localhost:9876` once enabled and started.
-
-See [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md) (Blender section) before running a Workflow that contains Blender `McpCall` entries.
-
-## ComfyUI MCP dependencies
-
-ComfyUI MCP is an external stdio MCP Server. The configured official `comfy-mcp` process
-uses `comfy-cli` to drive the ComfyUI HTTP API; it is not a Project Tool Registry entry and
-it is not a ComfyUI-internal plugin. The project baseline is `comfy-cli >=1.14.0`; the
-current local verification uses ComfyUI v0.30.2, `comfy-cli 1.18.0`, and `comfy-mcp 0.10.0`.
-
-The default local target is `http://127.0.0.1:8188`. The MCP process handshake and
-`tools/list` have passed locally, but ComfyUI must be running before `server_info`, workflow
-execution, or output retrieval can succeed.
-
-See [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md) (ComfyUI section) before running a Workflow that contains ComfyUI `McpCall` entries.
-
-## Hugging Face CLI and MCP dependencies
-
-Hugging Face is the model-discovery and model-acquisition side of the ComfyUI pipeline.
-Use the Hugging Face MCP Server for Hub search and research, and use the local `hf` CLI to
-authenticate and download model files into ComfyUI's model directories. The Hugging Face
-MCP is not a Project Tool Registry entry and does not replace ComfyUI MCP.
-
-Typical flow:
+Hugging Face is the model-discovery and model-acquisition side of the ComfyUI pipeline: use the Hugging Face MCP Server for Hub search, and the local `hf` CLI to authenticate and download model files into ComfyUI model directories.
 
 ```text
 Hugging Face MCP → find/check model, license, revision, and files
 hf CLI          → authenticate and download the selected model
 ComfyUI MCP     → discover, validate, and run the workflow
 ```
-
-See [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md) (Hugging Face section) before using a Workflow that needs Hub resources or local model acquisition.
 
 ## Usage
 
@@ -100,6 +64,19 @@ The Project Tool CLI executes one exact ToolCall through the Project Tool Regist
 
 ```powershell
 python -m ainative.tools --config runtime.json --toolset blender.editor --operation set-location --args '{"location":[1,2,3]}'
+```
+
+Arguments:
+
+```text
+--config      JSON file describing host/runtime providers
+--task        JSON TaskContract file
+--toolset     toolset id (required)
+--tool        exact tool_id; defaults to toolset + operation
+--operation   published operation name
+--args        JSON arguments object
+--call-id     call id
+--usage       execute | observe | verify | report
 ```
 
 Detailed runtime configuration and CLI semantics live in [docs/cli.md](docs/cli.md).
@@ -128,6 +105,10 @@ result = session.finish()
 ```
 
 `WorkflowSession` never invokes a Tool or MCP Server. It validates the submitted result against the plan, records evidence, evaluates each Stage deterministically, and aggregates the final result.
+
+### Adding a reusable workflow
+
+See [docs/ADDING_A_WORKFLOW.md](docs/ADDING_A_WORKFLOW.md) for the step-by-step guide (file templates, validation, and promotion). See [docs/ARCHITECTURE_GUIDE.md](docs/ARCHITECTURE_GUIDE.md) for the architecture walkthrough.
 
 ## Architecture
 
@@ -198,10 +179,12 @@ Tool contracts and workflow templates live with the Skill package and the publis
 - `skills/ai-native-workflow-orchestration/templates/` — plan templates and schema
 - `skills/ai-native-workflow-orchestration/toolsets/` — Toolset contracts
 - `docs/FINAL_ARCHITECTURE.md` — final architecture
+- `docs/ARCHITECTURE_GUIDE.md` — architecture walkthrough for new users
+- `docs/ADDING_A_WORKFLOW.md` — step-by-step guide to add a reusable workflow
 - `docs/MAINTENANCE.md` — maintenance and extension rules
 - `docs/VALIDATION_REPORT.md` — current verification evidence
 - `docs/cli.md` — Project Tool CLI usage
-- `docs/DEPENDENCIES.md` — Python、Blender、UE5、ComfyUI、AssetsBridge、MCP 和外部工具依赖总览
+- `docs/DEPENDENCIES.md` — dependency contract overview
 - `workflows/` — published reusable Workflow Definitions
 
 ## Security
@@ -223,4 +206,3 @@ There is no separate `CONTRIBUTING.md` or `CODE_OF_CONDUCT.md` yet; this section
 ## License
 
 MIT © [Fry](https://github.com/Fryt1). See [LICENSE](LICENSE).
-

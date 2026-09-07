@@ -1,5 +1,9 @@
 # Blender -> UE5 Asset Roundtrip
 
+<!-- provenance: this Workflow Definition implements the shared guidance below. When the guidance changes, review and update this file; do not let the two diverge. -->
+
+- **Shared guidance:** [`asset-roundtrip.md`](../../skills/ai-native-workflow-orchestration/workflows/asset-roundtrip.md) (route: `asset_transfer`)
+
 This is a reusable Workflow Definition. It is deliberately a recommendation and
 constraint set, not a fixed five-step script. The Agent instantiates a
 WorkflowPlan after reading the task, current state, project Tool Registry, and

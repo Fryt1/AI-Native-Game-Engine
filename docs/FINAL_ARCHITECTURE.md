@@ -120,6 +120,8 @@ all required pass    → succeeded
 | 计划/清单稳定格式 | `skills/ai-native-workflow-orchestration/templates/` |
 | Toolset 契约 | `skills/ai-native-workflow-orchestration/toolsets/` |
 | 可复用工作流定义 | `workflows/` |
+| 架构流程导览（新用户） | `docs/ARCHITECTURE_GUIDE.md` |
+| 新增可复用工作流指南 | `docs/ADDING_A_WORKFLOW.md` |
 | 维护与目录规则 | `MAINTENANCE.md` |
 | 验证证据 | `VALIDATION_REPORT.md` |
 | 历史决策与旧版 | `artifacts/archive/docs/` |
