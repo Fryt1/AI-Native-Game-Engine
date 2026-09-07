@@ -1,0 +1,24 @@
+version: 1
+workflow_id: comfyui-pbr-material-chord
+requires:
+  mcp:
+    - server_id: comfyui
+      tool_name: server_info
+    - server_id: comfyui
+      tool_name: validate_workflow
+    - server_id: comfyui
+      tool_name: run_workflow
+    - server_id: comfyui
+      tool_name: fetch_outputs
+  comfyui:
+    workspace: D:\work\Comfyui\ComfyUI-aki-v3.2\ComfyUI
+    custom_nodes:
+      - ComfyUI-Chord
+    models:
+      - folder: checkpoints
+        filename: chord_v1.safetensors
+  inputs:
+    - ComfyUI/input/pbr_input.png
+  downstream:
+    - blender_mcp
+    - ue5_mcp

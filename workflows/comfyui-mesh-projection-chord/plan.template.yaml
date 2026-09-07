@@ -1,0 +1,145 @@
+version: 1
+workflow_id: comfyui-mesh-projection-chord
+route: artifact_pipeline
+profile: default
+
+inputs:
+  input_image: <path to ComfyUI/input/mesh_view_render.png>
+
+steps:
+  - step_id: run-comfyui-graph
+    purpose: Validate and run the registered ComfyUI graph for one concrete input.
+    stages:
+      - stage_id: validate-graph
+        stage_kind: investigation
+        purpose: Confirm the graph resolves against the live ComfyUI catalog.
+        calls:
+          - kind: mcp
+            call_id: validate-graph
+            server_id: comfyui
+            tool_name: validate_workflow
+            arguments:
+              workflow_path: src/ainative/toolsets/comfyui_workflow/graphs/mesh_projection_chord.json
+            depends_on: []
+            usage: observe
+        execution_checklist:
+          - item_id: graph-validated
+            description: ComfyUI validate_workflow returned valid.
+            required: true
+            call_ids: [validate-graph]
+            evidence_required: true
+        acceptance_checklist:
+          - check_id: graph-valid
+            description: validate_workflow reports error_count 0.
+            required: true
+            call_ids: [validate-graph]
+            source_call_id: validate-graph
+            operator: equals
+            actual_path: [error_count]
+            expected: 0
+            tolerance: null
+            evidence_required: true
+
+      - stage_id: run-graph
+        stage_kind: change
+        purpose: Execute the graph and read back outputs.
+        calls:
+          - kind: mcp
+            call_id: run-comfyui
+            server_id: comfyui
+            tool_name: run_workflow
+            arguments:
+              workflow_path: src/ainative/toolsets/comfyui_workflow/graphs/mesh_projection_chord.json
+            depends_on: [validate-graph]
+            usage: execute
+        execution_checklist:
+          - item_id: graph-run
+            description: ComfyUI run_workflow completed without OOM/error.
+            required: true
+            call_ids: [run-comfyui]
+            evidence_required: true
+        acceptance_checklist:
+          - check_id: output-base_color-created
+            description: Generated output map/prefix 'base_color' exists.
+            required: true
+            call_ids: [run-comfyui]
+            source_call_id: run-comfyui
+            operator: exists
+            actual_path: [outputs]
+            expected: null
+            tolerance: null
+            evidence_required: true
+          - check_id: output-normal-created
+            description: Generated output map/prefix 'normal' exists.
+            required: true
+            call_ids: [run-comfyui]
+            source_call_id: run-comfyui
+            operator: exists
+            actual_path: [outputs]
+            expected: null
+            tolerance: null
+            evidence_required: true
+          - check_id: output-roughness-created
+            description: Generated output map/prefix 'roughness' exists.
+            required: true
+            call_ids: [run-comfyui]
+            source_call_id: run-comfyui
+            operator: exists
+            actual_path: [outputs]
+            expected: null
+            tolerance: null
+            evidence_required: true
+          - check_id: output-metalness-created
+            description: Generated output map/prefix 'metalness' exists.
+            required: true
+            call_ids: [run-comfyui]
+            source_call_id: run-comfyui
+            operator: exists
+            actual_path: [outputs]
+            expected: null
+            tolerance: null
+            evidence_required: true
+          - check_id: output-height-created
+            description: Generated output map/prefix 'height' exists.
+            required: true
+            call_ids: [run-comfyui]
+            source_call_id: run-comfyui
+            operator: exists
+            actual_path: [outputs]
+            expected: null
+            tolerance: null
+            evidence_required: true
+
+  - step_id: capture-evidence
+    purpose: Copy produced images under the workflow evidence directory.
+    stages:
+      - stage_id: save-evidence
+        stage_kind: change
+        purpose: Persist produced outputs under artifacts/evidence.
+        calls:
+          - kind: mcp
+            call_id: fetch-outputs
+            server_id: comfyui
+            tool_name: fetch_outputs
+            arguments:
+              prompt_id: <run prompt id>
+              out_dir: artifacts/evidence/comfyui-game-workflows/mesh-projection-chord
+            depends_on: [run-comfyui]
+            usage: report
+        execution_checklist:
+          - item_id: evidence-saved
+            description: Output files recorded under evidence directory.
+            required: true
+            call_ids: [fetch-outputs]
+            evidence_required: true
+        acceptance_checklist:
+          - check_id: evidence-dir-exists
+            description: Evidence directory contains at least one output file.
+            required: true
+            call_ids: [fetch-outputs]
+            source_call_id: fetch-outputs
+            operator: exists
+            actual_path: [files]
+            expected: null
+            tolerance: null
+            evidence_required: true

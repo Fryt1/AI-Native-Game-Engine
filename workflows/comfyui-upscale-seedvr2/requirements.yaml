@@ -1,0 +1,21 @@
+version: 1
+workflow_id: comfyui-upscale-seedvr2
+requires:
+  mcp:
+    - server_id: comfyui
+      tool_name: validate_workflow
+    - server_id: comfyui
+      tool_name: run_workflow
+    - server_id: comfyui
+      tool_name: fetch_outputs
+  comfyui:
+    workspace: D:\work\Comfyui\ComfyUI-aki-v3.2\ComfyUI
+    models:
+      - folder: diffusion_models
+        filename: seedvr2_3b_int8_convrot.safetensors
+      - folder: vae
+        filename: seedvr2_ema_vae_fp16.safetensors
+  inputs:
+    - ComfyUI/input/upscale_input.png
+  downstream:
+    - comfyui-pbr-material-chord

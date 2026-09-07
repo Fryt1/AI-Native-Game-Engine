@@ -1,0 +1,22 @@
+version: 1
+workflow_id: comfyui-mesh-projection-chord
+requires:
+  mcp:
+    - server_id: comfyui
+      tool_name: validate_workflow
+    - server_id: comfyui
+      tool_name: run_workflow
+    - server_id: blender
+      tool_name: execute_blender_code
+  comfyui:
+    workspace: D:\work\Comfyui\ComfyUI-aki-v3.2\ComfyUI
+    custom_nodes:
+      - ComfyUI-Chord
+    models:
+      - folder: checkpoints
+        filename: chord_v1.safetensors
+  inputs:
+    - ComfyUI/input/mesh_view_render.png
+  downstream:
+    - blender_mcp
+    - ue5_mcp

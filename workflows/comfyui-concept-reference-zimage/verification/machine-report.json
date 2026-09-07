@@ -1,0 +1,12 @@
+{
+  "status": "passed",
+  "workflow": "comfyui-concept-reference-zimage",
+  "date": "2026-09-07",
+  "comfyui_version": "0.34.5",
+  "run": {
+    "input": "<ComfyUI/input file>",
+    "outputs": ["concept_side"],
+    "evidence_dir": "artifacts/evidence/comfyui-game-workflows/concept-reference-zimage",
+    "oom": false
+  }
+}

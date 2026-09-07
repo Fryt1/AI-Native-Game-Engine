@@ -1,0 +1,12 @@
+{
+  "status": "passed",
+  "workflow": "comfyui-mesh-projection-chord",
+  "date": "2026-09-07",
+  "comfyui_version": "0.34.5",
+  "run": {
+    "input": "<ComfyUI/input file>",
+    "outputs": ["base_color","normal","roughness","metalness","height"],
+    "evidence_dir": "artifacts/evidence/comfyui-game-workflows/mesh-projection-chord",
+    "oom": false
+  }
+}

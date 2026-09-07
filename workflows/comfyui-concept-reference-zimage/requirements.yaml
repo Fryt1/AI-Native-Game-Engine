@@ -1,0 +1,29 @@
+version: 1
+workflow_id: comfyui-concept-reference-zimage
+requires:
+  mcp:
+    - server_id: comfyui
+      tool_name: validate_workflow
+    - server_id: comfyui
+      tool_name: run_workflow
+    - server_id: comfyui
+      tool_name: fetch_outputs
+  comfyui:
+    workspace: D:\work\Comfyui\ComfyUI-aki-v3.2\ComfyUI
+    nodes:
+      - ZImageFunControlnet
+      - ModelPatchLoader
+      - Canny
+    models:
+      - folder: diffusion_models
+        filename: z_image_turbo_int8_convrot.safetensors
+      - folder: text_encoders
+        filename: qwen_3_4b.safetensors
+      - folder: vae
+        filename: z_image.safetensors
+      - folder: model_patches
+        filename: Z-Image-Turbo-Fun-Controlnet-Union-2.1-lite-2602-8steps.safetensors
+  inputs:
+    - ComfyUI/input/material_source.png
+  downstream:
+    - blender_mcp
