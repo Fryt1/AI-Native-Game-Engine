@@ -1,5 +1,7 @@
 # UE5 Fixtures
 
+Reproducible UE5 project fixtures used by Project Tool and E2E paths.
+
 ```text
 ue5/
 ├── actor-fixture/       generic UE5 Actor host-operation project
@@ -15,3 +17,7 @@ These fixture projects do not vendor Epic's engine-level ModelContextProtocol pl
 not start a permanent live MCP Editor. They are used by the repository's Project Tool and E2E
 paths. For a live UE5 McpCall, install/enable the MCP plugin in the target UE5 project and
 configure the Agent MCP Client according to [the dependency contract](../../../docs/DEPENDENCIES.md) (UE5 section).
+
+## License
+
+MIT © [Fry](https://github.com/Fryt1). See [LICENSE](../../../LICENSE).

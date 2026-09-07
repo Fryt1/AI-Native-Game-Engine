@@ -1,6 +1,8 @@
 # Project Scripts
 
-Operational and test scripts for AI Native Game Engine. They are not runtime Python packages; they call the Toolset implementations under `src/ainative/toolsets/`.
+Operational and test scripts for the AI Native Game Engine.
+
+They are not runtime Python packages; they call the Toolset implementations under `src/ainative/toolsets/`.
 
 ## Layout
 
@@ -26,12 +28,6 @@ python scripts/e2e/ue5/run_actor_operation_e2e.py --timeout 120
 python scripts/trace/analyze_trace.py <run-id-or-path>
 ```
 
-## Maintain
-
-- Scripts should not duplicate Toolset logic. Import from `ainative` when possible.
-- Probe/e2e outputs belong under `artifacts/evidence/` or `artifacts/scratch/`, never next to source.
-- Keep each script's operational contract in `scripts/docs/` when it changes.
-
 ## Preflight
 
 Before a Workflow with host/MCP requirements runs, verify the machine:
@@ -42,3 +38,13 @@ python scripts\preflight\run_preflight.py --workflow-root workflows\blender-ue5-
 
 Local host paths/endpoints belong in a machine-local JSON config (see `preflight.example.json`);
 preflight is read-only and never starts UE5 or Blender.
+
+## Maintain
+
+- Scripts should not duplicate Toolset logic. Import from `ainative` when possible.
+- Probe/e2e outputs belong under `artifacts/evidence/` or `artifacts/scratch/`, never next to source.
+- Keep each script's operational contract in `scripts/docs/` when it changes.
+
+## License
+
+MIT © [Fry](https://github.com/Fryt1). See [LICENSE](../LICENSE).

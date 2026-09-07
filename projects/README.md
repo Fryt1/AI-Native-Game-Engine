@@ -19,3 +19,7 @@ External AssetsBridge plugin and Blender Add-on sources are vendored under `vend
 - Keep project-specific source inputs and manifests here.
 - Put generated logs, temporary Blender files, exported GLBs, and UE5 output under `artifacts/` or a fixture's ignored generated-state folders.
 - Do not put repository-wide Agent rules here; those belong in `AGENTS.md` or `skills/ai-native-workflow-orchestration/`.
+
+## License
+
+MIT © [Fry](https://github.com/Fryt1). See [LICENSE](../LICENSE).

@@ -1,5 +1,7 @@
 # Operational Tool Documentation
 
+Command-level documentation for scripts whose exact behavior must stay separate from Agent rules.
+
 Documents exact tool behavior. Separate from `SKILL.md` and Workflow prose so command details can change without changing the Agent's high-level rules.
 
 ## What belongs here
@@ -20,6 +22,10 @@ Documents exact tool behavior. Separate from `SKILL.md` and Workflow prose so co
 
 ## Current tools
 
-- `blender-cli.md`
-- `ue5-python.md`
-- `assetsbridge-json.md`
+- [`blender-cli.md`](blender-cli.md)
+- [`ue5-python.md`](ue5-python.md)
+- [`assetsbridge-json.md`](assetsbridge-json.md)
+
+## License
+
+MIT © [Fry](https://github.com/Fryt1). See [LICENSE](../../../../LICENSE).

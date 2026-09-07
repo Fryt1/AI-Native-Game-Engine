@@ -1,4 +1,4 @@
-﻿# Codex Session Timeline Analyzer（外部工具接入说明）
+# Codex Session Timeline Analyzer（外部工具接入说明）
 
 分析 Codex Agent 会话的输入/输出、工具调用耗时、token 用量和瓶颈。
 **这是社区只读工具，不属于本项目运行时，不改仓库任何 Agent/Skill/代码逻辑。**
@@ -73,3 +73,6 @@ start reports\latest.html
 
 然后人工/让 Agent 对照项目 Skill 看链路是否符合预期。
 
+## License
+
+MIT © [Fry](https://github.com/Fryt1). See [LICENSE](../../LICENSE).

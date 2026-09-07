@@ -1,5 +1,7 @@
 # Example: Artifact Generate and Apply Chain
 
+Illustrative provider/artifact checklist closure for an Agent-authored plan that generates, applies, and validates an artifact.
+
 ```text
 Stage kind: change
 Object: material / texture artifact
@@ -27,3 +29,7 @@ Stage: validate host result
 The chain uses normal Tools, structured CheckResults, and deterministic Stage
 aggregation. Generation is an ordinary ToolCall or McpCall; it does not require
 a generator-specific seam or a second Registry.
+
+## License
+
+MIT © [Fry](https://github.com/Fryt1). See [LICENSE](../../../LICENSE).

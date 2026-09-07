@@ -1,6 +1,8 @@
 # Orchestration Core
 
-Generic mechanics shared by every Agent Workflow and Toolset. It does not contain UE5, Blender, AssetsBridge, or provider-specific implementation.
+Generic WorkflowPlan, Stage, and acceptance mechanics shared by every Agent Workflow and Toolset.
+
+The core does not contain UE5, Blender, AssetsBridge, or provider-specific implementation. It validates structure and executes only the exact selected Tool call; plan generation and scheduling stay with the Agent.
 
 ## Modules
 
@@ -33,3 +35,11 @@ Agent-authored WorkflowPlan
 ```
 
 The Agent owns the plan and chooses the next call. Python validates and executes only the selected call; it does not generate or schedule the complete plan.
+
+## Maintain
+
+See [docs/MAINTENANCE.md](../../../docs/MAINTENANCE.md) for orchestration invariants and extension rules.
+
+## License
+
+MIT © [Fry](https://github.com/Fryt1). See [LICENSE](../../../LICENSE).

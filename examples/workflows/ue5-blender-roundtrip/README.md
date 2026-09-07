@@ -1,5 +1,7 @@
 # Example: UE5 → Blender → UE5
 
+Illustrative asset-transfer round-trip example: modify a UE5 Static Mesh in Blender while preserving declared identity, material-slot, and Transform relations.
+
 ## Intent
 
 Modify a UE5 Static Mesh in Blender while preserving declared identity, material-slot, and Transform relations.
@@ -18,3 +20,7 @@ The Agent uses those layers to author Stages such as transfer to Blender, edit, 
 ## Acceptance note
 
 A returned GLB or a successful process exit is not proof of preservation. Use the validation Tool against source/result snapshots, and read the target host back when the Workflow promises it.
+
+## License
+
+MIT © [Fry](https://github.com/Fryt1). See [LICENSE](../../../LICENSE).

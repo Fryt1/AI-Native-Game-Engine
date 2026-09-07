@@ -14,3 +14,7 @@ artifacts/
 Only `evidence/` is a current source of verification claims. Do not use an archived run as the current result without re-running or explicitly promoting it.
 
 The directory stays git-ignored except placeholder `README.md`/`.gitkeep` files.
+
+## License
+
+MIT © [Fry](https://github.com/Fryt1). See [LICENSE](../LICENSE).
