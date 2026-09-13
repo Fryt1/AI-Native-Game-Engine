@@ -6,7 +6,7 @@
 
 ```powershell
 # 方式一：源码在 PYTHONPATH 上
-$env:PYTHONPATH='D:\work\AI-Native-Game-Engine\src'
+$env:PYTHONPATH='D:\work\AI-Native\game-engine\src'
 python -m ainative.tools --help
 
 # 方式二：安装后使用 console script
@@ -24,7 +24,7 @@ ainative-tools --help
   "ue5": {
     "executable": "D:/UnrealEngine/ue5.7.1/UnrealEngine/Engine/Binaries/Win64/UnrealEditor-Cmd.exe",
     "project": "D:/project/Game.uproject",
-    "script": "D:/work/AI-Native-Game-Engine/src/ainative/toolsets/ue5_editor/execution/bridge_entry.py",
+    "script": "D:/work/AI-Native/game-engine/src/ainative/toolsets/ue5_editor/execution/bridge_entry.py",
     "launch_mode": "commandlet"
   },
   "assetsbridge": {"directory": "D:/bridge"}

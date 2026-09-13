@@ -41,7 +41,7 @@ codex-session-timeline C:\Users\27648\.codex\sessions\2026\09\05\rollout-xxx.jso
 codex-session-timeline --html-index-out reports\index.html --session-limit 20
 
 # 5) 只看某个项目目录的会话（按 cwd 过滤）
-codex-session-timeline --html-index-out reports\project.html --project-filter AI-Native-Game-Engine
+codex-session-timeline --html-index-out reports\project.html --project-filter game-engine
 
 # 6) 输出完整 JSON（可再加工）
 codex-session-timeline <file> --json-out reports\out.json

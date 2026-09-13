@@ -5,8 +5,8 @@ This file is the repository-level entry point.
 ## Required loading order
 
 ```text
-D:\work\AI-Native-Game-Engine\AGENTS.md
-    → D:\work\AI-Native-Game-Engine\skills\ai-native-workflow-orchestration\SKILL.md
+D:\work\AI-Native\game-engine\AGENTS.md
+    → D:\work\AI-Native\game-engine\skills\ai-native-workflow-orchestration\SKILL.md
     → Skill integrity gate
     → Route / Workflow guidance
     → layered Stage knowledge
@@ -78,6 +78,35 @@ file as a script or decide which call comes next.
 - Local acceptance belongs to the current Stage. A separate validation Stage is
   allowed for cross-Stage invariants.
 
+## Acceptance boundary (do not blur)
+
+Two acceptance systems exist on purpose, and they answer different questions.
+This repository owns the first one and must not absorb the second.
+
+| | This repo: `StageAcceptanceEvaluator` | `AI-Native-Evals`: TestPlan |
+| --- | --- | --- |
+| Who authors the criteria | The Agent, inside its WorkflowPlan | The Task author (a human) |
+| When it runs | At a Stage boundary, during the run | After the run, over the workspace |
+| Question it answers | Did this Stage meet the plan's own frozen criteria? | Was the task actually completed? |
+| Status vocabulary | `pass` / `warn` / `fail` / `unknown` / `needs_human` | `passed` / `failed` / `review` / `blocked` / `error` / `skipped` / `observed` |
+| May invoke Tools | No, by design | Yes (Judge Agents, host probes) |
+| Authority | Gates progress inside one run | The only verdict valid outside the run |
+
+Rules:
+
+- A Stage `pass` proves the Agent did what its own checklist said. It does not
+  prove the task is done, because the Agent wrote the checklist. Never present it
+  as task-level success.
+- This repository never imports, depends on, or defers to `AI-Native-Evals`. The
+  evaluator stays usable with no eval framework installed.
+- `AI-Native-Evals` may consume `StageAcceptance` as a *process signal*. It must
+  never adopt a Stage `pass` as its own pass.
+- The two share the idea of checking world state, not the authority to judge. The
+  primitive operators (`exists`, `equals`, `within_tolerance`, ...) are
+  intentionally implemented on both sides for their own layers. When adding a new
+  primitive here, check whether the eval side needs the equivalent, and keep the
+  vocabularies explicitly mapped rather than assumed equal.
+
 ## Stage kinds
 
 ```text
@@ -95,7 +124,7 @@ planning
 ## Directory ownership
 
 ```text
-D:\work\AI-Native-Game-Engine\
+D:\work\AI-Native\game-engine\
 ├── docs\                 cross-cutting architecture and maintenance docs
 ├── skills\               Agent-facing Skill package
 ├── src\ainative\
@@ -112,20 +141,20 @@ D:\work\AI-Native-Game-Engine\
 
 ### Code ownership
 
-- `D:\work\AI-Native-Game-Engine\src\ainative\agent\` owns the Agent-facing
+- `D:\work\AI-Native\game-engine\src\ainative\agent\` owns the Agent-facing
   session API.
-- `D:\work\AI-Native-Game-Engine\src\ainative\orchestration\` owns generic
+- `D:\work\AI-Native\game-engine\src\ainative\orchestration\` owns generic
   plan, Stage, checklist, Route, and acceptance behavior.
-- `D:\work\AI-Native-Game-Engine\src\ainative\registry\` owns Toolset
+- `D:\work\AI-Native\game-engine\src\ainative\registry\` owns Toolset
   discovery and exact Tool resolution.
 - Each directory under
-  `D:\work\AI-Native-Game-Engine\src\ainative\toolsets\` owns one concrete
+  `D:\work\AI-Native\game-engine\src\ainative\toolsets\` owns one concrete
   Toolset and its implementation details.
-- `D:\work\AI-Native-Game-Engine\skills\ai-native-workflow-orchestration\`
+- `D:\work\AI-Native\game-engine\skills\ai-native-workflow-orchestration\`
   owns Agent guidance, layered knowledge, templates, and Toolset guides.
   Each Toolset guide is maintained at
   `skills\ai-native-workflow-orchestration\toolsets\<unit>\TOOLSET.md`.
-- `D:\work\AI-Native-Game-Engine\src\ainative\toolsets\ports\` owns the
+- `D:\work\AI-Native\game-engine\src\ainative\toolsets\ports\` owns the
   interfaces implemented by concrete Toolset providers.
 
 ## Final execution architecture
@@ -139,7 +168,7 @@ WorkflowPlan Stage calls[]
 Blender/UE5 scripts and ComfyUI graphs may be registered as project Tools; an external ComfyUI
 MCP is a direct McpCall. None of these introduces a third WorkflowPlan call type.
 Reusable Workflow Definitions live in
-`D:\work\AI-Native-Game-Engine\workflows\` and are promoted only after
+`D:\work\AI-Native\game-engine\workflows\` and are promoted only after
 machine verification and required human review.
 
 ## Engineering rules
@@ -160,7 +189,7 @@ machine verification and required human review.
 ## Verification commands
 
 ```powershell
-Set-Location D:\work\AI-Native-Game-Engine
+Set-Location D:\work\AI-Native\game-engine
 python -m pytest -q
 python skills\ai-native-workflow-orchestration\scripts\integrity_gate.py --json
 python -m compileall -q src scripts skills tests
