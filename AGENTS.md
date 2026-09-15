@@ -218,9 +218,12 @@ supersede  replace the Workflow revision, archiving the old one and its evidence
 
 Every command prints the same envelope — `command`, `ok`, `verdict`, `exit_code`,
 `detail`, `errors` — and exits 0 for a non-blocking result, 1 for a blocking or
-failing result, and 2 when the command itself could not run. `verdict` uses one
-vocabulary for every command, so a caller reads one field without knowing which
-command ran.
+failing result, and 2 when the command itself could not run.
+
+`verdict` uses one vocabulary for every command: `succeeded`, `degraded`,
+`blocked`, `failed`, `needs_approval`. Stage and Task outcomes already speak
+those words; a checklist `pass` reports `succeeded` and a `warn` reports
+`degraded`, so a caller reads one field without knowing which command ran.
 
 A call returning `succeeded` does not complete a Stage. A Stage completes only
 when its frozen acceptance checks pass — an empty `preserved_relations` against a

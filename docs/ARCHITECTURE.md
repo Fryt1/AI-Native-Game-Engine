@@ -44,7 +44,7 @@
 
 ### 关键分层原则
 
-**模型层是纯数据。** `model/` 下全是 `@dataclass(frozen=True, slots=True)`，没有方法做决定，只有 `to_dict()` 和少量派生属性（如 `WorkflowPlan.stage_requests`）。
+**模型层是纯数据。** `model/` 下全是 `@dataclass(frozen=True, slots=True)`，没有方法做决定，只有 `to_dict()` 和少量派生属性（如 `Workflow.stage_requests`）。
 
 **验收层不认识 Tool。** `StageAcceptanceEvaluator.evaluate()` 只接收：一个 `StageRequest`、若干 `ExecutionResult`、以及 Agent 提交的清单结果。它不解析、不绑定、不执行。
 
@@ -56,21 +56,19 @@
 TaskContract                        这次任务"是什么"
 ├── task_id / objective
 ├── route                           host_operation | asset_transfer | artifact_pipeline
+├── asset_type / direction
 ├── preserve_relations              必须存活的关系
+├── guidance                        Agent 想读哪份指引（可选，自由字符串）
 ├── source_context / target_context  从哪里到哪里
-├── preferred_workflow_id            Agent 想读哪份指引（可选）
 ├── confirmation_required            是否需要先确认意图
 └── metadata
 
-ExecutionPlan
-└── workflow: WorkflowPlan
-
-WorkflowPlan                        一次计划修订
-├── workflow_id / route
+Workflow                            一个任务 = 一个工作流修订
+├── workflow_id / guidance / route
 ├── steps[]                         WorkflowStep
-├── workflow_id / revision / status
+├── revision / status
 ├── supersedes_workflow_id / replacement_reason
-└── recovery_pointer
+└── recovery_pointer / warnings
 
 WorkflowStep
 ├── step_id / purpose
@@ -94,6 +92,10 @@ ToolCall                             一次 Agent 声明的调用
 
 `target` 就是调用本身：`owner` 是 MCP server 名，`name` 是它上面的 tool 名。
 本仓库解析不了它——解析并执行的是 Agent 自己的 MCP client。
+
+`StageRequest.fingerprint` 是定义的内容摘要（`stage_kind` + `purpose` + `operation`
++ `required` + `calls` + 两份清单，**不含 `stage_id`**）。替换修订时用它判断某个 Stage
+是否还是同一件事，见 [docs/cli.md](cli.md) 的 `supersede` 一节。
 
 ### 证据与结果（流动中产生）
 

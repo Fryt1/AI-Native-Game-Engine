@@ -43,7 +43,7 @@ acceptance checklist
     what must be proven to complete the Stage
 ```
 
-Checklist composition does not bind Tools. The final WorkflowPlan references the
+Checklist composition does not bind Tools. The final Workflow references the
 exact calls the Agent selected.
 
 ## ExecutionResult

@@ -61,7 +61,7 @@ selection or Stage contract is wrong.
 For each selected Stage, the Agent composes an execution checklist and an
 acceptance checklist from the Stage kind, the processing object, the operation
 type, the current facts, and the user's requirements, then freezes both in the
-WorkflowPlan. The Agent supplies that domain competence; the checklist does not
+Workflow. The Agent supplies that domain competence; the checklist does not
 name calls, and the final Workflow stores the exact MCP calls the Agent selected.
 
 A call returning `succeeded` is call-level evidence only. The Stage completes

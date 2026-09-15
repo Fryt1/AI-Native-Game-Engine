@@ -1,6 +1,6 @@
 # Failure Recovery and Resume
 
-Governance is shared execution policy. The Agent-authored WorkflowPlan still
+Governance is shared execution policy. The Agent-authored Workflow still
 owns which Stage failed and which resume pointer is valid.
 
 ## Rules

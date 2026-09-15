@@ -7,7 +7,7 @@
 ## 先看结论
 
 这个仓库不是一个把所有外部软件打包在一起的桌面应用。它是一个 Agent-driven
-WorkflowPlan runtime：仓库拥有 Python 结构校验、验收引擎和给 Agent 读的提示资产；
+Workflow runtime：仓库拥有 Python 结构校验、验收引擎和给 Agent 读的提示资产；
 UE5、Blender、ComfyUI、MCP Server 和 Agent MCP Client 是外部运行时依赖。
 
 本仓库没有自己的宿主侧实现：不保存 Blender/UE5 可执行文件路径、不启动编辑器
@@ -37,7 +37,7 @@ Agent 连接层
 
 | 层 | 负责内容 | 是否由本仓库安装 |
 |---|---|---|
-| Python runtime | WorkflowPlan 结构校验、验收 | 是，`pip install -e .[dev]` |
+| Python runtime | Workflow 结构校验、验收 | 是，`pip install -e .[dev]` |
 | UE5 host | Unreal Editor、UE5 Python/命令执行 | 否，用户安装 |
 | Blender host | Blender CLI、当前 Blender 上下文和 `bpy` | 否，用户安装 |
 | ComfyUI host | ComfyUI 工作区、模型、custom nodes、生成 API | 否，用户安装 |

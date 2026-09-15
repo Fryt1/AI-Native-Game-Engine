@@ -73,22 +73,23 @@ python -m ainative.session --state s.json status
 Commands:
 
 ```text
-open     validate an Agent-authored Workflow and start a session
-record   submit one executed call result as evidence (--result)
-item     submit one execution checklist item result (--result)
-check    submit one manual acceptance check result (--result)
-stage    evaluate one Stage and close it (--stage)
-finish   aggregate the final TaskResult
-status   show current session state without changing it
+open       validate an Agent-authored Workflow and start a session
+record     submit one executed call result as evidence (--result)
+item       submit one execution checklist item result (--result)
+check      submit one manual acceptance check result (--result)
+stage      evaluate one Stage and close it (--stage)
+finish     aggregate the final TaskResult
+status     show current session state without changing it
+supersede  replace the Workflow revision, archiving the old one and its evidence
 ```
 
-Every command prints one JSON object and exits 0 on a non-blocking result, 1 on a blocking or failing result, and 2 when the command itself could not run. The Workflow, the task, and every submitted result live in the `--state` file, so later commands need only `--state` plus their own argument. The Agent keeps executing every MCP call itself; this CLI only carries the Workflow in and the verdict out.
+Every command prints the same envelope — `command`, `ok`, `verdict`, `exit_code`, `detail`, `errors` — and exits 0 on a non-blocking result, 1 on a blocking or failing result, and 2 when the command itself could not run. The Workflow, the task, and every submitted result live in the `--state` file, so later commands need only `--state` plus their own argument. The Agent keeps executing every MCP call itself; this CLI only carries the Workflow in and the verdict out.
 
 There is no host-editor configuration: Blender and UE5 are reached through their own MCP servers by the Agent. Detailed CLI semantics live in [docs/cli.md](docs/cli.md).
 
 ### Agent-facing API
 
-The Agent supplies a `TaskContract`, loads Workflow guidance, authors an `ExecutionPlan`, and opens a validation session:
+The Agent supplies a `TaskContract`, loads Workflow guidance, authors a `Workflow`, and opens a validation session:
 
 ```python
 from ainative.session_api import AcceptanceGuide
@@ -108,7 +109,7 @@ stage_result = session.complete_stage("stage.change")
 result = session.finish()
 ```
 
-`WorkflowSession` never invokes an MCP Server. It validates the submitted result against the Workflow, records evidence, evaluates each Stage deterministically, and aggregates the final result.
+`AcceptanceSession` never invokes an MCP Server. It validates the submitted result against the Workflow, records evidence, evaluates each Stage deterministically, and aggregates the final result.
 
 The same loop is available process-level as `python -m ainative.session`, which reads an Agent-authored Workflow from JSON and reports a verdict per Stage — see the [CLI](#cli) section. Either way, a call returning `succeeded` does not complete a Stage: an acceptance check reads `ExecutionResult.evidence_view()`, so a check can address first-class evidence (`status`, `target`, `preserved_relations`, `lost_relations`, `artifact_count`, `artifacts`, `warnings`, `errors`) as well as any key in `outputs`. The Stage completes only when its frozen acceptance checks pass.
 

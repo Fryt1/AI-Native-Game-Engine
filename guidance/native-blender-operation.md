@@ -44,7 +44,7 @@ The Agent selects exact MCP calls on the `blender` server, naming the server as
 guarantee that the running server publishes them; confirm the real tool before
 declaring the call.
 
-The Agent writes those calls in the WorkflowPlan and invokes them one at a time
+The Agent writes those calls in the Workflow and invokes them one at a time
 through its own MCP client. Python validates the Workflow's structure only and never
 guesses an API. A save or validation action is never inferred from a Stage name.
 
@@ -59,7 +59,7 @@ was wrong.
 For each selected Stage, the Agent composes an execution checklist and an
 acceptance checklist from the Stage kind, the processing object, the operation
 type, the current facts, and the user's requirements, then freezes both in the
-WorkflowPlan. The Agent supplies that domain competence; the checklist does not
+Workflow. The Agent supplies that domain competence; the checklist does not
 name calls, and the final Workflow stores the exact MCP calls the Agent selected.
 
 A call returning `succeeded` is call-level evidence only. The Stage completes
