@@ -1,167 +1,97 @@
 # Validation Report
 
-> Latest validation: September 6, 2026（直接 MCP 调用、live UE5 MCP transport、ComfyUI MCP process handshake、workflow-backed Tools、可复用 Workflow Definition 生命周期）。
-> 本文件是 `docs/` 精简版；旧版全文归档在 `artifacts/archive/docs/VALIDATION_REPORT.md`。
+> Latest validation: September 6, 2026（宿主软件经 MCP 到达；本仓库只保留无宿主依赖的
+> 清单契约、校验与验收引擎）。
 
 ## Scope
 
-记录最终两路径执行模型的仓库验证：Project `ToolCall`、直接 `McpCall`、
-WorkflowPlan 生成与结构化验收。既有 UE5 证据与自动化回归套件分开记录。
+记录本仓库当前形态的验证：结构化验收，以及宿主 MCP 链路。宿主侧证据与自动化
+回归套件分开记录。
 
 ## Repository checks
 
 ```text
 python -m pytest -q
-75 passed
-
-python -m compileall -q src scripts skills tests
 passed
 
-ruff check src\ainative scripts\e2e scripts\agent scripts\docs scripts\workflows tests
+python -m compileall -q src tests
 passed
 
-python skills\ai-native-workflow-orchestration\scripts\integrity_gate.py --json
-ok: true（含 toolsets/*/TOOLSET.md 契约）
+ruff check src\ainative tests
+passed
 
-python scripts\workflows\validate_workflow.py workflows\blender-ue5-asset-roundtrip --json
+python integrity_gate.py --json
 ok: true
-
-python scripts\e2e\ue5\run_actor_operation_e2e.py --timeout 120
-passed（真实 UE5.7.1：Actor 读取、Transform 修改、保存、读回；可见 Editor
-窗口证据已记录，测试 harness 的主动清理可能产生预期的非零进程码）
-
-BLENDER_EXECUTABLE=E:\blender\blender.exe python -m pytest -q
-tests\integration\blender\test_cli.py tests\integration\transfer\test_direct_workflow_real_blender.py
-tests\integration\transfer\test_full_bridge_workflow.py
-passed（真实 Blender 5.2.1 LTS：CLI create/modify/export/import/inspect、
-Direct Transfer、AssetsBridge JSON round-trip）
-
-workflow create → validate → promote smoke lifecycle
-passed（发布产物 smoke 后已清理）
-
-WorkflowPlan template JSON / JSON Schema / SVG XML parse
-passed
 ```
 
 ## Current execution safeguards
 
-- The runtime has no built-in prompt router. The Agent supplies the TaskContract
-  and owns Route/Workflow judgment; the runtime never selects an exact Project
-  Tool or MCP Tool. An explicitly injected Agent/LLM interpreter is optional.
-- WorkflowPlan runtime dimensions must match the selected Route/Workflow,
-  including authority, host, Backend, call surface, and modification method.
-- Superseded, completed, failed, or invalid plan revisions cannot be started.
-- CLI task loading derives the same selection context used by the Agent, so
-  Direct Transfer receives its Backend context instead of silently skipping the
-  Blender import/export seam. AssetsBridge tasks receive an isolated per-task
-  exchange directory.
-- AssetsBridge JSON writes are atomic and carry a transfer identity when the
-  protocol owns the document. Validators compare source/result snapshots rather
-  than treating field presence as proof of preservation.
-- Host process result files are cleared before execution and malformed statuses,
-  stale result IDs, invalid CLI JSON, missing Tool arguments/outputs, and process
-  timeouts fail closed.
+- The runtime has no built-in prompt router and selects no call for the Agent. The
+  Agent supplies the task and owns every decision about what to call next.
+- The runtime executes nothing. A plan is validated structurally only: there is no
+  execution binding, no provider list, and no per-run provider check.
+- MCP calls are first-class plan entries. A call carries `kind` (`mcp` or
+  `project_tool`) and a `target` of owner/name, so a host call such as
+  `{"owner": "ue5", "name": "set_actor_transform"}` participates in the call graph
+  and in dependency ordering instead of being pushed into a `manual` check.
+- A submitted result must match its declared call: an undeclared `call_id`, or a
+  `kind`/`target` that disagrees with the Workflow, is rejected before it is recorded.
+- Missing call arguments fail closed before execution. Malformed statuses and
+  invalid CLI JSON fail closed before results are recorded.
 
-## WorkflowGuide / CLI 架构
-
-本轮把 `AgentHost`/`AgentExecutionSession` 改名为 `WorkflowGuide`/`WorkflowSession`，
-并从校验 Session 中移除 Python 侧 Tool 执行：
+## Call execution
 
 ```text
-WorkflowGuide.start(task, plan, runtime)
-    → 校验 plan 结构与 Project Tool 可行性
-    → 返回 WorkflowSession
-
-Agent 执行 Tools/MCP
-    → session.record_execution_result(ExecutionResult)
-
-session.complete_stage(stage_id)
-    → 确定性 Stage 验收
-
-session.finish()
-    → WorkflowResult
+MCP call
+    → kind=mcp, target: owner/name
+    → Agent MCP Client → Blender MCP / UE5 MCP / ComfyUI MCP
 ```
 
-Project Tool 另有进程 CLI（`python -m ainative.tools ...`）供 Agent 直接执行：
-解析 Registry 中确切 Tool、执行实现、输出结构化 `ExecutionResult`。
+There is no execution binding, no Tool registry, and no discovery index: the
+plan's `target` names what the Agent will invoke, and the Agent's own MCP client
+resolves and runs it. This repository ships no executable Toolset.
 
 ## 自动化覆盖
 
 ```text
-Project ToolCall 只经 Project Tool Registry 解析
-McpCall 契约由 Python 在 Agent MCP Client 执行后校验
-MCP target 与结构化 result shape 校验；远端 schema/可用性仍由 Agent MCP Client 负责
-Stage 中 McpCall 可与 Project ToolCall 并列
-MCP 结构化输出参与确定性验收
-Python-script-backed Workflow Tools 发布为普通 Project Tools
+ToolCall 必须带 call_id 与含 owner/name 的 target
+MCP 调用（kind=mcp）作为计划的正式成员进入调用图
+调用结果的 call_id 必须已在计划中声明
+调用结果的 kind / target 与计划不一致 → 拒绝记录
 required Stage 必须声明 execution/acceptance checklists
 Stage call 依赖在执行前校验
-Tool/MCP 成功不完成 Stage，除非有验收证据
+真实提交的 MCP 调用结果通过 record 记录，并参与 tool_succeeded 等自动判据
+调用成功不完成 Stage，除非有验收证据
 manual/complex check 在 CheckResult 记录前保持 unknown
 结构化读回相等可确定性完成 Stage
 warning-only required checks → degraded Stage/Task
 required fail/unknown/needs_human → 阻塞结果
-Agent 不能覆盖确定性 check 或 Tool-backed 执行证据
+Agent 不能覆盖确定性 check 或调用支撑的执行证据
 checklist summaries 持久化在 StageResult
 ```
 
 ## Ownership model
 
 ```text
-Workflow Definition  → 可复用指导/需求/plan template/验证记录
-Agent                → 实例化具体 WorkflowPlan 并选择调用顺序
-Project Tool Registry→ 发现并精确解析自有 ToolCall
-Agent MCP Client（外部 Codex 配置）→ 连接 MCP Server 并执行精确 McpCall
-Tool implementation  → 返回 TaskResult，规范化为 ExecutionResult + Evidence
-StageAcceptanceEvaluator → 产生 ExecutionItemResult / CheckResult / summaries
-WorkflowSession      → 记录 StageResult 并暴露下一步边界
+Skill 提示资产            → SKILL.md + guidance/ + references/
+Agent                   → 决定做什么、按什么顺序、调用哪一个，并亲自执行
+ToolCall contract       → 声明 call_id / kind / target / arguments / depends_on
+StageAcceptanceEvaluator→ 产生 ExecutionItemResult / CheckResult / summaries
+Acceptance session      → 记录 StageResult 并暴露下一步边界
 ```
 
-只有一个 Project Tool Registry；MCP Tools 不复制进来；项目没有第二个 MCP
-Client Runtime，也没有第二个 checker Registry。
+宿主编辑器不由本仓库拥有：没有可执行文件路径、没有编辑器子进程、没有宿主插件。
+本仓库也不执行任何调用——执行全部由 Agent 自己的 MCP Client 完成。
 
-## Workflow Definition lifecycle
+每个 Stage 由 Agent 按 Stage kind、处理对象、操作类型与当前事实组合，并在
+副作用前冻结 execution / acceptance checklist。本仓库不附带分层知识库，也不附带
+配方包；领域能力由 Agent 自己提供。
 
-```text
-workflows/blender-ue5-asset-roundtrip/
-    WORKFLOW.md / plan.template.yaml / requirements.yaml / examples/ / tests/ / verification/
-```
+## Host MCP evidence
 
-```text
-scripts/workflows/create_workflow.py
-scripts/workflows/validate_workflow.py
-scripts/workflows/promote_workflow.py
-```
+宿主能力经 MCP 到达，下列 live transport 证据仍然有效。
 
-Promote 需要机器报告 `status=passed`，且人工评审 `status=approved` 或
-`status=not_required`。
-
-## Existing host evidence
-
-此前 UE5.7.1 证据保留在：
-
-```text
-artifacts/evidence/ue5-host-operation/
-artifacts/evidence/ue5-level-template/
-artifacts/evidence/blender-ue5-roundtrip/
-```
-
-已验证 UE5 操作：
-
-```text
-Actor 读取 / Transform 修改 / 保存 / 读回
-从 /Engine/Maps/Templates/Template_Default 创建关卡
-DirectionalLight / SkyLight 读回
-AssetsBridge export/import
-```
-
-**UE5 native MCP live transport 已验证**；但仓库 fixture 仍未默认启动常驻 MCP Editor，且
-仍需要真实 Blender MCP host 运行，才能把 Blender MCP 路径升级为 live MCP evidence。自动化
-MCP 测试目前用确定性 fake session 验证契约，不是真实编辑器。
-项目自己的 Blender CLI / Direct Transfer / AssetsBridge JSON 真实宿主路径
-已在本机 Blender 5.2.1 上验证通过。
-
-## Live UE5 MCP transport
+### Live UE5 MCP transport
 
 2026-09-06 在仓库外的 UE5.8.2 测试项目中验证了原生 UE5 MCP 链路：
 
@@ -174,10 +104,9 @@ Toolset discovery: passed
 ```
 
 这项验证证明了引擎插件、目标项目、Editor 进程和 Agent MCP Client 之间的 live
-transport。它不等于仓库 fixture 已经变成常驻 MCP Editor；fixture 的 Project Tool
-执行面与 live MCP 执行面仍然分开维护。
+transport。
 
-## ComfyUI MCP live transport
+### ComfyUI MCP live transport
 
 2026-09-06 在本机 ComfyUI 发行版环境中验证了完整的 ComfyUI MCP 链路：
 
@@ -226,7 +155,6 @@ Codex MCP 配置
 不一定暴露 checkpoint slot；指定 `DreamShaper_8_pruned.safetensors` 时应使用包含
 `CheckpointLoaderSimple` 的 API workflow，再通过 `run_workflow` 执行。
 
-
 ## Hugging Face CLI / MCP integration
 
 2026-09-06 已完成 Hugging Face 两条接入面的配置检查：
@@ -241,5 +169,5 @@ CLI auth: not configured (`hf auth whoami` reports Not logged in)
 ```
 
 HF MCP 可以用于 Hub 资源搜索和模型研究；本地 gated 模型下载仍需要在用户自己的终端
-完成 `hf auth login`，再用 `hf download` 写入 ComfyUI 的模型目录。Token 不进入项目
+完成 `hf auth login`，再用 `hf download` 写入 ComfyUI 的模型目录。Token 不进入项目。
 详细契约见 `docs/DEPENDENCIES.md`（Hugging Face 节）。

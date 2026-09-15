@@ -1,60 +1,50 @@
 # Maintenance Guide
 
-**Status:** Living maintainer guide（`docs/` 精简版；详细历史归档在 `artifacts/archive/docs/`）
+**Status:** Living maintainer guide
 
 ## 架构不变量
 
 ```text
 Task Contract
-    → Route / Workflow guidance
-    → 分层 Stage 知识
-    → Agent 生成 WorkflowPlan
+    → Agent 按 Stage kind + 对象 + 操作 + 当前事实组合
+    → Agent 决定这次做什么
     → 冻结 execution + acceptance checklists
-    → 精确 ToolCall / McpCall 可行性
     → 一次一个选定调用
     → ExecutionResult / CheckResult / StageResult / Evidence
 ```
 
-- Agent 拥有 Steps、Stages、checklists、calls、参数与顺序。
+- Agent 拥有 Stages、checklists、调用、参数与顺序。
 - 每个 required Stage 都有 execution 与 acceptance checklist。
 - 每个 Stage call 至少支撑一个 checklist 项。
-- change Stage 在副作用前冻结 checklists 与必需 calls。
+- change Stage 在副作用前冻结 checklists 与必需调用。
 - Tool/MCP 成功不等于 Stage 语义完成。
 - 需要证据的 required pass/warn 必须有证据引用。
 - Stage 聚合是确定性的。
-- 复杂比较是普通 Project Tool，不引入第二个 checker Registry。
-- MCP Server 配置给 Agent；项目只定义 `McpCall` 契约，不带 MCP Client Runtime/Gateway。
-- 不静默替换 Tool/MCP Server/Backend/丢失策略。
-- 不重新引入 Capability / Python plan 生成 / 每运行快照。
+- MCP Server 配置给 Agent；本仓库不带 MCP Client Runtime/Gateway。
+- 不静默替换 MCP Server/Target/Backend/丢失策略。
+- 不重新引入 Capability、Tool registry、执行绑定、provider 列表、Python plan
+  生成或每运行快照。
 
-## 知识维护
+## 宿主软件边界
 
-```text
-knowledge/stage-kinds/   仅当 Stage 执行/验收行为不同
-knowledge/objects/       仅当对象暴露不同事实或保留要求
-knowledge/operations/    仅当操作需要不同执行/证明规则
-```
+**Blender 和 UE5 通过它们自己的 MCP Server 由 Agent 调用。** 本仓库不持有它们的
+可执行文件路径、不启动编辑器进程、不打包宿主插件。
 
-不要为每个 host/object/operation 组合维护 recipe。
+- 需要新的宿主能力时，加在宿主侧的 MCP Server 里，不加在这里。
+- 本仓库留下的是没有宿主依赖的部分：跨宿主传输的文件协议、校验、验收引擎。
+- 依赖版本与前置条件写在 `docs/DEPENDENCIES.md`；
+  Agent 用自己的 MCP client 确认目标 MCP Server 正在运行。
 
-## Workflow Definition 维护
-
-```text
-workflows/<workflow-id>/
-```
-
-流程：
+## 指引维护
 
 ```text
-create draft（artifacts/scratch/workflow-drafts/）
-    → 校验 plan template 与 requirements
-    → 在 projects/fixtures/ 上运行
-    → 机器验证（artifacts/evidence/）
-    → 需要时人工评审
-    → promote 到 workflows/
+guidance/*.md            仅当一条宏观生命周期的执行/验收行为不同
+references/*.md          说明宿主如何接入（本仓库不含可执行 Toolset）
 ```
 
-一个 Workflow Definition 可同时引用 Project Tool ID 与 MCP server/tool 对。
+不要为每个 host/object/operation 组合维护单独文档。Agent 按 `SKILL.md` 的组合
+规则（Stage kind + 处理对象 + 操作类型 + 当前事实 + 用户要求）现场组合每个 Stage，
+领域能力由 Agent 自己提供——本仓库不维护对象/操作知识库，也不维护配方包。
 
 ## 恢复语义
 
@@ -62,7 +52,7 @@ create draft（artifacts/scratch/workflow-drafts/）
 Tool/MCP 失败      → 重试该精确调用，或运行显式补偿 Tool
 required unknown   → 补证据；否则 blocked 并报告缺什么
 needs_human        → 等待决策
-计划/清单错误       → 作废该 revision，由 Agent 重写替换版
+计划/清单错误       → 由 Agent 写替换版
 ```
 
 失败时不得删除 acceptance 项。计划作废不撤销外部 UE5/Blender/文件系统状态。
@@ -71,30 +61,24 @@ needs_human        → 等待决策
 
 | 变更 | 权威 owner | 同步更新 |
 |---|---|---|
-| Route | `skills/.../workflows/routing.md`、`src/ainative/orchestration/contracts/task.py` | route guards、tests |
-| Workflow guidance | `skills/.../workflows/*.md` | examples、tests |
-| 已发布 Workflow | `workflows/<workflow-id>/` | requirements、verification、fixtures |
-| Stage-kind 行为 | `skills/.../knowledge/stage-kinds/` | template、acceptance tests |
-| 对象事实 | `skills/.../knowledge/objects/` | Stage examples |
-| 操作规则 | `skills/.../knowledge/operations/` | Stage examples |
-| 计划/调用格式 | `skills/.../templates/`、`src/ainative/orchestration/contracts/` | integrity gate、tests |
-| Project Tool | `src/ainative/toolsets/<unit>/` + `skills/.../toolsets/<unit>/TOOLSET.md` | Registry tests、E2E |
-| Project Registry | `src/ainative/registry/` | Registry tests |
-| MCP 契约 | `src/ainative/orchestration/contracts/tools.py` + Agent MCP 配置 | McpCall/result tests、Agent docs |
-| Host/MCP dependency policy | `docs/DEPENDENCIES.md` | README、Workflow requirements、live handshake evidence |
-| Model acquisition policy | `docs/DEPENDENCIES.md`（Hugging Face 节）+ concrete Workflow `requirements.yaml` | CLI auth/download evidence、model revision/hash、license review |
-| Plan 校验 | `src/ainative/orchestration/planning/lifecycle.py` | contract tests |
-| Stage 验收 | `src/ainative/orchestration/acceptance/evaluator.py` | acceptance tests |
-| Agent Session | `src/ainative/agent/` | integration tests |
+| 生命周期指引 | `guidance/*.md` | `guidance/index.md`、integrity gate、examples |
+| 计划/清单格式 | `src/ainative/model/` | integrity gate、tests |
+| 调用契约（`ToolCall` / `CallTarget` / `CallKind`） | `src/ainative/model/tools.py` | deserialize、contract tests |
+| 宿主接入说明 | `references/*.md` | README、`docs/DEPENDENCIES.md` |
+| Host/MCP dependency policy | `docs/DEPENDENCIES.md` | README、live handshake evidence |
+| Model acquisition policy | `docs/DEPENDENCIES.md`（Hugging Face 节） | CLI auth/download evidence、model revision/hash、license review |
+| Workflow 校验 | `src/ainative/reading/validate.py` | contract tests |
+| Stage 验收 | `src/ainative/acceptance/evaluator.py` | acceptance tests |
+| Agent Session | `src/ainative/session_api/` | integration tests |
 | 稳定证据 | `artifacts/evidence/` | `docs/VALIDATION_REPORT.md` |
 
 ## 验证命令
 
 ```powershell
 python -m pytest -q
-python skills\ai-native-workflow-orchestration\scripts\integrity_gate.py --json
-python -m compileall -q src scripts skills tests
-ruff check src\ainative scripts\e2e scripts\agent scripts\docs scripts\workflows tests
+python integrity_gate.py --json
+python -m compileall -q src tests
+ruff check src\ainative tests
 ```
 
 ## 新增文档规则
@@ -108,12 +92,13 @@ ruff check src\ainative scripts\e2e scripts\agent scripts\docs scripts\workflows
 运行时要加载它吗？
 ```
 
-只给维护者看的清单/历史不进运行时加载，放 `artifacts/archive/`。
+只给维护者看的清单不进运行时加载。
 
+## 目录维护规则
 
-## 目录维护规则（来自原 PROJECT_STRUCTURE）
-
-- 项目 Tool 变更：更新实现 + `skills/.../toolsets/<unit>/TOOLSET.md` + 测试 + 依赖它的 Workflow Definition。
-- MCP 行为变更：更新 Agent MCP 配置 + `McpCall` 契约 + 校验契约（项目不拥有 MCP Client）。
-- WorkflowPlan 语义变更：更新契约 + Skill 模板/schema + 架构文档（`docs/FINAL_ARCHITECTURE.md`）+ fixtures。
-- 历史/过程文档一律放 `artifacts/archive/`，不重新进入 `docs/`。
+- 调用契约变更：更新 `model/tools.py` + deserialize + fixtures。
+- 宿主 MCP 行为变更：更新 `docs/DEPENDENCIES.md` 对应小节（本仓库不拥有 MCP
+  Client，也不代 Agent 做前置检查）。
+- 计划语义变更：更新契约 + 架构文档（`docs/ARCHITECTURE.md`）+ fixtures。
+- 新增/删除提示资产：同步 `guidance/index.md`、`docs/` 各文件中的目录树，
+  以及 `integrity_gate.py` 的 required 列表。

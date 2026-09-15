@@ -1,11 +1,11 @@
-"""Project Tool CLI entrypoints used by Agents.
+"""The Agent-facing acceptance-loop CLI.
 
-These modules build a RuntimeContext from JSON configuration, resolve an exact
-ToolCall through the Project Tool Registry, execute the Project Tool, and print
-a structured ExecutionResult. They are the Agent-facing CLI surface for our
-project-owned Tools; MCP Servers remain configured directly on the Agent.
+This package is where an Agent hands Python its own plan and its own reported
+results, and gets back a deterministic Stage verdict. It executes nothing: the
+Agent performs every call itself through its own MCP client, and this surface
+only records evidence and evaluates the frozen checklists.
 """
 
-from .runner import run_tool_call
+from .commands import main
 
-__all__ = ["run_tool_call"]
+__all__ = ["main"]

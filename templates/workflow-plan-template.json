@@ -1,0 +1,85 @@
+{
+  "workflow_id": "<task-id>:workflow",
+  "guidance": "<guidance document this Workflow follows>",
+  "route": "host_operation",
+  "revision": 1,
+  "status": "draft",
+  "steps": [
+    {
+      "step_id": "<phase-id>",
+      "purpose": "<phase goal>",
+      "depends_on": [],
+      "optional": false,
+      "stages": [
+        {
+          "stage_id": "stage.<local-goal>",
+          "stage_kind": "change",
+          "purpose": "<local goal>",
+          "operation": "<human-readable operation label>",
+          "depends_on": [],
+          "required": true,
+          "recovery": "retry_or_replan",
+          "execution_checklist": [
+            {
+              "item_id": "<stable item id>",
+              "description": "<what must be handled>",
+              "required": true,
+              "evidence_required": true,
+              "call_ids": [
+                "<change-call-id>",
+                "<verify-call-id>"
+              ],
+              "metadata": {}
+            }
+          ],
+          "acceptance_checklist": [
+            {
+              "check_id": "<stable check id>",
+              "description": "<what must be proven>",
+              "required": true,
+              "operator": "equals",
+              "source_call_id": "<verify-call-id>",
+              "actual_path": [
+                "<output>",
+                "<field>"
+              ],
+              "expected": "<expected value>",
+              "tolerance": null,
+              "evidence_required": true,
+              "call_ids": [
+                "<verify-call-id>"
+              ],
+              "metadata": {}
+            }
+          ],
+          "calls": [
+            {
+              "call_id": "<change-call-id>",
+              "kind": "mcp",
+              "target": {
+                "owner": "<mcp-server>",
+                "name": "<tool-on-that-server>"
+              },
+              "arguments": {},
+              "depends_on": []
+            },
+            {
+              "call_id": "<verify-call-id>",
+              "kind": "mcp",
+              "target": {
+                "owner": "<mcp-server>",
+                "name": "<read-back-tool>"
+              },
+              "arguments": {},
+              "depends_on": [
+                "<change-call-id>"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "recovery_pointer": null,
+  "warnings": []
+}

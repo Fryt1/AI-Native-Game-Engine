@@ -18,10 +18,8 @@ jobs:
       - name: Run tests
         run: python -m pytest -q
       - name: Compile Python sources
-        run: python -m compileall -q src scripts skills tests
+        run: python -m compileall -q src tests
       - name: Run lint
-        run: ruff check src/ainative scripts/e2e scripts/agent scripts/docs scripts/workflows tests
-      - name: Validate workflow package
-        run: python skills/ai-native-workflow-orchestration/scripts/integrity_gate.py --json
-      - name: Validate reusable workflow
-        run: python scripts/workflows/validate_workflow.py workflows/blender-ue5-asset-roundtrip --json
+        run: ruff check src/ainative tests integrity_gate.py
+      - name: Verify the Skill package is complete
+        run: python integrity_gate.py --json

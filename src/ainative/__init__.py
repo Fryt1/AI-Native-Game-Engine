@@ -1,3 +1,3 @@
-"""AI Native Game Engine orchestration package."""
+"""AI Native Game Engine: Agent guidance plus deterministic Stage acceptance."""
 
-__all__ = ["agent", "orchestration", "registry", "toolsets"]
+__all__ = ["acceptance", "cli", "model", "reading", "session_api"]

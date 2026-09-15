@@ -1,9 +1,9 @@
-import json
 import sys
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 
-MODULE_PATH = Path(__file__).parents[3] / "skills" / "ai-native-workflow-orchestration" / "scripts" / "integrity_gate.py"
+REPO_ROOT = Path(__file__).resolve().parents[3]
+MODULE_PATH = REPO_ROOT / "integrity_gate.py"
 
 
 def load_module():
@@ -16,21 +16,15 @@ def load_module():
 
 def test_integrity_gate_accepts_the_skill_package():
     module = load_module()
-    report = module.check_package(MODULE_PATH.parents[1])
+    report = module.check_package(REPO_ROOT)
 
     assert report.ok is True
     assert report.missing == ()
 
 
-def test_workflow_plan_template_and_schema_are_valid_json():
-    template_root = MODULE_PATH.parents[1] / "templates"
-    template = json.loads((template_root / "workflow-plan-template.json").read_text(encoding="utf-8"))
-    schema = json.loads((template_root / "workflow-plan-schema.json").read_text(encoding="utf-8"))
+def test_integrity_gate_reports_every_missing_required_file():
+    module = load_module()
+    report = module.check_package(REPO_ROOT / "knowledge")
 
-    assert template["workflow"]["steps"][0]["stages"][0]["execution_checklist"]
-    assert template["workflow"]["steps"][0]["stages"][0]["acceptance_checklist"]
-    assert schema["$defs"]["stage"]["properties"]["stage_kind"]["enum"] == [
-        "change",
-        "investigation",
-        "planning",
-    ]
+    assert report.ok is False
+    assert "SKILL.md" in report.missing

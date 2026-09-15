@@ -1,8 +1,8 @@
 # AI Native Game Engine
 
-Agent-driven workflow orchestration for UE5, Blender, and ComfyUI with evidence-backed Stage acceptance.
+Agent-driven Stage composition and evidence-backed acceptance for UE5, Blender, and ComfyUI.
 
-An Agent-driven WorkflowPlan runtime for UE5, Blender, MCP servers, transfer backends, validators, and reusable ComfyUI/script-backed Tools. Agent intent is turned into a `TaskContract` and an Agent-authored `WorkflowPlan` by the Agent itself. The runtime never guesses a Route or Tool; it validates the plan, freezes execution and acceptance checklists per Stage, and lets the Agent execute one exact `ToolCall` or `McpCall` at a time. Every Stage completes only when structured checklist evidence proves it, never from a process exit code alone.
+An Agent composes each Stage from the Stage kind, the processing object, the operation type, and the current facts, decides what to run, and calls real capabilities one at a time — every host software call goes through its own MCP server. The runtime never picks a call for the Agent. Every Stage completes only when structured checklist evidence proves it, never from a process exit code alone.
 
 ## Table of Contents
 
@@ -21,13 +21,13 @@ Editor work across Unreal Engine 5 and Blender is normally driven by ad-hoc scri
 
 The project keeps three firm boundaries:
 
-- The Agent owns intent: the runtime has no built-in prompt router and no keyword-based Workflow picker.
-- The Python runtime owns validation and deterministic acceptance, not plan generation or scheduling.
-- MCP Tools are not copied into a project Registry; the Agent MCP Client stays the single owner of MCP execution.
+- The Agent owns intent and every decision about what runs next.
+- The Python runtime owns structural validation and deterministic acceptance, not Workflow generation or scheduling.
+- Host editors stay outside this repository: Blender and UE5 are reached through their own MCP servers, so no host executable path, editor subprocess, or host plugin lives here.
 
 ## Install
 
-Requires Python 3.11+ on Windows. Unreal Engine 5 and Blender are required only when host operations are exercised; ComfyUI MCP requires a running ComfyUI server. Install the editable package from the repository root:
+Requires Python 3.11+ on Windows. Blender, UE5, and ComfyUI are required only when their MCP servers are used; none of them is installed or launched by this repository. Install the editable package from the repository root:
 
 ```powershell
 python -m pip install -e .[dev]
@@ -37,7 +37,7 @@ The project is not published on PyPI and has no third-party runtime dependencies
 
 ### Dependencies
 
-Runtime dependencies are external and version-baselined. See [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md) for the full Python, Blender, UE5, ComfyUI, AssetsBridge, Hugging Face, and MCP dependency contract, including version baselines, install/verification steps, failure triage, and security boundaries for each host/MCP integration.
+Runtime dependencies are external and version-baselined. See [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md) for the full Python, Blender, UE5, ComfyUI, Hugging Face, and MCP dependency contract, including version baselines, install/verification steps, failure triage, and security boundaries for each host/MCP integration.
 
 Supported baselines:
 
@@ -60,43 +60,47 @@ ComfyUI MCP     → discover, validate, and run the workflow
 
 ### CLI
 
-The Project Tool CLI executes one exact ToolCall through the Project Tool Registry and prints a structured JSON `ExecutionResult`. It never reads or schedules a WorkflowPlan.
+One command surface exists: `python -m ainative.session` is where the Agent hands its own Workflow and its own reported results to Python and gets a deterministic Stage verdict. Python validates the Workflow structure, stores the submitted evidence in the `--state` file, and evaluates each Stage against its frozen checklists. It never picks a call, orders a Stage, or invents a checklist item.
 
 ```powershell
-python -m ainative.tools --config runtime.json --toolset blender.editor --operation set-location --args '{"location":[1,2,3]}'
+python -m ainative.session --state s.json --task task.json --workflow workflow.json open
+python -m ainative.session --state s.json --result executed-call.json record
+python -m ainative.session --state s.json --stage stage.validate_asset stage
+python -m ainative.session --state s.json finish
+python -m ainative.session --state s.json status
 ```
 
-Arguments:
+Commands:
 
 ```text
---config      JSON file describing host/runtime providers
---task        JSON TaskContract file
---toolset     toolset id (required)
---tool        exact tool_id; defaults to toolset + operation
---operation   published operation name
---args        JSON arguments object
---call-id     call id
---usage       execute | observe | verify | report
+open     validate an Agent-authored Workflow and start a session
+record   submit one executed call result as evidence (--result)
+item     submit one execution checklist item result (--result)
+check    submit one manual acceptance check result (--result)
+stage    evaluate one Stage and close it (--stage)
+finish   aggregate the final TaskResult
+status   show current session state without changing it
 ```
 
-Detailed runtime configuration and CLI semantics live in [docs/cli.md](docs/cli.md).
+Every command prints one JSON object and exits 0 on a non-blocking result, 1 on a blocking or failing result, and 2 when the command itself could not run. The Workflow, the task, and every submitted result live in the `--state` file, so later commands need only `--state` plus their own argument. The Agent keeps executing every MCP call itself; this CLI only carries the Workflow in and the verdict out.
+
+There is no host-editor configuration: Blender and UE5 are reached through their own MCP servers by the Agent. Detailed CLI semantics live in [docs/cli.md](docs/cli.md).
 
 ### Agent-facing API
 
 The Agent supplies a `TaskContract`, loads Workflow guidance, authors an `ExecutionPlan`, and opens a validation session:
 
 ```python
-from ainative.agent import WorkflowGuide
+from ainative.session_api import AcceptanceGuide
 
 task = ...          # Agent-authored TaskContract
-plan = ...          # Agent-authored ExecutionPlan
-runtime = ...       # RuntimeContext with live project executors/backends
+workflow = ...      # Agent-authored Workflow
 
-guide = WorkflowGuide()
-session = guide.start(task, plan, runtime)
+guide = AcceptanceGuide()
+session = guide.start(task, workflow)
 ```
 
-The Agent executes each Tool/MCP call itself and submits the raw structured result:
+The Agent executes each MCP call itself and submits the raw structured result:
 
 ```python
 session.record_execution_result(execution_result)
@@ -104,30 +108,32 @@ stage_result = session.complete_stage("stage.change")
 result = session.finish()
 ```
 
-`WorkflowSession` never invokes a Tool or MCP Server. It validates the submitted result against the plan, records evidence, evaluates each Stage deterministically, and aggregates the final result.
+`WorkflowSession` never invokes an MCP Server. It validates the submitted result against the Workflow, records evidence, evaluates each Stage deterministically, and aggregates the final result.
+
+The same loop is available process-level as `python -m ainative.session`, which reads an Agent-authored Workflow from JSON and reports a verdict per Stage — see the [CLI](#cli) section. Either way, a call returning `succeeded` does not complete a Stage: an acceptance check reads `ExecutionResult.evidence_view()`, so a check can address first-class evidence (`status`, `kind`, `target`, `preserved_relations`, `lost_relations`, `artifact_count`, `artifacts`, `warnings`, `errors`) as well as any key in `outputs`. The Stage completes only when its frozen acceptance checks pass.
 
 ### Adding a reusable workflow
 
-See [docs/ADDING_A_WORKFLOW.md](docs/ADDING_A_WORKFLOW.md) for the step-by-step guide (file templates, validation, and promotion). See [docs/ARCHITECTURE_GUIDE.md](docs/ARCHITECTURE_GUIDE.md) for the architecture walkthrough.
+See [docs/ADDING_GUIDANCE.md](docs/ADDING_GUIDANCE.md) for the step-by-step guide to adding a reusable lifecycle under `guidance/`. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the architecture walkthrough.
 
 ## Architecture
 
 ```text
 Agent intent
     → TaskContract
-    → Route / Workflow guidance
-    → layered Stage knowledge
-    → Agent-authored WorkflowPlan
+    → Agent composes each Stage from Stage kind, object, operation, current facts
+    → Agent decides what to run
        └── each Stage freezes execution + acceptance checklists
-    → plan/checklist/Tool feasibility gate
-    → Agent calls one ToolCall or McpCall at a time
+    → structural Workflow validation
+    → Agent calls one MCP tool at a time
     → ExecutionResult + Evidence
-    → ExecutionItemResult + CheckResult
+    → Agent submits the Workflow and the results to Python
+       └── ExecutionItemResult + CheckResult
     → deterministic StageResult
     → continue / retry / wait / compensate / re-plan
 ```
 
-Workflow documents lock macro invariants, not a universal Step list. The Agent chooses the concrete Steps, Stages, checklist items, and exact calls for the current task.
+Guidance documents lock macro invariants, not a universal Step list. The Agent chooses the concrete Stages, checklist items, and exact calls for the current task.
 
 ### Stage closure
 
@@ -147,51 +153,50 @@ Required failures, unknowns, and human decisions block completion. A Stage with 
 ### Execution paths
 
 ```text
-ToolCall
-    → Project Tool Registry
-    → AssetsBridge / Validation / script-backed / ComfyUI Tools
-
-McpCall
+MCP call (kind=mcp)
+    → target: owner/name (MCP server + tool)
     → Agent MCP Client
     → Blender MCP / UE5 MCP / ComfyUI MCP
+
+Project Tool call (kind=project_tool)
+    → target: owner/name (Toolset id + Tool id)
+    → reserved in the contract; this repository ships no executable Toolset
 ```
 
-A call can be marked `execute`, `observe`, `verify`, or `report` for audit. This is per-call metadata, not a permanent Tool role. Reusable Workflow Definitions live under `workflows/`.
+Copy `templates/workflow-plan-template.json` and fill it in to author a Workflow.
 
-### Knowledge structure
+An MCP call like `{"call_id": "m1", "kind": "mcp", "target": {"owner": "ue5", "name": "set_actor_transform"}}` is a first-class entry in the Workflow's call graph. There is no execution binding, no provider list, and no per-run provider check: the Workflow is validated structurally, and the Agent's own MCP client resolves and runs every call. This repository owns no transfer Tool — moving an asset between hosts means the Agent calls the source host's MCP export, performs its own file operation, and calls the target host's MCP import. Host dependencies are declared in `docs/DEPENDENCIES.md`.
 
-The Agent composes Stages from layered knowledge rather than fixed recipes:
+### Stage composition
+
+The Agent composes every Stage itself from Stage kind, processing object, operation type, current facts, and the user's requirements:
 
 ```text
-skills/ai-native-workflow-orchestration/knowledge/
-├── stage-kinds/
-├── objects/
-└── operations/
+SKILL.md          the composition rule and the execution discipline
+guidance/         reusable macro lifecycle guidance
+references/       host and MCP interface notes
 ```
 
-Tool contracts and workflow templates live with the Skill package and the published Workflows.
+There is no per-object or per-operation knowledge base and no recipe package in this repository. The Agent supplies the domain competence for the object and the operation; the repository supplies the contract, the guidance, and the deterministic acceptance engine.
 
 ### Documentation map
 
 - `AGENTS.md` — repository-wide Agent rules
-- `skills/ai-native-workflow-orchestration/SKILL.md` — Skill contract
-- `skills/ai-native-workflow-orchestration/knowledge/` — layered Stage knowledge
-- `skills/ai-native-workflow-orchestration/templates/` — plan templates and schema
-- `skills/ai-native-workflow-orchestration/toolsets/` — Toolset contracts
-- `docs/FINAL_ARCHITECTURE.md` — final architecture
-- `docs/ARCHITECTURE_GUIDE.md` — architecture walkthrough for new users
-- `docs/ADDING_A_WORKFLOW.md` — step-by-step guide to add a reusable workflow
+- `SKILL.md` — Skill contract
+- `guidance/` — reusable macro lifecycle guidance
+- `references/` — notes on how hosts are reached
+- `docs/ARCHITECTURE.md` — architecture and data flow
+- `docs/ADDING_GUIDANCE.md` — step-by-step guide to add a reusable lifecycle
 - `docs/MAINTENANCE.md` — maintenance and extension rules
 - `docs/VALIDATION_REPORT.md` — current verification evidence
-- `docs/cli.md` — Project Tool CLI usage
+- `docs/cli.md` — `python -m ainative.session` usage
 - `docs/DEPENDENCIES.md` — dependency contract overview
-- `workflows/` — published reusable Workflow Definitions
 
 ## Security
 
-The runtime does not store credentials and requires no API keys. Blender/UE5 command execution is limited to exact project ToolCalls that the Agent selected and the registry resolved. Host paths and `RuntimeContext` come from local configuration you control; do not commit runtime configuration containing machine-specific paths or secrets.
+The runtime does not store credentials and requires no API keys. This repository executes nothing itself; every host and MCP call is performed by the host's own MCP server under the Agent's MCP client. Runtime configuration is local to your machine; do not commit configuration containing machine-specific paths or secrets.
 
-Treat host result files as untrusted: the runtime deletes stale result files before execution, requires request/transfer identity, and rejects malformed or stale JSON with a structured failure. MCP execution remains the responsibility of the configured Agent MCP Client.
+Treat host result files as untrusted: the runtime validates request and transfer identity and rejects malformed or stale JSON with a structured failure. MCP execution remains the responsibility of the configured Agent MCP client.
 
 ## Maintainers
 
@@ -199,7 +204,7 @@ Treat host result files as untrusted: the runtime deletes stale result files bef
 
 ## Contributing
 
-Issues and pull requests are welcome on the GitHub repository. Before changing behavior, read `AGENTS.md` and `docs/MAINTENANCE.md` for the ownership and directory rules. Keep every behavior change paired with tests and update the relevant Skill/Toolset documentation at the same time.
+Issues and pull requests are welcome on the GitHub repository. Before changing behavior, read `AGENTS.md` and `docs/MAINTENANCE.md` for the ownership and directory rules. Keep every behavior change paired with tests and update the relevant Skill documentation at the same time.
 
 There is no separate `CONTRIBUTING.md` or `CODE_OF_CONDUCT.md` yet; this section is the contribution guide for now.
 
