@@ -71,8 +71,8 @@ Consequences:
 - An installed add-on is not a running server. Confirm the running
   server through the Agent's own MCP client — a tool listing or a trivial read —
   before selecting a call.
-- What remains here is what has no host dependency: the transfer file protocol,
-  validation, and the acceptance engine.
+- What remains here is what has no host dependency: plan validation, the
+  deterministic acceptance engine, and the prompt assets an Agent reads.
 
 ## Planning rules
 
@@ -206,21 +206,30 @@ result back; Python validates the Workflow structure, stores the evidence in the
 still chooses nothing.
 
 ```text
-open     hand over --task and --workflow
-record   submit one executed call result (--result)
-item     submit one execution checklist item result (--result)
-check    submit one manual acceptance check result (--result)
-stage    evaluate and close one Stage (--stage)
-finish   aggregate the final TaskResult
-status   read the current state without changing it
+open       hand over --task and --workflow
+record     submit one executed call result (--result)
+item       submit one execution checklist item result (--result)
+check      submit one manual acceptance check result (--result)
+stage      evaluate and close one Stage (--stage)
+finish     aggregate the final TaskResult
+status     read the current state without changing it
+supersede  replace the Workflow revision, archiving the old one and its evidence
 ```
 
-Every command prints one JSON object: exit 0 for a non-blocking result, 1 for a
-blocking or failing result, and 2 when the command itself could not run.
+Every command prints the same envelope — `command`, `ok`, `verdict`, `exit_code`,
+`detail`, `errors` — and exits 0 for a non-blocking result, 1 for a blocking or
+failing result, and 2 when the command itself could not run. `verdict` uses one
+vocabulary for every command, so a caller reads one field without knowing which
+command ran.
 
 A call returning `succeeded` does not complete a Stage. A Stage completes only
 when its frozen acceptance checks pass — an empty `preserved_relations` against a
-`truthy` check yields check `fail`, then stage `failed`, then exit 1.
+`truthy` check yields check `fail`, then stage `failed`, then verdict `failed`
+and exit 1.
+
+A Workflow revision is immutable. A Stage carries over to a replacement only when
+its definition is unchanged; a Stage that already ran a call may have changed the
+host, and re-reporting that call is refused without `--confirm-side-effects`.
 
 ## Engineering rules
 
