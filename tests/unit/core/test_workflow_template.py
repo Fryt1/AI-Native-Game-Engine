@@ -73,7 +73,7 @@ def test_every_template_call_uses_the_unified_target_shape():
 
     assert calls
     for call in calls:
-        assert set(call) <= {"call_id", "kind", "target", "arguments", "depends_on"}
+        assert set(call) <= {"call_id", "target", "arguments", "depends_on"}
         assert call["target"]["owner"]
         assert call["target"]["name"]
 

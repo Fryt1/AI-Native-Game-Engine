@@ -51,25 +51,23 @@ checklist 结果、已关闭的 Stage）。顺序有意义：某个调用只有�
 
 ## 调用的形状
 
-Workflow 里的每个调用都带 `call_id`、`kind` 和 `target`：
+Workflow 里的每个调用都带 `call_id` 和 `target`：
 
 ```json
 {
   "call_id": "m1",
-  "kind": "mcp",
   "target": {"owner": "ue5", "name": "set_actor_transform"},
   "arguments": {},
   "depends_on": []
 }
 ```
 
-- `kind` 是 `project_tool` 或 `mcp`。
 - `target.owner` / `target.name`：对 `mcp` 是 MCP server 名与 tool 名；对
-  `project_tool` 是 Toolset id 与 Tool id。两种调用在契约里同等一等，都在计划的
+  `target` 的 `owner` 是 MCP server 名，`name` 是它上面的 tool 名，都在计划的
   调用图里参与 `depends_on` 与 `tool_succeeded` 判定。
 
 **没有绑定，也没有 provider 检查。** 本仓库不解析 `target`，也不执行它——执行由
-Agent 自己的 MCP Client 完成。因此 `kind: "mcp"` 的宿主调用是计划的正式成员，
+Agent 自己的 MCP Client 完成。因此宿主调用是计划的正式成员，
 不需要绕道 `manual`。
 
 ## 退出码
@@ -95,7 +93,7 @@ check 通过时才完成。例如对 `preserved_relations` 做 `truthy` 检查�
 会得到 check `fail` → stage `failed` → 退出码 1。
 
 acceptance check 通过 `ExecutionResult.evidence_view()` 读取证据，因此 `actual_path`
-除了 `outputs` 里的键，还可以直接寻址一等证据：`status`、`kind`、`target`、
+除了 `outputs` 里的键，还可以直接寻址一等证据：`status`、`target`、
 `preserved_relations`、`lost_relations`、`artifact_count`、`artifacts`、`warnings`、
 `errors`。
 

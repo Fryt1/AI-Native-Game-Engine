@@ -63,7 +63,7 @@ needs_human        → 等待决策
 |---|---|---|
 | 生命周期指引 | `guidance/*.md` | `guidance/index.md`、integrity gate、examples |
 | 计划/清单格式 | `src/ainative/model/` | integrity gate、tests |
-| 调用契约（`ToolCall` / `CallTarget` / `CallKind`） | `src/ainative/model/tools.py` | deserialize、contract tests |
+| 调用契约（`ToolCall` / `CallTarget`） | `src/ainative/model/tools.py` | deserialize、contract tests |
 | 宿主接入说明 | `references/*.md` | README、`docs/DEPENDENCIES.md` |
 | Host/MCP dependency policy | `docs/DEPENDENCIES.md` | README、live handshake evidence |
 | Model acquisition policy | `docs/DEPENDENCIES.md`（Hugging Face 节） | CLI auth/download evidence、model revision/hash、license review |

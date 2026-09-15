@@ -111,6 +111,9 @@ class ExecutionItemResult:
     evidence_refs: tuple[str, ...] = ()
     reason: str = ""
 
+    def __post_init__(self) -> None:
+        coerce_enum(self, "status", CheckStatus)
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
@@ -131,6 +134,9 @@ class CheckResult:
     expected: Any = None
     evidence_refs: tuple[str, ...] = ()
     reason: str = ""
+
+    def __post_init__(self) -> None:
+        coerce_enum(self, "status", CheckStatus)
 
     def to_dict(self) -> dict[str, Any]:
         return {

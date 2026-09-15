@@ -30,12 +30,12 @@ ok: true
   Agent supplies the task and owns every decision about what to call next.
 - The runtime executes nothing. A Workflow is validated structurally only: there is no
   execution binding, no provider list, and no per-run provider check.
-- MCP calls are first-class Workflow entries. A call carries `kind` (`mcp` or
-  `project_tool`) and a `target` of owner/name, so a host call such as
+- MCP calls are first-class Workflow entries. A call carries a `target` of
+  owner/name, so a host call such as
   `{"owner": "ue5", "name": "set_actor_transform"}` participates in the call graph
   and in dependency ordering instead of being pushed into a `manual` check.
 - A submitted result must match its declared call: an undeclared `call_id`, or a
-  `kind`/`target` that disagrees with the Workflow, is rejected before it is recorded.
+  `target` that disagrees with the Workflow, is rejected before it is recorded.
 - Missing call arguments fail closed before execution. Malformed statuses and
   invalid CLI JSON fail closed before results are recorded.
 
@@ -43,7 +43,7 @@ ok: true
 
 ```text
 MCP call
-    → kind=mcp, target: owner/name
+    → target: owner/name
     → Agent MCP Client → Blender MCP / UE5 MCP / ComfyUI MCP
 ```
 
@@ -55,9 +55,9 @@ resolves and runs it. This repository ships no executable Toolset.
 
 ```text
 ToolCall 必须带 call_id 与含 owner/name 的 target
-MCP 调用（kind=mcp）作为计划的正式成员进入调用图
+MCP 调用作为计划的正式成员进入调用图
 调用结果的 call_id 必须已在计划中声明
-调用结果的 kind / target 与计划不一致 → 拒绝记录
+调用结果的 target 与计划不一致 → 拒绝记录
 required Stage 必须声明 execution/acceptance checklists
 Stage call 依赖在执行前校验
 真实提交的 MCP 调用结果通过 record 记录，并参与 tool_succeeded 等自动判据
@@ -75,7 +75,7 @@ checklist summaries 持久化在 StageResult
 ```text
 Skill 提示资产            → SKILL.md + guidance/ + references/
 Agent                   → 决定做什么、按什么顺序、调用哪一个，并亲自执行
-ToolCall contract       → 声明 call_id / kind / target / arguments / depends_on
+ToolCall contract       → 声明 call_id / target / arguments / depends_on
 StageAcceptanceEvaluator→ 产生 ExecutionItemResult / CheckResult / summaries
 Acceptance session      → 记录 StageResult 并暴露下一步边界
 ```

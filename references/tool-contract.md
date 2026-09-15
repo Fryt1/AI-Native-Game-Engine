@@ -9,31 +9,25 @@ executes nothing.
 
 ## Call and Call Target
 
-A call names *what the Agent will invoke*. Both kinds are first-class, because
-both are real work:
-
-```text
-project_tool    a Tool implemented in this repository
-mcp             a tool on a host's own MCP server, invoked by the Agent's client
-```
+A call names *what the Agent will invoke*: a tool on a host's own MCP server,
+invoked by the Agent's own MCP client.
 
 A call is the Agent's exact selection:
 
 ```text
 call_id
-kind            project_tool | mcp
 target
-    owner       project_tool: Toolset id   |  mcp: MCP server name
-    name        project_tool: Tool id      |  mcp: tool name on that server
+    owner       MCP server name
+    name        tool name on that server
 arguments
 depends_on
 ```
 
-`kind` defaults to `mcp`. One shape covers both kinds because the Agent, not this
+The Agent, not this
 repository, resolves the target. An MCP call such as
 
 ```json
-{"call_id": "m1", "kind": "mcp", "target": {"owner": "ue5", "name": "set_actor_transform"}}
+{"call_id": "m1", "target": {"owner": "ue5", "name": "set_actor_transform"}}
 ```
 
 is a normal entry in the Workflow's call graph: it participates in dependency
@@ -59,7 +53,6 @@ An ExecutionResult records call-level facts:
 ```text
 call_id
 status
-kind
 target
 outputs
 artifacts
@@ -71,7 +64,7 @@ lost_relations
 ```
 
 A submitted result must match its declared call: the `call_id` must be declared in
-the Workflow, and the `kind` and `target` must agree with that declaration.
+the Workflow, and the `target` must agree with that declaration.
 
 Call `succeeded` means the invocation completed without a blocking call-level
 error. It does not automatically mean a semantic acceptance item passed.

@@ -110,7 +110,7 @@ result = session.finish()
 
 `WorkflowSession` never invokes an MCP Server. It validates the submitted result against the Workflow, records evidence, evaluates each Stage deterministically, and aggregates the final result.
 
-The same loop is available process-level as `python -m ainative.session`, which reads an Agent-authored Workflow from JSON and reports a verdict per Stage — see the [CLI](#cli) section. Either way, a call returning `succeeded` does not complete a Stage: an acceptance check reads `ExecutionResult.evidence_view()`, so a check can address first-class evidence (`status`, `kind`, `target`, `preserved_relations`, `lost_relations`, `artifact_count`, `artifacts`, `warnings`, `errors`) as well as any key in `outputs`. The Stage completes only when its frozen acceptance checks pass.
+The same loop is available process-level as `python -m ainative.session`, which reads an Agent-authored Workflow from JSON and reports a verdict per Stage — see the [CLI](#cli) section. Either way, a call returning `succeeded` does not complete a Stage: an acceptance check reads `ExecutionResult.evidence_view()`, so a check can address first-class evidence (`status`, `target`, `preserved_relations`, `lost_relations`, `artifact_count`, `artifacts`, `warnings`, `errors`) as well as any key in `outputs`. The Stage completes only when its frozen acceptance checks pass.
 
 ### Adding a reusable workflow
 
@@ -153,19 +153,15 @@ Required failures, unknowns, and human decisions block completion. A Stage with 
 ### Execution paths
 
 ```text
-MCP call (kind=mcp)
+Call
     → target: owner/name (MCP server + tool)
     → Agent MCP Client
     → Blender MCP / UE5 MCP / ComfyUI MCP
-
-Project Tool call (kind=project_tool)
-    → target: owner/name (Toolset id + Tool id)
-    → reserved in the contract; this repository ships no executable Toolset
 ```
 
 Copy `templates/workflow-plan-template.json` and fill it in to author a Workflow.
 
-An MCP call like `{"call_id": "m1", "kind": "mcp", "target": {"owner": "ue5", "name": "set_actor_transform"}}` is a first-class entry in the Workflow's call graph. There is no execution binding, no provider list, and no per-run provider check: the Workflow is validated structurally, and the Agent's own MCP client resolves and runs every call. This repository owns no transfer Tool — moving an asset between hosts means the Agent calls the source host's MCP export, performs its own file operation, and calls the target host's MCP import. Host dependencies are declared in `docs/DEPENDENCIES.md`.
+A call like `{"call_id": "m1", "target": {"owner": "ue5", "name": "set_actor_transform"}}` is a first-class entry in the Workflow's call graph. There is no execution binding, no provider list, and no per-run provider check: the Workflow is validated structurally, and the Agent's own MCP client resolves and runs every call. This repository owns no transfer Tool — moving an asset between hosts means the Agent calls the source host's MCP export, performs its own file operation, and calls the target host's MCP import. Host dependencies are declared in `docs/DEPENDENCIES.md`.
 
 ### Stage composition
 

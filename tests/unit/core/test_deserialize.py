@@ -27,7 +27,6 @@ def _plan_document() -> dict:
                         "calls": [
                             {
                                 "call_id": "v1",
-                                "kind": "mcp",
                                 "target": {"owner": "blender", "name": "read_scene"},
                             }
                         ],
@@ -59,7 +58,6 @@ def test_plan_round_trips_through_json():
     assert stage.stage_id == "stage.validate_asset"
     assert stage.calls[0].target.owner == "blender"
     assert stage.calls[0].target.name == "read_scene"
-    assert stage.calls[0].kind.value == "mcp"
     assert stage.execution_checklist[0].item_id == "run-validator"
     assert stage.acceptance_checklist[0].actual_path == ("preserved_relations",)
     assert stage.acceptance_checklist[0].operator.value == "truthy"

@@ -33,7 +33,6 @@ PLAN = {
                     "calls": [
                         {
                             "call_id": "v1",
-                            "kind": "mcp",
                             "target": {"owner": "blender", "name": "read_scene"},
                         }
                     ],
@@ -114,7 +113,6 @@ def test_a_proven_relation_completes_the_stage(workspace, capsys):
     _open(workspace, capsys)
     code, _ = _record(workspace, capsys, {
         "call_id": "v1",
-        "kind": "mcp",
         "status": "succeeded",
         "target": {"owner": "blender", "name": "read_scene"},
         "preserved_relations": ["asset_identity"],
@@ -135,7 +133,6 @@ def test_tool_success_without_relation_evidence_fails_the_stage(workspace, capsy
     _open(workspace, capsys)
     _record(workspace, capsys, {
         "call_id": "v1",
-        "kind": "mcp",
         "status": "succeeded",
         "target": {"owner": "blender", "name": "read_scene"},
         "preserved_relations": [],
@@ -155,7 +152,6 @@ def test_finish_aggregates_the_recorded_evidence(workspace, capsys):
     _open(workspace, capsys)
     _record(workspace, capsys, {
         "call_id": "v1",
-        "kind": "mcp",
         "status": "succeeded",
         "target": {"owner": "blender", "name": "read_scene"},
         "preserved_relations": ["asset_identity"],
@@ -186,7 +182,6 @@ def test_state_persists_across_invocations(workspace, capsys):
     _open(workspace, capsys)
     _record(workspace, capsys, {
         "call_id": "v1",
-        "kind": "mcp",
         "status": "succeeded",
         "target": {"owner": "blender", "name": "read_scene"},
         "preserved_relations": ["asset_identity"],
@@ -206,7 +201,6 @@ def test_recording_a_call_the_plan_never_declared_is_rejected(workspace, capsys)
         "--state", workspace["state"], "--result",
         _write(workspace["tmp"] / "unknown.json", {
             "call_id": "not-in-workflow",
-            "kind": "mcp",
             "status": "succeeded",
         }),
         "record",
@@ -240,7 +234,7 @@ DEPENDENT_PLAN = {
                     "operation": "validate",
                     "stage_kind": "change",
                     "calls": [
-                        {"call_id": "v1", "kind": "mcp", "target": {"owner": "blender", "name": "read_scene"}}
+                        {"call_id": "v1", "target": {"owner": "blender", "name": "read_scene"}}
                     ],
                     "execution_checklist": [{"item_id": "i1", "description": "run", "call_ids": ["v1"]}],
                     "acceptance_checklist": [
@@ -260,7 +254,7 @@ DEPENDENT_PLAN = {
                     "stage_kind": "change",
                     "depends_on": ["stage.first"],
                     "calls": [
-                        {"call_id": "v2", "kind": "mcp", "target": {"owner": "blender", "name": "read_scene"}}
+                        {"call_id": "v2", "target": {"owner": "blender", "name": "read_scene"}}
                     ],
                     "execution_checklist": [{"item_id": "i2", "description": "run", "call_ids": ["v2"]}],
                     "acceptance_checklist": [
@@ -291,7 +285,6 @@ def _dependent_workspace(tmp_path: Path) -> dict:
 def _call_result(call_id: str) -> dict:
     return {
         "call_id": call_id,
-        "kind": "mcp",
         "status": "succeeded",
         "target": {"owner": "blender", "name": "read_scene"},
         "preserved_relations": ["asset_identity"],

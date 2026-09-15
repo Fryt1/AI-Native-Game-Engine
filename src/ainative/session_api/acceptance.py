@@ -186,11 +186,6 @@ class AcceptanceSession:
         _, stage = location
         call = next(call for call in stage.calls if call.call_id == result.call_id)
         self.check_call_ready(result.call_id)
-        if result.kind is not call.kind:
-            raise WorkflowError(
-                f"Execution result kind mismatch for {result.call_id}: "
-                f"declared {call.kind.value}, got {result.kind.value}"
-            )
         if result.target is not None and result.target != call.target:
             raise WorkflowError(
                 f"Execution result target mismatch for {result.call_id}: "

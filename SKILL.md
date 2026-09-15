@@ -158,7 +158,7 @@ evidence reference.
 
 ## Execution rules
 
-- A call names its `kind` (`mcp` or `project_tool`) and a `target` of owner/name.
+- A call names a `target` of owner/name: the MCP server, and the tool on it.
   For an MCP call the owner is the MCP server and the name is the tool on it.
 - Confirm a host capability exists and is running before depending on it; a
   documented interface is not a live server.

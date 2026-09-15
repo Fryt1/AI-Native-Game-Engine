@@ -1,0 +1,39 @@
+refactor: delete CallKind; fix six enum fields that never coerced
+
+CallKind had one live value. `project_tool` was declared in the contract but had
+no implementation -- this repository ships no Toolset, so a call of that kind
+could be declared and never executed. The only thing `kind` did was compare a
+submitted result against its declaration, and with one valid value that
+comparison was vacuous. `target{owner,name}` already names the server and the
+tool, and no evidence check addressed `kind`, so the field carried no
+information.
+
+Removed `CallKind`, `ToolCall.kind`, and `ExecutionResult.kind`, along with the
+`kind` key in the Workflow JSON, the state file, and `evidence_view()`. The
+readers ignore an incoming "kind" key rather than rejecting it, so an existing
+Workflow or state file still loads (verified).
+
+While removing `ExecutionResult.__post_init__` I found a real bug: six enum
+fields accepted a value but never coerced it, so `to_dict()` raised
+`AttributeError: 'str' object has no attribute 'value'`:
+
+  ArtifactRef.kind          Workflow.status
+  CheckResult.status        ExecutionResult.status
+  ExecutionItemResult.status  StageResult.status, TaskResult.status
+
+`reading/deserialize.py` normalizes enums on the JSON path, so results arriving
+as JSON always worked; the same objects built directly -- in tests, or by any
+Python caller -- did not. TaskContract.route, Workflow.route, StageRequest.
+stage_kind, and AcceptanceCheck.operator already coerced. All eleven now use the
+shared `model/coercion.py` helper and reject an unknown value.
+
+`tests/unit/core/test_enum_coercion.py` enumerates every enum field in the model
+and asserts each coerces and each rejects; a separate test fails if a new enum
+field appears that the list does not name. Verified by deleting one
+`__post_init__` and watching two tests fail.
+
+Docs and templates updated: SKILL.md, README.md, AGENTS.md, ARCHITECTURE.md,
+cli.md, MAINTENANCE.md, VALIDATION_REPORT.md, references/tool-contract.md, and
+both Workflow templates no longer mention `kind` or `project_tool`.
+
+117 tests pass; integrity gate ok; ruff clean.

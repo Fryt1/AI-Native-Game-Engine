@@ -7,7 +7,7 @@ from typing import Any
 from .artifacts import ArtifactRef
 from .checklists import ChecklistSummary, CheckResult, ExecutionItemResult
 from .coercion import coerce_enum
-from .tools import CallKind, CallTarget
+from .tools import CallTarget
 
 
 class TaskStatus(StrEnum):
@@ -26,7 +26,6 @@ class ExecutionResult:
 
     call_id: str
     status: TaskStatus
-    kind: CallKind = CallKind.MCP
     target: CallTarget | None = None
     outputs: dict[str, Any] = field(default_factory=dict)
     artifacts: tuple[ArtifactRef, ...] = ()
@@ -35,6 +34,9 @@ class ExecutionResult:
     resume_pointer: str | None = None
     preserved_relations: frozenset[str] = field(default_factory=frozenset)
     lost_relations: frozenset[str] = field(default_factory=frozenset)
+
+    def __post_init__(self) -> None:
+        coerce_enum(self, "status", TaskStatus)
 
     def evidence_view(self) -> dict[str, Any]:
         """Return the fields an acceptance check may address by path.
@@ -49,7 +51,6 @@ class ExecutionResult:
 
         return {
             "status": self.status.value,
-            "kind": self.kind.value,
             "target": self.target.to_dict() if self.target else None,
             "preserved_relations": sorted(self.preserved_relations),
             "lost_relations": sorted(self.lost_relations),
@@ -63,7 +64,6 @@ class ExecutionResult:
     def to_dict(self) -> dict[str, Any]:
         return {
             "call_id": self.call_id,
-            "kind": self.kind.value,
             "target": self.target.to_dict() if self.target else None,
             "status": self.status.value,
             "outputs": self.outputs,
@@ -75,8 +75,6 @@ class ExecutionResult:
             "lost_relations": sorted(self.lost_relations),
         }
 
-    def __post_init__(self) -> None:
-        coerce_enum(self, "kind", CallKind)
 
 @dataclass(frozen=True, slots=True)
 class StageResult:
@@ -95,6 +93,9 @@ class StageResult:
     warnings: tuple[str, ...] = ()
     errors: tuple[str, ...] = ()
     resume_pointer: str | None = None
+
+    def __post_init__(self) -> None:
+        coerce_enum(self, "status", TaskStatus)
 
     @property
     def call_ids(self) -> tuple[str, ...]:
@@ -141,6 +142,9 @@ class TaskResult:
     errors: tuple[str, ...] = ()
     next_action: str | None = None
     resume_pointer: str | None = None
+
+    def __post_init__(self) -> None:
+        coerce_enum(self, "status", TaskStatus)
 
     @property
     def terminal(self) -> bool:

@@ -63,7 +63,6 @@ steps:
 
         calls:
           - call_id: <unique call id>
-            kind: <mcp | project_tool>
             target:
               owner: <MCP server or project Tool owner>
               name: <tool on that owner>

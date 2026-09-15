@@ -65,7 +65,6 @@ def test_a_host_mcp_call_is_accepted_in_the_plan():
 
     assert session.ready
     assert [c.target.name for c in workflow.calls] == ["get_actor_transform", "set_actor_transform"]
-    assert all(c.kind.value == "mcp" for c in workflow.calls)
 
 
 def test_opening_a_plan_executes_nothing():
@@ -113,28 +112,10 @@ def test_a_result_for_a_call_the_plan_never_declared_is_rejected():
             ExecutionResult(
                 call_id=undeclared.call_id,
                 status=TaskStatus.SUCCEEDED,
-                kind=undeclared.kind,
-                target=undeclared.target,
+                        target=undeclared.target,
             )
         )
 
-
-def test_a_result_whose_kind_contradicts_the_declaration_is_rejected():
-    task = host_task("kind-mismatch")
-    workflow = actor_plan(task, include_set=False)
-    session = AcceptanceGuide().start(task, workflow)
-    declared = workflow.stage_requests[0].calls[0]
-
-    from ainative.model import CallKind, ExecutionResult
-
-    mismatch = ExecutionResult(
-        call_id=declared.call_id,
-        status=TaskStatus.SUCCEEDED,
-        kind=CallKind.PROJECT_TOOL,
-        target=declared.target,
-    )
-    with pytest.raises(WorkflowError, match="kind mismatch"):
-        session.record_execution_result(mismatch)
 
 
 def test_a_result_whose_target_contradicts_the_declaration_is_rejected():
@@ -148,7 +129,6 @@ def test_a_result_whose_target_contradicts_the_declaration_is_rejected():
     mismatch = ExecutionResult(
         call_id=declared.call_id,
         status=TaskStatus.SUCCEEDED,
-        kind=declared.kind,
         target=CallTarget(owner="ue5", name="some_other_tool"),
     )
     with pytest.raises(WorkflowError, match="target mismatch"):

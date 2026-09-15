@@ -55,7 +55,6 @@
           "calls": [
             {
               "call_id": "<change-call-id>",
-              "kind": "mcp",
               "target": {
                 "owner": "<mcp-server>",
                 "name": "<tool-on-that-server>"
@@ -65,7 +64,6 @@
             },
             {
               "call_id": "<verify-call-id>",
-              "kind": "mcp",
               "target": {
                 "owner": "<mcp-server>",
                 "name": "<read-back-tool>"

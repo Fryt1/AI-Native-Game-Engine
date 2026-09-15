@@ -87,21 +87,19 @@ StageRequest                        一个本地目标
 
 ToolCall                             一次 Agent 声明的调用
 ├── call_id
-├── kind                            project_tool | mcp
 ├── target                          CallTarget：owner + name
 ├── arguments
 └── depends_on
 ```
 
-`CallKind` 的默认值是 `mcp`。`target` 的语义由 `kind` 决定：对 `mcp` 是 MCP server
-名与 tool 名；对 `project_tool` 是 Toolset id 与 Tool id。两种调用在同一个
-`ToolCall` 形状里表达，因为解析它们的是 Agent，不是本仓库。
+`target` 就是调用本身：`owner` 是 MCP server 名，`name` 是它上面的 tool 名。
+本仓库解析不了它——解析并执行的是 Agent 自己的 MCP client。
 
 ### 证据与结果（流动中产生）
 
 ```
 ExecutionResult                     一次调用的结果（Agent 提交）
-├── call_id / status / kind
+├── call_id / status
 ├── target                          CallTarget | None
 ├── outputs                        自由字段
 ├── preserved_relations            一等证据
@@ -158,7 +156,7 @@ TaskResult                          最终汇总
 
 ⑥ python -m ainative.session record --result <已执行调用的 JSON>
    ├── 校验 call_id 已在计划中声明
-   ├── 校验 kind / target 与计划一致
+   ├── 校验 target 与计划一致
    └── 追加到有序事件日志，重放全部事件
 
 ⑦ python -m ainative.session stage --stage <id>
@@ -198,7 +196,7 @@ task 与 workflow 都存在状态里，所以 `open` 之后各命令不必重复
 验收项的 `actual_path` 从 `ExecutionResult.evidence_view()` 读取，它暴露：
 
 ```
-status / kind / target
+status / target
 preserved_relations / lost_relations      ← 一等证据
 artifact_count / artifacts
 warnings / errors
@@ -246,15 +244,13 @@ required Stage 未全部关闭      → blocked（running）
 
 ```
 Agent 写计划
-    ToolCall(call_id, kind, target{owner,name}, arguments, depends_on)
+    ToolCall(call_id, target{owner,name}, arguments, depends_on)
         │
-        ├── kind = "mcp"
-        │      Agent 自己的 MCP client
+                │      Agent 自己的 MCP client
         │          → Blender / UE5 / ComfyUI MCP Server
         │          → 结果交回 record，成为该 Stage 的证据
         │
-        └── kind = "project_tool"
-               契约里是一等形状，但本仓库不附带任何可执行的 Toolset
+                       契约里是一等形状，但本仓库不附带任何可执行的 Toolset
 ```
 
 **没有执行绑定，没有 provider 列表，没有注册步骤，没有发现索引。** 计划只做结构
@@ -263,21 +259,21 @@ Agent 写计划
 也不判断目标是否可用。
 
 `record` 与 `open` 的三道校验替代了原先的绑定检查，而它们对 MCP 调用与项目 Tool
-调用一视同仁：`call_id` 必须已在计划中声明，`kind` 必须与声明一致，`target` 必须
+调用一视同仁：`call_id` 必须已在计划中声明，`target` 必须
 与声明一致。
 
 ### MCP 调用是计划的一等成员
 
-`ExecutionResult` 与 `ToolCall` 共用同一组 `kind` / `target` 字段，因此宿主调用可以
+`ExecutionResult` 与 `ToolCall` 共用同一个 `target` 字段，因此宿主调用可以
 完整进入调用图。原先"契约层表达不了 MCP 调用"的缺口已经消失：
 
 ```
 ① Agent 声明它真实要做的宿主调用
-   {"call_id":"m1","kind":"mcp","target":{"owner":"ue5","name":"set_actor_transform"}}
+   {"call_id":"m1","target":{"owner":"ue5","name":"set_actor_transform"}}
    → open 接受（只做结构校验）
 
 ② Agent 执行该调用并把结果交回
-   {"call_id":"m1","kind":"mcp","target":{"owner":"ue5","name":"set_actor_transform"},
+   {"call_id":"m1","target":{"owner":"ue5","name":"set_actor_transform"},
     "status":"succeeded", ...}
    → record 接受，写入证据
 
@@ -316,7 +312,7 @@ game-engine/
 ├── src/ainative/
 │   ├── session_api/         Skill 加载 + 验收会话
 │   ├── cli/                 session（验收循环）/ state
-│   ├── model/               纯数据结构（含 ToolCall / CallTarget / CallKind）
+│   ├── model/               纯数据结构（含 ToolCall / CallTarget）
 │   ├── reading/             读 JSON、校验计划结构
 │       └── acceptance/      确定性判定
 ├── tests/                   单元与集成测试

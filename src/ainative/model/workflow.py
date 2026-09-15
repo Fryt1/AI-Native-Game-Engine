@@ -97,11 +97,8 @@ class Workflow:
     warnings: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        # Accept a plain string route and coerce it, so a hand-written Workflow JSON
-        # behaves identically to one built in Python. Frozen dataclasses cannot
-        # assign directly, so this goes through object.__setattr__.
-        if not isinstance(self.route, TaskRoute):
-            object.__setattr__(self, "route", TaskRoute(self.route))
+        coerce_enum(self, "route", TaskRoute)
+        coerce_enum(self, "status", WorkflowStatus)
 
     @property
     def revision_id(self) -> str:

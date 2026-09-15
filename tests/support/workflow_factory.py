@@ -4,7 +4,6 @@ from typing import Any
 
 from ainative.model import (
     AcceptanceCheck,
-    CallKind,
     CallTarget,
     CheckOperator,
     ExecutionChecklistItem,
@@ -25,7 +24,6 @@ def call(
     call_id: str,
     arguments: dict[str, Any] | None = None,
     depends_on: tuple[str, ...] = (),
-    kind: CallKind = CallKind.MCP,
 ) -> ToolCall:
     """Build one declared call.
 
@@ -34,13 +32,11 @@ def call(
     @param call_id: the id this Workflow refers to the call by.
     @param arguments: the arguments the Agent will pass.
     @param depends_on: calls that must complete first.
-    @param kind: where the call is executed.
     """
 
     return ToolCall(
         call_id=call_id,
         target=CallTarget(owner=owner, name=name),
-        kind=kind,
         arguments=dict(arguments or {}),
         depends_on=depends_on,
     )
@@ -137,7 +133,6 @@ def submit_call_result(
     result = ExecutionResult(
         call_id=call.call_id,
         status=status,
-        kind=call.kind,
         target=call.target,
         outputs=dict(evidence.pop("outputs", {})),
         artifacts=tuple(evidence.pop("artifacts", ())),

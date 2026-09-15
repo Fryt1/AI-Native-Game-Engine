@@ -182,7 +182,7 @@ D:\work\AI-Native\game-engine\
 ## Call execution
 
 ```text
-ToolCall(kind=mcp, target=owner/name) → Agent MCP Client → named MCP Server/tool
+ToolCall(target=owner/name) → Agent MCP Client → named MCP Server/tool
 ```
 
 There is no execution binding, no Tool registry, and no discovery index. The

@@ -11,7 +11,7 @@ from .checklists import (
 )
 from .results import ExecutionResult, StageResult, TaskResult, TaskStatus
 from .task import TaskContract, TaskRoute
-from .tools import CallKind, CallTarget, ToolCall
+from .tools import CallTarget, ToolCall
 from .workflow import (
     GateResult,
     StageRequest,
@@ -24,7 +24,6 @@ __all__ = [
     "AcceptanceCheck",
     "ArtifactKind",
     "ArtifactRef",
-    "CallKind",
     "CallTarget",
     "CheckOperator",
     "CheckResult",

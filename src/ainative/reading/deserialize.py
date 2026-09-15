@@ -23,7 +23,7 @@ from ainative.model.checklists import (
 )
 from ainative.model.results import ExecutionResult, TaskStatus
 from ainative.model.task import TaskContract, TaskRoute
-from ainative.model.tools import CallKind, CallTarget, ToolCall
+from ainative.model.tools import CallTarget, ToolCall
 from ainative.model.workflow import (
     StageKind,
     StageRequest,
@@ -85,7 +85,6 @@ def tool_call_from_dict(document: Any, path: str) -> ToolCall:
             owner=str(_require(target, "owner", f"{path}.target")),
             name=str(_require(target, "name", f"{path}.target")),
         ),
-        kind=_enum(CallKind, document.get("kind", CallKind.MCP.value), f"{path}.kind"),
         arguments=arguments,
         depends_on=_str_tuple(document.get("depends_on"), f"{path}.depends_on"),
     )
@@ -248,7 +247,6 @@ def execution_result_from_dict(document: Any, path: str) -> ExecutionResult:
     return ExecutionResult(
         call_id=str(_require(document, "call_id", path)),
         status=_enum(TaskStatus, _require(document, "status", path), f"{path}.status"),
-        kind=_enum(CallKind, document.get("kind", CallKind.MCP.value), f"{path}.kind"),
         target=target,
         outputs=outputs,
         artifacts=tuple(
