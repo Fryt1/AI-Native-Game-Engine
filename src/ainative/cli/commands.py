@@ -8,13 +8,19 @@ invents a checklist item.
 
 Commands:
 
-    open     validate an Agent-authored Workflow and start a session
-    record   submit one executed call result as evidence
-    item     submit one execution checklist item result
-    check    submit one manual acceptance check result
-    stage    evaluate one Stage and close it
-    finish   aggregate the final TaskResult
-    status   show current session state without changing it
+    open       validate an Agent-authored Workflow and start a session
+    record     submit one executed call result as evidence
+    item       submit one execution checklist item result
+    check      submit one manual acceptance check result
+    stage      evaluate one Stage and close it
+    finish     aggregate the final TaskResult
+    status     show current session state without changing it
+    supersede  replace the Workflow revision, archiving the old one
+
+A Workflow revision is immutable. `open` refuses to overwrite a state that has
+recorded progress, because that would silently discard evidence; replacing a
+Workflow is `supersede`, which archives the old revision and the evidence
+recorded against it.
 
 Every command prints the same envelope — command, ok, verdict, exit_code, detail,
 errors — and exits 0 on a non-blocking result, 1 on a blocking or failing result,
@@ -53,6 +59,7 @@ from ainative.reading import (
     execution_result_from_dict,
     task_from_dict,
     validate_workflow_structure,
+    workflow_from_dict,
 )
 from ainative.session_api import AcceptanceGuide, AcceptanceSession, WorkflowError
 
@@ -111,7 +118,20 @@ def replay(state: SessionState) -> AcceptanceSession:
 
 
 def command_open(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
-    """Validate an Agent-authored Workflow and write the initial session state."""
+    """Validate an Agent-authored Workflow and write the initial session state.
+
+    Refuses to overwrite a state that already has recorded progress: that would
+    discard evidence the Agent submitted. Replacing a Workflow is `supersede`.
+    """
+
+    path = Path(args.state)
+    if path.is_file():
+        existing = SessionState.load(path)
+        if existing.has_progress:
+            raise SessionStateError(
+                f"session state already has recorded progress: {path}; "
+                "use supersede to replace the Workflow revision, or a new --state file"
+            )
 
     workflow_document = _load_json(args.workflow, "workflow")
     state = SessionState(
@@ -121,7 +141,7 @@ def command_open(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
     workflow = state.workflow_object()
     validate_workflow_structure(workflow)
     session = AcceptanceGuide().start(task_from_dict(state.task, "task"), workflow)
-    state.save(Path(args.state))
+    state.save(path)
 
     verdict = Verdict.SUCCEEDED if session.ready else Verdict.BLOCKED
     payload = envelope(
@@ -132,6 +152,7 @@ def command_open(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
             "ready": session.ready,
             "guidance": workflow.guidance,
             "route": workflow.route.value,
+            "revision_id": workflow.revision_id,
             "stages": [stage.stage_id for stage in workflow.stage_requests],
             "blocked_reasons": list(session.gate.blocked_reasons),
         },
@@ -140,11 +161,98 @@ def command_open(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
     return payload, payload["exit_code"]
 
 
+def command_supersede(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
+    """Replace the Workflow revision, archiving the old one and its evidence.
+
+    Reports which Stages carry over (unchanged definition) and, separately, which
+    Stages had already touched the outside world. Python cannot undo a host edit,
+    so a Stage that ran once and is re-run may apply its change twice; naming it
+    is the most this layer can do.
+    """
+
+    path = Path(args.state)
+    state = SessionState.load(path)
+    previous = state.workflow_object()
+
+    workflow_document = _load_json(args.workflow, "workflow")
+    replacement = workflow_from_dict(workflow_document)
+    validate_workflow_structure(replacement)
+
+    if state.has_progress and not replacement.supersedes_workflow_id:
+        raise SessionStateError(
+            "a replacement revision must name the revision it replaces; "
+            f"set supersedes_workflow_id to {previous.revision_id!r}"
+        )
+
+    carried = state.carried_over_stages(workflow_document)
+    touched_before = set(state.side_effect_stages)
+
+    reason = args.reason or "the Agent authored a replacement revision"
+    carried = state.supersede(workflow_document, reason)
+    session = AcceptanceGuide().start(task_from_dict(state.task, "task"), replacement)
+    state.save(path)
+
+    # A Stage is at risk when its calls already ran against a live host and its
+    # definition changed, so the earlier proof no longer covers it and re-running
+    # it would repeat a host change.
+    at_risk = tuple(
+        stage.stage_id
+        for stage in replacement.stage_requests
+        if stage.stage_id not in carried and stage.stage_id in touched_before
+    )
+
+    verdict = Verdict.SUCCEEDED if session.ready else Verdict.BLOCKED
+    payload = envelope(
+        "supersede",
+        verdict=verdict,
+        detail={
+            "state": str(args.state),
+            "ready": session.ready,
+            "superseded_revision_id": previous.revision_id,
+            "revision_id": replacement.revision_id,
+            "reason": reason,
+            "carried_over": list(carried),
+            "invalidated": [
+                stage.stage_id
+                for stage in replacement.stage_requests
+                if stage.stage_id not in carried
+            ],
+            "side_effects_at_risk": list(at_risk),
+            "archived_events": len(state.revisions[-1]["events"]) if state.revisions else 0,
+            "revision_count": len(state.revisions),
+            "stages": [stage.stage_id for stage in replacement.stage_requests],
+            "blocked_reasons": list(session.gate.blocked_reasons),
+        },
+        errors=session.gate.blocked_reasons,
+    )
+    return payload, payload["exit_code"]
+
+
 def command_record(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
-    """Submit one executed call result as evidence."""
+    """Submit one executed call result as evidence.
+
+    Refuses to re-report a call whose Stage has already run that call against a
+    live host, unless the Agent says it means to. The reachable hazard is a
+    replacement revision: it invalidates a Stage, the Stage's calls become
+    runnable again, and re-running one applies the same host change a second time.
+
+    Python cannot see the host, let alone undo it, so this is the point where the
+    repeat is preventable.
+    """
 
     state = SessionState.load(Path(args.state))
     result = execution_result_from_dict(_load_json(args.result, "result"), "result")
+
+    if not args.confirm_side_effects:
+        already_run = state.calls_already_run()
+        if result.call_id in already_run:
+            raise SessionStateError(
+                f"call {result.call_id} has already run against a live host "
+                f"(revision {already_run[result.call_id]}); reporting a new result for it "
+                "could apply the same change twice. "
+                "Pass --confirm-side-effects to proceed, or author a replacement revision"
+            )
+
     state.append(EVENT_EXECUTION_RESULT, result.to_dict())
     replay(state)
     state.save(Path(args.state))
@@ -195,16 +303,24 @@ def command_check(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
 
 
 def command_stage(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
-    """Evaluate one Stage against its frozen checklists and close it."""
+    """Evaluate one Stage against its frozen checklists and close it.
+
+    Closing a Stage is idempotent: asking again returns the verdict already
+    recorded. The hazard of a repeated host change is guarded where the call is
+    reported, not here -- see `command_record`.
+    """
 
     state = SessionState.load(Path(args.state))
     session = replay(state)
+
+    closed_before = args.stage in state.closed_stages
     result = session.complete_stage(args.stage)
-    if result.status in CLOSED_STATUSES and args.stage not in state.closed_stages:
+    if result.status in CLOSED_STATUSES and not closed_before:
         state.append(EVENT_STAGE_CLOSED, {"stage_id": args.stage})
     state.save(Path(args.state))
 
     detail = result.to_dict()
+    detail["side_effects_recorded"] = session.has_side_effects(args.stage)
     payload = envelope(
         "stage",
         verdict=verdict_for_task_status(result.status),
@@ -244,6 +360,8 @@ def command_status(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         detail={
             "state": str(args.state),
             "ready": session.ready,
+            "revision_id": session.workflow.revision_id,
+            "revision_count": len(state.revisions),
             "completed_calls": list(session.completed_call_ids),
             "completed_stages": list(session.completed_stage_ids),
             "remaining_stages": [
@@ -266,6 +384,7 @@ COMMANDS = {
     "stage": command_stage,
     "finish": command_finish,
     "status": command_status,
+    "supersede": command_supersede,
 }
 
 
@@ -276,14 +395,23 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--state", required=True, help="session state file (created by 'open')")
     parser.add_argument("--task", help="task JSON (required by 'open')")
-    parser.add_argument("--workflow", help="Workflow JSON (required by 'open')")
+    parser.add_argument("--workflow", help="Workflow JSON (required by 'open' and 'supersede')")
     parser.add_argument("--result", help="result JSON (required by record/item/check)")
     parser.add_argument("--stage", help="stage id (required by 'stage')")
+    parser.add_argument("--reason", help="why the previous revision was abandoned (used by 'supersede')")
+    parser.add_argument(
+        "--confirm-side-effects",
+        action="store_true",
+        dest="confirm_side_effects",
+        help="acknowledge that this call may re-apply a host change (used by 'record')",
+    )
     parser.add_argument("command", choices=sorted(COMMANDS))
     args = parser.parse_args(argv)
 
     if args.command == "open" and (not args.task or not args.workflow):
         parser.error("open requires --task and --workflow")
+    if args.command == "supersede" and not args.workflow:
+        parser.error("supersede requires --workflow")
     if args.command in {"record", "item", "check"} and not args.result:
         parser.error(f"{args.command} requires --result")
     if args.command == "stage" and not args.stage:

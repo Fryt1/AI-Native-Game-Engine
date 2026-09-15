@@ -1,3 +1,5 @@
+import hashlib
+import json
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
@@ -56,6 +58,45 @@ class StageRequest:
 
     def __post_init__(self) -> None:
         coerce_enum(self, "stage_kind", StageKind)
+
+    @property
+    def fingerprint(self) -> str:
+        """A digest of everything that decides this Stage's outcome.
+
+        Two revisions of a Workflow may declare a Stage with the same
+        ``stage_id``. Whether that is *the same Stage* depends on its content, not
+        its name: if the goal, the checklist, or the calls changed, then a verdict
+        earned by the old one says nothing about the new one.
+
+        The fingerprint covers the definition, not the results. ``stage_id`` is
+        deliberately not part of it, so a Stage renamed without any other change
+        is still recognised as the same work.
+
+        @returns a stable hex digest of the Stage definition.
+        """
+
+        payload = json.dumps(
+            {
+                "stage_kind": self.stage_kind.value,
+                "purpose": self.purpose,
+                "operation": self.operation,
+                "required": self.required,
+                "calls": [
+                    {
+                        "call_id": call.call_id,
+                        "target": call.target.to_dict(),
+                        "arguments": call.arguments,
+                        "depends_on": list(call.depends_on),
+                    }
+                    for call in self.calls
+                ],
+                "execution_checklist": [item.to_dict() for item in self.execution_checklist],
+                "acceptance_checklist": [check.to_dict() for check in self.acceptance_checklist],
+            },
+            sort_keys=True,
+            default=str,
+        )
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 
 @dataclass(frozen=True, slots=True)
 class WorkflowStep:

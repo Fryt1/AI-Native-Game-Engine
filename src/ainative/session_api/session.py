@@ -86,6 +86,35 @@ class AcceptanceSession:
     def stage_results(self) -> tuple[StageResult, ...]:
         return tuple(self._stage_results.values())
 
+    @property
+    def stages_with_side_effects(self) -> tuple[str, ...]:
+        """Return the Stage ids that have already touched the outside world.
+
+        Python never sees the host, so it cannot know whether an edit landed.
+        What it does know is that the Agent reported a call for that Stage, which
+        means the call ran against a live host and may have changed it.
+
+        This is the fact that matters when a Workflow is replaced: re-running such
+        a Stage could apply the same change twice. The Agent decides what to do;
+        Python's job is to name the Stages at risk instead of letting a re-run
+        look identical to a first run.
+        """
+
+        touched: list[str] = []
+        for call_id in self._call_executions:
+            location = self._call_locations.get(call_id)
+            if location is None:
+                continue
+            _, stage = location
+            if stage.stage_id not in touched:
+                touched.append(stage.stage_id)
+        return tuple(touched)
+
+    def has_side_effects(self, stage_id: str) -> bool:
+        """True once any call declared by this Stage has been recorded."""
+
+        return stage_id in self.stages_with_side_effects
+
     # -- Evidence recording (Agent submits results; Python validates) --
 
     def record_execution_item(self, stage_id: str, result: ExecutionItemResult) -> ExecutionItemResult:

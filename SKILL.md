@@ -60,6 +60,24 @@ These hold for every Workflow you author.
    without new evidence or an explicit human decision.
 8. A running Workflow revision is immutable. Changes create a new revision.
 
+To replace a revision, use `supersede` rather than reopening:
+
+```powershell
+python -m ainative.session --state s.json --workflow new.json --reason "why" supersede
+```
+
+A Stage carries over only when its **definition** is unchanged — the goal, the
+checklist, and the calls. Same `stage_id` is not enough: if you changed what the
+Stage must prove, its earlier verdict says nothing about the new one, and it must
+run again.
+
+Python cannot see the host and cannot undo anything, but it does know which Stages
+have already run a call against a live host. `supersede` reports those as
+`side_effects_at_risk`, and re-reporting such a call is refused until you pass
+`--confirm-side-effects`. Take that seriously: re-running a call the host already
+saw can apply the same change twice. If a Stage must be undone, that is an
+explicit compensating call you author, not something this repository can do.
+
 Start from `templates/workflow-plan-template.json` rather than hand-writing the
 JSON. `templates/workflow-plan-template.md` explains each field.
 

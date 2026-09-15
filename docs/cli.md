@@ -38,15 +38,85 @@ python -m ainative.session --state s.json status
 | `stage` | 按冻结的 checklist 评估并关闭一个 Stage | `--stage` |
 | `finish` | 汇总最终的 TaskResult | — |
 | `status` | 只读当前会话状态，不做任何修改 | — |
+| `supersede` | 替换 Workflow 修订，归档旧修订及其证据 | `--workflow`（建议 `--reason`） |
 
 `--state` 是必需参数，指向会话状态文件（由 `open` 创建）。它是 Agent 已提交证据
-的唯一载体：task、Workflow，以及一份**按提交顺序**记录的证据事件日志（调用结果、
-checklist 结果、已关闭的 Stage）。顺序有意义：某个调用只有在它依赖的 Stage 关闭
-之后才允许记录，因此重放必须按原顺序，不能当成无序集合。每次命令都是独立进程，
-会话靠重放这份日志重建，判定因此是确定性的，文件里也不会出现 Agent 没有做过的
+的唯一载体：task、当前 Workflow 修订、一份**按提交顺序**记录的证据事件日志（调用结果、
+checklist 结果、已关闭的 Stage），以及被替换掉的修订。顺序有意义：某个调用只有在它依赖
+的 Stage 关闭之后才允许记录，因此重放必须按原顺序，不能当成无序集合。每次命令都是独立
+进程，会话靠重放这份日志重建，判定因此是确定性的，文件里也不会出现 Agent 没有做过的
 决定。
 
 除 `open` 的 `--task` / `--workflow` 外，各命令只需要 `--state` 加上自己的那个参数。
+
+## 替换 Workflow：`supersede`
+
+Workflow 修订不可变（Workflow 规则第 8 条）。要改就产生新修订：
+
+```powershell
+python -m ainative.session --state s.json --workflow new.json --reason "需求变了" supersede
+```
+
+新修订必须用 `supersedes_workflow_id` 指名它替换的那一版；已经记录过进度的 state 不接受
+无名替换，否则旧证据会被无声丢弃。
+
+### 哪些 Stage 会被保留
+
+**只有定义完全没变的 Stage 才继承。** 判据是**内容指纹**，不是 `stage_id`：
+
+```
+指纹 = hash(stage_kind + purpose + operation + required + calls + 两份清单)
+```
+
+因此：
+
+| 情况 | 结果 |
+|---|---|
+| `stage_id` 相同、内容逐字相同 | **继承**：判定与证据一起带过去，不必重做 |
+| `stage_id` 相同、但目标/清单/调用改了 | **作废**：旧判定对新定义无效，必须重做 |
+| 只改了 `stage_id`（改名），别的不变 | **继承**：指纹不含 `stage_id` |
+| 新出现的 Stage | 新做 |
+| 消失的 Stage | 归档 |
+
+同一名字不是同一件事：清单改了就是判据改了，旧 `pass` 不能算数。
+
+### 已经做过的副作用
+
+Python 看不到宿主，也无法撤销任何东西。它知道的是：**某个 Stage 的调用被记录过，就说明
+那次调用真的对着一台活着的宿主跑过**。这类 Stage 会被追踪，并在替换时报告：
+
+```json
+{
+  "carried_over":         ["stage.a"],
+  "invalidated":          ["stage.b"],
+  "side_effects_at_risk": ["stage.b"]
+}
+```
+
+`side_effects_at_risk` 是**已经动过世界、又因为定义变了而被作废**的 Stage。重跑它意味着
+同一个改动可能施加两次。
+
+**这类调用会被拒绝**，除非 Agent 显式确认：
+
+```powershell
+# 被拒：call b1 曾在 r1 上跑过
+python -m ainative.session --state s.json --result b1.json record
+#   -> call b1 has already run against a live host (revision w:r1) ...
+
+# 显式确认后才放行
+python -m ainative.session --state s.json --result b1.json --confirm-side-effects record
+```
+
+**为什么拦这里而不是拦 `stage`**：`stage` 只是按已提交的证据判定，重复调用它是幂等的；
+真正会重复施加改动的是**再跑一次调用**。所以闸门放在 `record`。
+
+`stage` 的输出里也有 `side_effects_recorded`（该 Stage 是否已有调用跑过宿主）。
+
+### 归档
+
+被替换的修订连同它的证据、作废原因、以及当时已产生副作用的 Stage 一起存进
+`state.revisions[]`。审计链完整：**当时想做什么、做到了哪一步、因为什么被放弃**。
+归档的事件**不会**在新修订上重放——它们的 `call_id` 属于旧定义。
 没有 `--config`：Workflow 的校验是纯结构的，不依赖任何本机 provider 配置。
 
 ## 调用的形状
