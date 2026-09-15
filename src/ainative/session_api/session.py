@@ -1,10 +1,18 @@
+"""The acceptance session: record what the Agent reports, judge it deterministically.
+
+The Agent executes every call itself and submits structured results here. This
+class never invokes a Tool or an MCP server. It validates each submitted result
+against the Workflow's declaration, records it as evidence, evaluates each Stage
+against its frozen checklists, and aggregates the final Task result.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
 
 from ainative.acceptance import StageAcceptanceEvaluator
-from ainative.acceptance.confirmation import confirmation_gate
+from ainative.acceptance.aggregation import aggregate_task_status, next_action_for
 from ainative.model.checklists import (
     CheckOperator,
     CheckResult,
@@ -21,51 +29,15 @@ from ainative.model.workflow import (
     GateResult,
     StageRequest,
     Workflow,
-    WorkflowStatus,
-)
-from ainative.reading import (
-    WorkflowIntegrityError,
-    validate_workflow_structure,
 )
 
-from .skill import AINativeSkill, SkillSession
-
-
-class WorkflowError(RuntimeError):
-    """The Agent supplied a Workflow that cannot be opened for validation."""
-
-
-_TERMINAL_WORKFLOW_STATUSES = frozenset({
-    WorkflowStatus.COMPLETED,
-    WorkflowStatus.FAILED,
-    WorkflowStatus.INVALID,
-    WorkflowStatus.SUPERSEDED,
-})
-
-
-def _reject_unexecutable_revision(workflow: Workflow) -> None:
-    """Refuse to open a Workflow revision that is no longer executable.
-
-    @param workflow: the Agent-authored Workflow.
-    @throws WorkflowError when the revision already reached a terminal state.
-    """
-
-    if workflow.status in _TERMINAL_WORKFLOW_STATUSES:
-        raise WorkflowError(
-            f"Workflow revision {workflow.revision_id} is not executable "
-            f"in status {workflow.status.value}"
-        )
+from .errors import WorkflowError
+from .skill import SkillSession
 
 
 @dataclass(slots=True)
 class AcceptanceSession:
-    """Validation/recording session for an Agent-authored Workflow.
-
-    The Agent executes Tools/MCP directly and submits structured raw results
-    through ``record_execution_result``. This class never invokes a Tool or an
-    MCP Server itself. It validates structure, records evidence, evaluates each
-    Stage deterministically, and aggregates the final result.
-    """
+    """Validation/recording session for an Agent-authored Workflow."""
 
     skill: SkillSession
     task: TaskContract
@@ -86,6 +58,8 @@ class AcceptanceSession:
             for stage in step.stages:
                 for call in stage.calls:
                     self._call_locations[call.call_id] = (step.step_id, stage)
+
+    # -- State the CLI reports --
 
     @property
     def ready(self) -> bool:
@@ -134,11 +108,59 @@ class AcceptanceSession:
             raise WorkflowError(f"Acceptance check is not declared in {stage_id}: {result.check_id}")
         if check.operator is not CheckOperator.MANUAL:
             raise WorkflowError(
-                f"Acceptance check {result.check_id} uses deterministic operator {check.operator.value} and cannot be overridden"
+                f"Acceptance check {result.check_id} uses deterministic operator "
+                f"{check.operator.value} and cannot be overridden"
             )
         self._check_results[(stage_id, result.check_id)] = result
         self._invalidate_stage_result(stage_id)
         return result
+
+    def record_execution_result(self, result: ExecutionResult) -> ExecutionResult:
+        """Record a raw call result the Agent reports.
+
+        This is the only execution entry point. Python never invokes the call; it
+        validates the submitted result against the declaration and dependency
+        order, then records it as evidence for the Stage.
+        """
+
+        location = self._call_locations.get(result.call_id)
+        if location is None:
+            raise WorkflowError(f"Execution result references an undeclared call: {result.call_id}")
+        if result.call_id in self._call_executions:
+            raise WorkflowError(f"Execution result has already been recorded: {result.call_id}")
+        _, stage = location
+        call = next(call for call in stage.calls if call.call_id == result.call_id)
+        self.check_call_ready(result.call_id)
+        if result.target is not None and result.target != call.target:
+            raise WorkflowError(
+                f"Execution result target mismatch for {result.call_id}: "
+                f"declared {call.qualified_name}, got {result.target.owner}/{result.target.name}"
+            )
+        if not isinstance(result.outputs, dict):
+            raise WorkflowError(f"Execution result outputs must be an object: {result.call_id}")
+        self._call_executions[result.call_id] = result
+        self._task_results[result.call_id] = self._task_result_for(result)
+        self.state.setdefault("recorded_execution_results", {})[result.call_id] = result.to_dict()
+        self._invalidate_stage_result(stage.stage_id)
+        return result
+
+    def _task_result_for(self, result: ExecutionResult) -> TaskResult:
+        """Project one call result onto the Workflow's identity, for aggregation."""
+
+        return TaskResult(
+            status=result.status,
+            route=self.workflow.route.value,
+            guidance=self.workflow.guidance,
+            workflow_id=self.workflow.workflow_id,
+            workflow_revision=self.workflow.revision,
+            details=dict(result.outputs),
+            artifacts=result.artifacts,
+            warnings=result.warnings,
+            errors=result.errors,
+            resume_pointer=result.resume_pointer,
+            preserved_relations=frozenset(result.preserved_relations),
+            lost_relations=frozenset(result.lost_relations),
+        )
 
     def check_call_ready(self, call_id: str) -> None:
         """Fail closed when an Agent tries to run a call before its dependencies."""
@@ -171,85 +193,19 @@ class AcceptanceSession:
                 reasons.append("failed dependencies: " + ", ".join(failed))
             raise WorkflowError(f"Call {call_id} cannot execute; " + "; ".join(reasons))
 
-    def record_execution_result(self, result: ExecutionResult) -> ExecutionResult:
-        """Record a raw Tool result returned by the Agent's tool client.
-
-        This is the only execution entry point of this Session. Python never
-        invokes the Tool; it validates the submitted contract, target,
-        dependency order, and shape, then records it as evidence for the Stage.
-        """
-        location = self._call_locations.get(result.call_id)
-        if location is None:
-            raise WorkflowError(f"Execution result references an undeclared call: {result.call_id}")
-        if result.call_id in self._call_executions:
-            raise WorkflowError(f"Execution result has already been recorded: {result.call_id}")
-        _, stage = location
-        call = next(call for call in stage.calls if call.call_id == result.call_id)
-        self.check_call_ready(result.call_id)
-        if result.target is not None and result.target != call.target:
-            raise WorkflowError(
-                f"Execution result target mismatch for {result.call_id}: "
-                f"declared {call.qualified_name}, got {result.target.owner}/{result.target.name}"
-            )
-        if not isinstance(result.outputs, dict):
-            raise WorkflowError(f"Execution result outputs must be an object: {result.call_id}")
-        task_result = TaskResult(
-            status=result.status,
-            route=self.workflow.route.value,
-            guidance=self.workflow.guidance,
-            workflow_id=self.workflow.workflow_id,
-            workflow_revision=self.workflow.revision,
-            details=dict(result.outputs),
-            artifacts=result.artifacts,
-            warnings=result.warnings,
-            errors=result.errors,
-            resume_pointer=result.resume_pointer,
-            preserved_relations=frozenset(result.preserved_relations),
-            lost_relations=frozenset(result.lost_relations),
-        )
-        self._call_executions[result.call_id] = result
-        self._task_results[result.call_id] = task_result
-        self.state.setdefault("recorded_execution_results", {})[result.call_id] = result.to_dict()
-        self._invalidate_stage_result(stage.stage_id)
-        return result
-
-    # -- Stage / Workflow evaluation --
+    # -- Stage evaluation --
 
     def complete_stage(self, stage_id: str) -> StageResult:
+        """Evaluate one Stage against its frozen checklists and close it."""
+
         if stage_id in self._stage_results:
             return self._stage_results[stage_id]
         step_id, stage = self._stage_location(stage_id)
         step = next(step for step in self.workflow.steps if step.step_id == step_id)
 
-        missing_step_dependencies = set(step.depends_on) - set(self.completed_step_ids)
-        if missing_step_dependencies:
-            return StageResult(
-                stage_id=stage_id,
-                step_id=step_id,
-                status=TaskStatus.BLOCKED,
-                errors=(
-                    (
-                        f"Stage {stage_id} belongs to Step {step_id}, which depends on incomplete Steps: "
-                        f"{', '.join(sorted(missing_step_dependencies))}"
-                    ),
-                ),
-                resume_pointer=stage_id,
-            )
-
-        missing_stage_dependencies = set(stage.depends_on) - set(self._completed_stages)
-        if missing_stage_dependencies:
-            return StageResult(
-                stage_id=stage_id,
-                step_id=step_id,
-                status=TaskStatus.BLOCKED,
-                errors=(
-                    (
-                        f"Stage {stage_id} depends on incomplete Stages: "
-                        f"{', '.join(sorted(missing_stage_dependencies))}"
-                    ),
-                ),
-                resume_pointer=stage_id,
-            )
+        blocked = self._dependency_block(stage_id, step_id, step, stage)
+        if blocked is not None:
+            return blocked
 
         execution_results = tuple(
             self._call_executions[call.call_id]
@@ -306,6 +262,45 @@ class AcceptanceSession:
             self._completed_stages.append(stage_id)
         return result
 
+    def _dependency_block(
+        self,
+        stage_id: str,
+        step_id: str,
+        step: Any,
+        stage: StageRequest,
+    ) -> StageResult | None:
+        """Return a BLOCKED result when a dependency is unmet, else None."""
+
+        missing_steps = set(step.depends_on) - set(self.completed_step_ids)
+        if missing_steps:
+            return StageResult(
+                stage_id=stage_id,
+                step_id=step_id,
+                status=TaskStatus.BLOCKED,
+                errors=[
+                    (
+                        f"Stage {stage_id} belongs to Step {step_id}, which depends on incomplete "
+                        f"Steps: {', '.join(sorted(missing_steps))}"
+                    )
+                ],
+                resume_pointer=stage_id,
+            )
+        missing_stages = set(stage.depends_on) - set(self._completed_stages)
+        if missing_stages:
+            return StageResult(
+                stage_id=stage_id,
+                step_id=step_id,
+                status=TaskStatus.BLOCKED,
+                errors=[
+                    (
+                        f"Stage {stage_id} depends on incomplete Stages: "
+                        f"{', '.join(sorted(missing_stages))}"
+                    )
+                ],
+                resume_pointer=stage_id,
+            )
+        return None
+
     def _stage_location(self, stage_id: str) -> tuple[str, StageRequest]:
         located = next(
             (
@@ -324,37 +319,26 @@ class AcceptanceSession:
         return self._stage_location(stage_id)[1]
 
     def _invalidate_stage_result(self, stage_id: str) -> None:
+        """Drop a closed Stage's verdict when new evidence arrives for it."""
+
         self._stage_results.pop(stage_id, None)
         if stage_id in self._completed_stages:
             self._completed_stages.remove(stage_id)
 
-    def finish(self) -> TaskResult:
-        """Aggregate recorded Tool/Stage results; execute nothing."""
+    # -- Aggregation --
 
-        required_stages = {stage.stage_id for stage in self.workflow.stage_requests if stage.required}
-        completed = set(self._completed_stages)
-        stage_statuses = {result.status for result in self._stage_results.values()}
-        if not self.gate.ready:
-            status = TaskStatus.BLOCKED
-            workflow_status = WorkflowStatus.SUSPENDED
-        elif TaskStatus.NEEDS_APPROVAL in stage_statuses:
-            status = TaskStatus.NEEDS_APPROVAL
-            workflow_status = WorkflowStatus.SUSPENDED
-        elif TaskStatus.FAILED in stage_statuses:
-            status = TaskStatus.FAILED
-            workflow_status = WorkflowStatus.SUSPENDED
-        elif TaskStatus.BLOCKED in stage_statuses:
-            status = TaskStatus.BLOCKED
-            workflow_status = WorkflowStatus.SUSPENDED
-        elif required_stages - completed:
-            status = TaskStatus.BLOCKED
-            workflow_status = WorkflowStatus.RUNNING
-        elif TaskStatus.DEGRADED in stage_statuses:
-            status = TaskStatus.DEGRADED
-            workflow_status = WorkflowStatus.COMPLETED
-        else:
-            status = TaskStatus.SUCCEEDED
-            workflow_status = WorkflowStatus.COMPLETED
+    def finish(self) -> TaskResult:
+        """Aggregate recorded results into the final Task result; execute nothing."""
+
+        required_stages = frozenset(
+            stage.stage_id for stage in self.workflow.stage_requests if stage.required
+        )
+        status, workflow_status = aggregate_task_status(
+            gate_ready=self.gate.ready,
+            stage_statuses=frozenset(result.status for result in self._stage_results.values()),
+            required_stages=required_stages,
+            completed_stages=frozenset(self._completed_stages),
+        )
 
         artifacts = []
         warnings: list[str] = []
@@ -397,62 +381,5 @@ class AcceptanceSession:
             warnings=tuple(warnings),
             errors=tuple(errors),
             resume_pointer=resume_pointer,
-            next_action=(
-                "Agent should repair the Workflow or entry gate before executing"
-                if status is TaskStatus.BLOCKED and not self.gate.ready
-                else (
-                    "Agent should collect missing checklist evidence before continuing"
-                    if status is TaskStatus.BLOCKED
-                    else (
-                        "Agent should obtain the required human decision"
-                        if status is TaskStatus.NEEDS_APPROVAL
-                        else (
-                            "Agent should retry the selected Tool or author a new Workflow revision"
-                            if status is TaskStatus.FAILED
-                            else None
-                        )
-                    )
-                )
-            ),
-        )
-
-
-class AcceptanceGuide:
-    """Loads Skill guidance and opens a validation-only AcceptanceSession."""
-
-    def __init__(self, skill: AINativeSkill | None = None) -> None:
-        self.skill = skill or AINativeSkill()
-
-    def load_skill(self, task: TaskContract) -> SkillSession:
-        return self.skill.load(task)
-
-    def start(
-        self,
-        task: TaskContract,
-        workflow: Workflow,
-    ) -> AcceptanceSession:
-        """Open an Agent-authored Workflow for structured validation and recording.
-
-        @param task: the Agent-authored task contract.
-        @param workflow: the Agent-authored Workflow, already deserialized.
-        @returns a session ready to record evidence and evaluate Stages.
-        @throws WorkflowError when the Workflow cannot be opened.
-        """
-
-        skill_session = self.load_skill(task)
-        _reject_unexecutable_revision(workflow)
-        if workflow.route is not task.route:
-            raise WorkflowError(
-                f"workflow route {workflow.route.value} does not match task route {task.route.value}"
-            )
-        try:
-            validate_workflow_structure(workflow)
-        except WorkflowIntegrityError as exc:
-            raise WorkflowError(str(exc)) from exc
-        gate = confirmation_gate(task)
-        return AcceptanceSession(
-            skill=skill_session,
-            task=task,
-            workflow=workflow,
-            gate=gate,
+            next_action=next_action_for(status, gate_ready=self.gate.ready),
         )

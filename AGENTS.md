@@ -155,11 +155,11 @@ D:\work\AI-Native\game-engine\
 ├── references\           host and MCP interface notes
 ├── templates\            the Workflow template, its field notes, and the guidance template
 ├── src\ainative\
-│   ├── session_api\      Skill loading and the acceptance session
+│   ├── session_api\      Skill loading, the Workflow opener, the session
 │   ├── cli\              the acceptance-loop CLI and its state file
 │   ├── model\            pure data structures
 │   ├── reading\          JSON reading and Workflow validation
-│   └── acceptance\       deterministic verdict + confirmation gate
+│   └── acceptance\       Stage verdict, aggregation, confirmation gate
 ├── tests\                unit/integration tests + a sample Task Contract
 ├── docs\                 cross-cutting architecture and maintenance docs
 └── artifacts\            evidence and scratch output

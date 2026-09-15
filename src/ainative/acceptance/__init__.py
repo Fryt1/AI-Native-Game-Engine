@@ -1,6 +1,13 @@
-"""Deterministic Stage acceptance and the confirmation gate."""
+"""Deterministic Stage acceptance, task aggregation, and the confirmation gate."""
 
+from .aggregation import aggregate_task_status, next_action_for
 from .confirmation import confirmation_gate
 from .evaluator import StageAcceptance, StageAcceptanceEvaluator
 
-__all__ = ["StageAcceptance", "StageAcceptanceEvaluator", "confirmation_gate"]
+__all__ = [
+    "StageAcceptance",
+    "StageAcceptanceEvaluator",
+    "aggregate_task_status",
+    "confirmation_gate",
+    "next_action_for",
+]

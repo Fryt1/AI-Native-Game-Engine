@@ -310,11 +310,11 @@ game-engine/
 ├── references/              宿主接入说明（3 份）
 ├── templates/               Workflow 模板 + 字段说明 + 指引模板
 ├── src/ainative/
-│   ├── session_api/         Skill 加载 + 验收会话
-│   ├── cli/                 session（验收循环）/ state
+│   ├── session_api/         Skill 加载 + Workflow 开启 + 验收会话
+│   ├── cli/                 验收循环 CLI / state
 │   ├── model/               纯数据结构（含 ToolCall / CallTarget）
-│   ├── reading/             读 JSON、校验计划结构
-│       └── acceptance/      确定性判定
+│   ├── reading/             读 JSON、校验 Workflow 结构
+│   └── acceptance/          确定性判定 + 汇总 + 确认门
 ├── tests/                   单元与集成测试
 ├── docs/                    架构、依赖、维护、验证、CLI
 └── artifacts/               证据与归档
