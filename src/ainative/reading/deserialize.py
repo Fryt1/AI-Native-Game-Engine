@@ -300,9 +300,10 @@ def workflow_from_dict(document: Any) -> Workflow:
     """
 
     if not isinstance(document, dict):
-        raise WorkflowDeserializationError("plan: expected an object")
+        raise WorkflowDeserializationError("workflow: expected an object")
     workflow_document = document.get("workflow", document)
-    path = "plan.workflow" if "workflow" in document else "plan"
+    # The nested form is still accepted, so an older state file keeps loading.
+    path = "workflow.workflow" if "workflow" in document else "workflow"
     if not isinstance(workflow_document, dict):
         raise WorkflowDeserializationError(f"{path}: expected an object")
 

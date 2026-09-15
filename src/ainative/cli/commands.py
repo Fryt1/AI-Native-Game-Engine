@@ -61,7 +61,12 @@ from ainative.reading import (
     validate_workflow_structure,
     workflow_from_dict,
 )
-from ainative.session_api import AcceptanceGuide, AcceptanceSession, WorkflowError
+from ainative.session_api import (
+    AcceptanceGuide,
+    AcceptanceSession,
+    SkillIntegrityError,
+    WorkflowError,
+)
 
 # A Stage that reached one of these is closed.
 CLOSED_STATUSES = frozenset({TaskStatus.SUCCEEDED, TaskStatus.DEGRADED})
@@ -534,8 +539,24 @@ def main(argv: list[str] | None = None) -> int:
     _CONTEXT.clear()
     try:
         payload, code = COMMANDS[args.command](args)
-    except (SessionStateError, WorkflowDeserializationError, WorkflowIntegrityError, WorkflowError) as exc:
+    except (
+        SessionStateError,
+        SkillIntegrityError,
+        WorkflowDeserializationError,
+        WorkflowIntegrityError,
+        WorkflowError,
+    ) as exc:
         payload, code = unusable(args.command, str(exc), context=_CONTEXT)
+    except Exception as exc:  # noqa: BLE001 - see below
+        # The contract is that every invocation prints one JSON envelope. An
+        # unexpected exception must still honour it: a traceback on stdout leaves
+        # a caller with nothing to parse and no way to tell a bug from bad input.
+        # The type is reported so the failure stays diagnosable.
+        payload, code = unusable(
+            args.command,
+            f"unexpected {type(exc).__name__}: {exc}",
+            context=_CONTEXT,
+        )
     emit(payload)
     return code
 
