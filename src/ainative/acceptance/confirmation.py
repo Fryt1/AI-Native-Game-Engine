@@ -1,7 +1,7 @@
 """A route is a label, plus a confirmation precondition.
 
 A route names the primary lifecycle of a task. That is all it is: a label the
-plan carries so the record shows what kind of work it was. It is *not* a
+Workflow carries so the record shows what kind of work it was. It is *not* a
 behavioral branch — every route contributes the same context, and this module
 used to model that sameness with three byte-identical authority objects. They
 are gone.

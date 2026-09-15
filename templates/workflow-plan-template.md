@@ -1,4 +1,4 @@
-# Workflow Template
+# Workflow Plan Template
 
 This template defines the stable structure of one Agent-authored Workflow.
 Workflow content is dynamic, but field names, result contracts, and checklist

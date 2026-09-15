@@ -2,7 +2,7 @@
 
 This policy describes an asset-edit lifecycle. A concrete Workflow such as
 `asset-roundtrip.md` supplies host-pair constraints; the Agent writes the actual
-plan.
+Workflow.
 
 ## Purpose
 
@@ -47,7 +47,7 @@ host API calls, and Python resolves none of them.
 ## Completion
 
 The Agent completes the Workflow only after every required validation Stage in
-its plan passes. Call and Stage results remain available for the next Stage or
+its Workflow passes. Call and Stage results remain available for the next Stage or
 for re-planning.
 
 ## Failure / recovery
@@ -62,7 +62,7 @@ For each selected Stage, the Agent composes an execution checklist and an
 acceptance checklist from the Stage kind, the processing object, the operation
 type, the current facts, and the user's requirements, then freezes both in the
 WorkflowPlan. The Agent supplies that domain competence; the checklist does not
-name calls, and the final plan stores the exact MCP calls the Agent selected.
+name calls, and the final Workflow stores the exact MCP calls the Agent selected.
 
 A call returning `succeeded` is call-level evidence only. The Stage completes
 through evidence-backed `ExecutionItemResult` and `CheckResult` aggregation.

@@ -22,7 +22,7 @@ Task Contract
 - Stage 聚合是确定性的。
 - MCP Server 配置给 Agent；本仓库不带 MCP Client Runtime/Gateway。
 - 不静默替换 MCP Server/Target/Backend/丢失策略。
-- 不重新引入 Capability、Tool registry、执行绑定、provider 列表、Python plan
+- 不重新引入 Capability、Tool registry、执行绑定、provider 列表、Python Workflow
   生成或每运行快照。
 
 ## 宿主软件边界

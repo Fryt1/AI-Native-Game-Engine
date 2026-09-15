@@ -4,7 +4,7 @@ The Agent writes the Workflow; this module only reads it back into the framework
 model objects so the Workflow can be validated and its checklists evaluated. It makes no
 decisions: it does not choose calls, order stages, or add missing items.
 
-A malformed plan raises ``WorkflowDeserializationError`` naming the exact JSON path,
+A malformed Workflow raises ``WorkflowDeserializationError`` naming the exact JSON path,
 so the Agent can repair the document rather than guess.
 """
 
@@ -34,7 +34,7 @@ from ainative.model.workflow import (
 
 
 class WorkflowDeserializationError(ValueError):
-    """The Agent-supplied plan document cannot be read."""
+    """The Agent-supplied Workflow document cannot be read."""
 
 
 def _require(document: Any, key: str, path: str) -> Any:

@@ -14,11 +14,11 @@ owns which Stage failed and which resume pointer is valid.
 | Selected MCP call fails | Preserve evidence and do not silently substitute another call |
 | Host operation fails | Retry the selected call or re-plan its Stage |
 | Validation fails | Preserve the report and retry or re-plan validation |
-| Conversation is interrupted | Restore the Agent's plan context and resume at the recorded call |
+| Conversation is interrupted | Restore the Agent's Workflow context and resume at the recorded call |
 
 ## No silent substitution
 
-A Stage runs the exact MCP call its plan selected. When that call fails, is
+A Stage runs the exact MCP call its Workflow selected. When that call fails, is
 unavailable, or turns out not to preserve what the Stage promised, the Agent
 preserves the evidence and escalates — it does not quietly swap in a different
 MCP server or tool name, or a different file operation, and report the Stage as
@@ -34,7 +34,7 @@ Repair the object that owns the failure:
 
 ```text
 Workflow contract → Workflow document
-Stage contract → Stage document or Agent plan
+Stage contract → Stage document or Agent Workflow
 MCP call → the host's MCP server, or the Agent's call selection
 Asset input → project / Artifact Contract
 Transfer relation → Agent's export/import MCP call selection

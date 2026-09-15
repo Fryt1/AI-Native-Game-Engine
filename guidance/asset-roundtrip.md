@@ -90,7 +90,7 @@ Blender / UE5 MCP
 The exact calls belong to the Agent-authored Workflow. A Workflow document does not
 create them from a fixed table.
 
-## Example plan
+## Example Workflow
 
 ```text
 Stage: export from UE5
@@ -123,7 +123,7 @@ For each selected Stage, the Agent composes an execution checklist and an
 acceptance checklist from the Stage kind, the processing object, the operation
 type, the current facts, and the user's requirements, then freezes both in the
 WorkflowPlan. The Agent supplies that domain competence; the checklist does not
-name Tools, and the final plan stores the exact calls.
+name Tools, and the final Workflow stores the exact calls.
 
 A call returning `succeeded` is call-level evidence only. The Stage completes
 through evidence-backed `ExecutionItemResult` and `CheckResult` aggregation.

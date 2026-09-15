@@ -40,7 +40,7 @@ generator-specific seam. The generator's output is passed as an explicit
 Artifact Contract. The host does not guess a file path or a missing apply
 operation.
 
-## Agent plan rule
+## Agent Workflow rule
 
 The Agent reads the relevant host and generator MCP documentation, selects the
 exact calls, confirms them before side effects, and invokes one at a time. The
@@ -65,7 +65,7 @@ For each selected Stage, the Agent composes an execution checklist and an
 acceptance checklist from the Stage kind, the processing object, the operation
 type, the current facts, and the user's requirements, then freezes both in the
 WorkflowPlan. The Agent supplies that domain competence; the checklist does not
-name calls, and the final plan stores the exact MCP calls the Agent selected.
+name calls, and the final Workflow stores the exact MCP calls the Agent selected.
 
 A call returning `succeeded` is call-level evidence only. The Stage completes
 through evidence-backed `ExecutionItemResult` and `CheckResult` aggregation.

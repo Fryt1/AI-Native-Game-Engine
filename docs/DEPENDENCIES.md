@@ -386,7 +386,7 @@ artifacts/evidence/comfyui-mcp-live/  (workflow JSON、verification.json、outpu
 - `docs/DEPENDENCIES.md`（本文件）：宿主与模型依赖的唯一声明位置，按宿主分小节；
 - Agent 配置：Codex/Agent MCP Client 的 `mcp_servers` 配置，不属于 Python package。
 
-计划校验只验证 Agent 提交的 plan 结构（Stage、清单、调用与依赖），
+计划校验只验证 Agent 提交的 Workflow 结构（Stage、清单、调用与依赖），
 不会自动安装宿主、模型、custom nodes、MCP Server，也不会自动完成 MCP handshake。
 本文件里写的版本号是前置条件声明，不是运行时证明，本仓库也不会自动检查它们。
 

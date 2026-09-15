@@ -2,7 +2,7 @@
 
 ## No registry, no binding
 
-There is no Toolset Registry, no execution binding, and no provider list. A plan
+There is no Toolset Registry, no execution binding, and no provider list. A Workflow
 declares its calls directly, and the Agent's own MCP client resolves and runs
 them. This repository validates the Workflow's structure and evaluates evidence; it
 executes nothing.

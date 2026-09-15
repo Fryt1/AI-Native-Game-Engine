@@ -11,7 +11,7 @@
 ```
 
 一份可复用的 Workflow 指引就是一个 Markdown 文件，写在 `guidance/<name>.md`。
-它给 Agent 的是宏观生命周期与不变式，不是固定 Step 序列，也不含 plan 骨架。
+它给 Agent 的是宏观生命周期与不变式，不是固定 Step 序列，也不含 Workflow 骨架。
 
 **本仓库没有“配方包”这个概念。** 不存在 `recipes/`，不存在每份指引自己的
 `WORKFLOW.md` / `tests/` / `verification/` 目录，也不存在按
@@ -48,7 +48,7 @@ guidance/<name>.md      生命周期指引：目的 / 宏观流程 / 不变式 /
 完成条件与需要的证据
 ```
 
-指引中不要写死 MCP tool 名。具体调用由 Agent 针对当前任务选择并写进 plan，
+指引中不要写死 MCP tool 名。具体调用由 Agent 针对当前任务选择并写进 Workflow，
 本仓库不解析 `target`。
 
 ## 2. 声明宿主依赖
@@ -78,7 +78,7 @@ guidance/<name>.md      生命周期指引：目的 / 宏观流程 / 不变式 /
 
 | 错误 | 后果 | 修正 |
 |---|---|---|
-| 指引里写死 MCP tool 名 | 与“Agent 选调用”的边界冲突，工具改名即失效 | 只写 server 与不变式，调用留给 plan |
+| 指引里写死 MCP tool 名 | 与“Agent 选调用”的边界冲突，工具改名即失效 | 只写 server 与不变式，调用留给 Workflow |
 | 把版本前置条件写在指引里 | 依赖声明分裂成两处 | 统一写进 `docs/DEPENDENCIES.md` |
 | 为每个 host/object/operation 组合新建指引 | 文档爆炸，且与 SKILL.md 的组合规则重复 | 一份指引覆盖一条宏观生命周期 |
 | 改 Skill 后不同步 `integrity_gate.py` 的 required 列表 | gate 可能不查新文件 | 维护者手工登记 required 列表 |

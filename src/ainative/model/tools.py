@@ -46,7 +46,7 @@ class CallTarget:
 
 @dataclass(frozen=True, slots=True)
 class ToolCall:
-    """One call the Agent declared in its plan."""
+    """One call the Agent declared in its Workflow."""
 
     call_id: str
     target: CallTarget

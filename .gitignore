@@ -33,12 +33,5 @@ artifacts/session-reports/
 artifacts/scratch/*
 !artifacts/scratch/.gitkeep
 
-# --- Vendored external repos: never commit nested .git / LFS / packfiles ---
-vendor/**/.git/
-vendor/**/.gitignore
-vendor/**/*.idx
-vendor/**/*.pack
-# keep vendored source files (they are small); only nested git metadata is ignored
-
 # --- uv (not used; pyproject/pip is the dependency workflow) ---
 uv.lock

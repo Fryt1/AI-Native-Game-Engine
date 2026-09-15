@@ -28,9 +28,9 @@ ok: true
 
 - The runtime has no built-in prompt router and selects no call for the Agent. The
   Agent supplies the task and owns every decision about what to call next.
-- The runtime executes nothing. A plan is validated structurally only: there is no
+- The runtime executes nothing. A Workflow is validated structurally only: there is no
   execution binding, no provider list, and no per-run provider check.
-- MCP calls are first-class plan entries. A call carries `kind` (`mcp` or
+- MCP calls are first-class Workflow entries. A call carries `kind` (`mcp` or
   `project_tool`) and a `target` of owner/name, so a host call such as
   `{"owner": "ue5", "name": "set_actor_transform"}` participates in the call graph
   and in dependency ordering instead of being pushed into a `manual` check.
@@ -48,7 +48,7 @@ MCP call
 ```
 
 There is no execution binding, no Tool registry, and no discovery index: the
-plan's `target` names what the Agent will invoke, and the Agent's own MCP client
+the Workflow's `target` names what the Agent will invoke, and the Agent's own MCP client
 resolves and runs it. This repository ships no executable Toolset.
 
 ## 自动化覆盖

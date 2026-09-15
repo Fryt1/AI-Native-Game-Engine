@@ -97,7 +97,7 @@ class Workflow:
     warnings: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        # Accept a plain string route and coerce it, so a hand-written plan JSON
+        # Accept a plain string route and coerce it, so a hand-written Workflow JSON
         # behaves identically to one built in Python. Frozen dataclasses cannot
         # assign directly, so this goes through object.__setattr__.
         if not isinstance(self.route, TaskRoute):
