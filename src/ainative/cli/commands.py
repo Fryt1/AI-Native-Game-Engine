@@ -16,8 +16,9 @@ Commands:
     finish   aggregate the final TaskResult
     status   show current session state without changing it
 
-Every command prints one JSON object and exits 0 on a non-blocking result, 1 on a
-blocking or failing result, and 2 when the command itself could not run.
+Every command prints the same envelope — command, ok, verdict, exit_code, detail,
+errors — and exits 0 on a non-blocking result, 1 on a blocking or failing result,
+and 2 when the command itself could not run. See `output.py` for the shape.
 """
 
 from __future__ import annotations
@@ -27,6 +28,14 @@ import json
 from pathlib import Path
 from typing import Any
 
+from ainative.cli.output import (
+    Verdict,
+    emit,
+    envelope,
+    unusable,
+    verdict_for_check_status,
+    verdict_for_task_status,
+)
 from ainative.cli.state import (
     EVENT_CHECK,
     EVENT_EXECUTION_ITEM,
@@ -35,7 +44,6 @@ from ainative.cli.state import (
     SessionState,
     SessionStateError,
 )
-from ainative.model.checklists import CheckStatus
 from ainative.model.results import TaskStatus
 from ainative.reading import (
     WorkflowDeserializationError,
@@ -48,23 +56,8 @@ from ainative.reading import (
 )
 from ainative.session_api import AcceptanceGuide, AcceptanceSession, WorkflowError
 
-BLOCKING_STATUSES = frozenset({
-    TaskStatus.FAILED,
-    TaskStatus.BLOCKED,
-    TaskStatus.NEEDS_APPROVAL,
-})
-
-
-def _emit(payload: dict[str, Any]) -> None:
-    print(json.dumps(payload, ensure_ascii=False, indent=2, default=str))
-
-
-def _exit_code(status: TaskStatus) -> int:
-    return 1 if status in BLOCKING_STATUSES else 0
-
-
-def _check_exit_code(status: CheckStatus) -> int:
-    return 1 if status in {CheckStatus.FAIL, CheckStatus.NEEDS_HUMAN} else 0
+# A Stage that reached one of these is closed.
+CLOSED_STATUSES = frozenset({TaskStatus.SUCCEEDED, TaskStatus.DEGRADED})
 
 
 def _load_json(path: str | None, what: str) -> Any:
@@ -117,7 +110,7 @@ def replay(state: SessionState) -> AcceptanceSession:
     return session
 
 
-def command_open(args: argparse.Namespace) -> int:
+def command_open(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
     """Validate an Agent-authored Workflow and write the initial session state."""
 
     workflow_document = _load_json(args.workflow, "workflow")
@@ -129,19 +122,25 @@ def command_open(args: argparse.Namespace) -> int:
     validate_workflow_structure(workflow)
     session = AcceptanceGuide().start(task_from_dict(state.task, "task"), workflow)
     state.save(Path(args.state))
-    _emit({
-        "command": "open",
-        "state": str(args.state),
-        "ready": session.ready,
-        "guidance": workflow.guidance,
-        "route": workflow.route.value,
-        "stages": [stage.stage_id for stage in workflow.stage_requests],
-        "blocked_reasons": list(session.gate.blocked_reasons),
-    })
-    return 0 if session.ready else 1
+
+    verdict = Verdict.SUCCEEDED if session.ready else Verdict.BLOCKED
+    payload = envelope(
+        "open",
+        verdict=verdict,
+        detail={
+            "state": str(args.state),
+            "ready": session.ready,
+            "guidance": workflow.guidance,
+            "route": workflow.route.value,
+            "stages": [stage.stage_id for stage in workflow.stage_requests],
+            "blocked_reasons": list(session.gate.blocked_reasons),
+        },
+        errors=session.gate.blocked_reasons,
+    )
+    return payload, payload["exit_code"]
 
 
-def command_record(args: argparse.Namespace) -> int:
+def command_record(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
     """Submit one executed call result as evidence."""
 
     state = SessionState.load(Path(args.state))
@@ -149,11 +148,17 @@ def command_record(args: argparse.Namespace) -> int:
     state.append(EVENT_EXECUTION_RESULT, result.to_dict())
     replay(state)
     state.save(Path(args.state))
-    _emit({"command": "record", "call_id": result.call_id, "status": result.status.value})
-    return _exit_code(result.status)
+
+    payload = envelope(
+        "record",
+        verdict=verdict_for_task_status(result.status),
+        detail={"call_id": result.call_id, "status": result.status.value},
+        errors=result.errors,
+    )
+    return payload, payload["exit_code"]
 
 
-def command_item(args: argparse.Namespace) -> int:
+def command_item(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
     """Submit one execution checklist item result."""
 
     state = SessionState.load(Path(args.state))
@@ -161,11 +166,17 @@ def command_item(args: argparse.Namespace) -> int:
     state.append(EVENT_EXECUTION_ITEM, item.to_dict())
     replay(state)
     state.save(Path(args.state))
-    _emit({"command": "item", "item_id": item.item_id, "status": item.status.value})
-    return _check_exit_code(item.status)
+
+    payload = envelope(
+        "item",
+        verdict=verdict_for_check_status(item.status),
+        detail={"item_id": item.item_id, "status": item.status.value},
+        errors=(item.reason,) if item.reason else (),
+    )
+    return payload, payload["exit_code"]
 
 
-def command_check(args: argparse.Namespace) -> int:
+def command_check(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
     """Submit one manual acceptance check result."""
 
     state = SessionState.load(Path(args.state))
@@ -173,54 +184,78 @@ def command_check(args: argparse.Namespace) -> int:
     state.append(EVENT_CHECK, check.to_dict())
     replay(state)
     state.save(Path(args.state))
-    _emit({"command": "check", "check_id": check.check_id, "status": check.status.value})
-    return _check_exit_code(check.status)
+
+    payload = envelope(
+        "check",
+        verdict=verdict_for_check_status(check.status),
+        detail={"check_id": check.check_id, "status": check.status.value},
+        errors=(check.reason,) if check.reason else (),
+    )
+    return payload, payload["exit_code"]
 
 
-def command_stage(args: argparse.Namespace) -> int:
+def command_stage(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
     """Evaluate one Stage against its frozen checklists and close it."""
 
     state = SessionState.load(Path(args.state))
     session = replay(state)
     result = session.complete_stage(args.stage)
-    closed = result.status in {TaskStatus.SUCCEEDED, TaskStatus.DEGRADED}
-    if closed and args.stage not in state.closed_stages:
+    if result.status in CLOSED_STATUSES and args.stage not in state.closed_stages:
         state.append(EVENT_STAGE_CLOSED, {"stage_id": args.stage})
     state.save(Path(args.state))
-    _emit({"command": "stage", "stage_result": result.to_dict()})
-    return _exit_code(result.status)
+
+    detail = result.to_dict()
+    payload = envelope(
+        "stage",
+        verdict=verdict_for_task_status(result.status),
+        detail=detail,
+        errors=detail.get("errors", ()),
+    )
+    return payload, payload["exit_code"]
 
 
-def command_finish(args: argparse.Namespace) -> int:
+def command_finish(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
     """Aggregate the final TaskResult from the recorded evidence."""
 
     state = SessionState.load(Path(args.state))
     result = replay(state).finish()
-    _emit({"command": "finish", "task_result": result.to_dict()})
-    return _exit_code(result.status)
+
+    detail = result.to_dict()
+    payload = envelope(
+        "finish",
+        verdict=verdict_for_task_status(result.status),
+        detail=detail,
+        errors=detail.get("errors", ()),
+    )
+    return payload, payload["exit_code"]
 
 
-def command_status(args: argparse.Namespace) -> int:
+def command_status(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
     """Show the current session state without changing it."""
 
     state = SessionState.load(Path(args.state))
     session = replay(state)
     result = session.finish()
     closed = set(session.completed_stage_ids)
-    _emit({
-        "command": "status",
-        "ready": session.ready,
-        "completed_calls": list(session.completed_call_ids),
-        "completed_stages": list(session.completed_stage_ids),
-        "remaining_stages": [
-            stage.stage_id
-            for stage in session.workflow.stage_requests
-            if stage.required and stage.stage_id not in closed
-        ],
-        "blocked_reasons": list(session.gate.blocked_reasons),
-        "status": result.status.value,
-    })
-    return _exit_code(result.status)
+
+    payload = envelope(
+        "status",
+        verdict=verdict_for_task_status(result.status),
+        detail={
+            "state": str(args.state),
+            "ready": session.ready,
+            "completed_calls": list(session.completed_call_ids),
+            "completed_stages": list(session.completed_stage_ids),
+            "remaining_stages": [
+                stage.stage_id
+                for stage in session.workflow.stage_requests
+                if stage.required and stage.stage_id not in closed
+            ],
+            "blocked_reasons": list(session.gate.blocked_reasons),
+        },
+        errors=session.gate.blocked_reasons,
+    )
+    return payload, payload["exit_code"]
 
 
 COMMANDS = {
@@ -237,7 +272,7 @@ COMMANDS = {
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="ainative.session",
-        description="Agent-driven workflow acceptance loop; the Agent executes, Python evaluates.",
+        description="Agent-driven Workflow acceptance loop; the Agent executes, Python evaluates.",
     )
     parser.add_argument("--state", required=True, help="session state file (created by 'open')")
     parser.add_argument("--task", help="task JSON (required by 'open')")
@@ -255,10 +290,11 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("stage requires --stage")
 
     try:
-        return COMMANDS[args.command](args)
+        payload, code = COMMANDS[args.command](args)
     except (SessionStateError, WorkflowDeserializationError, WorkflowIntegrityError, WorkflowError) as exc:
-        _emit({"status": "blocked", "command": args.command, "errors": [str(exc)]})
-        return 2
+        payload, code = unusable(args.command, str(exc))
+    emit(payload)
+    return code
 
 
 if __name__ == "__main__":

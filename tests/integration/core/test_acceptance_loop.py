@@ -89,9 +89,9 @@ def _record(ws, capsys, document) -> tuple[int, dict]:
 def test_open_reports_ready_and_the_stage_list(workspace, capsys):
     payload = _open(workspace, capsys)
 
-    assert payload["ready"] is True
-    assert payload["guidance"] == "asset-roundtrip"
-    assert payload["stages"] == ["stage.validate_asset"]
+    assert payload["detail"]["ready"] is True
+    assert payload["detail"]["guidance"] == "asset-roundtrip"
+    assert payload["detail"]["stages"] == ["stage.validate_asset"]
 
 
 def test_open_rejects_a_required_stage_without_both_checklists(workspace, capsys):
@@ -123,8 +123,8 @@ def test_a_proven_relation_completes_the_stage(workspace, capsys):
     payload = json.loads(capsys.readouterr().out)
 
     assert code == 0
-    assert payload["stage_result"]["status"] == "succeeded"
-    assert payload["stage_result"]["check_results"][0]["status"] == "pass"
+    assert payload["detail"]["status"] == "succeeded"
+    assert payload["detail"]["check_results"][0]["status"] == "pass"
 
 
 def test_tool_success_without_relation_evidence_fails_the_stage(workspace, capsys):
@@ -142,7 +142,7 @@ def test_tool_success_without_relation_evidence_fails_the_stage(workspace, capsy
     payload = json.loads(capsys.readouterr().out)
 
     assert code == 1
-    stage = payload["stage_result"]
+    stage = payload["detail"]
     assert stage["status"] == "failed"
     assert stage["execution_results"][0]["status"] == "succeeded"
     assert stage["check_results"][0]["status"] == "fail"
@@ -163,8 +163,8 @@ def test_finish_aggregates_the_recorded_evidence(workspace, capsys):
     payload = json.loads(capsys.readouterr().out)
 
     assert code == 0
-    assert payload["task_result"]["status"] == "succeeded"
-    assert payload["task_result"]["stages_completed"] == ["stage.validate_asset"]
+    assert payload["detail"]["status"] == "succeeded"
+    assert payload["detail"]["stages_completed"] == ["stage.validate_asset"]
 
 
 def test_status_reports_remaining_stages_without_changing_state(workspace, capsys):
@@ -174,8 +174,8 @@ def test_status_reports_remaining_stages_without_changing_state(workspace, capsy
     payload = json.loads(capsys.readouterr().out)
 
     assert code == 1
-    assert payload["remaining_stages"] == ["stage.validate_asset"]
-    assert payload["completed_stages"] == []
+    assert payload["detail"]["remaining_stages"] == ["stage.validate_asset"]
+    assert payload["detail"]["completed_stages"] == []
 
 
 def test_state_persists_across_invocations(workspace, capsys):
@@ -317,10 +317,10 @@ def test_ordered_replay_completes_every_dependent_stage(tmp_path, capsys):
     payload = json.loads(capsys.readouterr().out)
 
     assert code == 0
-    assert payload["stage_result"]["status"] == "succeeded"
+    assert payload["detail"]["status"] == "succeeded"
 
     code = session_cli.main(["--state", ws["state"], "finish"])
     finished = json.loads(capsys.readouterr().out)
 
     assert code == 0
-    assert finished["task_result"]["stages_completed"] == ["stage.first", "stage.second"]
+    assert finished["detail"]["stages_completed"] == ["stage.first", "stage.second"]

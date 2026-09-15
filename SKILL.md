@@ -94,11 +94,31 @@ JSON. `templates/workflow-plan-template.md` explains each field.
    python -m ainative.session --state s.json status
    ```
 
-   Exit codes tell you what happened: 0 is a non-blocking result, 1 is blocking
-   or failing, and 2 means the command itself could not run. A call returning
-   `succeeded` does not complete a Stage — a `truthy` acceptance check on an
-   empty `preserved_relations` yields check `fail`, then stage `failed`, then
-   exit 1. Python never picks a call, orders a Stage, or adds a checklist item.
+   Every command prints the same envelope, so read `verdict` and `errors` without
+   knowing which command ran:
+
+   ```json
+   {
+     "command": "stage",
+     "ok": false,
+     "verdict": "blocked",
+     "exit_code": 1,
+     "detail": { "...the command's own payload..." },
+     "errors": ["required Stage checks lack evidence: ran"]
+   }
+   ```
+
+   `verdict` uses one vocabulary everywhere: `succeeded`, `degraded`, `blocked`,
+   `failed`, `needs_approval`. A checklist `pass` reports `succeeded` and a `warn`
+   reports `degraded`, so one comparison covers every command.
+
+   Exit codes agree with the envelope: 0 is a non-blocking result, 1 is blocking
+   or failing, and 2 means the command itself could not run (the Workflow and the
+   recorded evidence are untouched). A call returning `succeeded` does not
+   complete a Stage — a `truthy` acceptance check on an empty
+   `preserved_relations` yields check `fail`, then stage `failed`, then verdict
+   `failed` and exit 1. Python never picks a call, orders a Stage, or adds a
+   checklist item.
 7. Continue, retry, wait for evidence or a human decision, compensate, or
    author a replacement Workflow according to the Stage result.
 

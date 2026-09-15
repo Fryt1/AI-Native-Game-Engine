@@ -62,17 +62,55 @@ Workflow 里的每个调用都带 `call_id` 和 `target`：
 }
 ```
 
-- `target.owner` / `target.name`：对 `mcp` 是 MCP server 名与 tool 名；对
-  `target` 的 `owner` 是 MCP server 名，`name` 是它上面的 tool 名，都在计划的
-  调用图里参与 `depends_on` 与 `tool_succeeded` 判定。
+- `target.owner` / `target.name`：MCP server 名与它上面的 tool 名，在 Workflow
+  的调用图里参与 `depends_on` 与 `tool_succeeded` 判定。
 
 **没有绑定，也没有 provider 检查。** 本仓库不解析 `target`，也不执行它——执行由
-Agent 自己的 MCP Client 完成。因此宿主调用是计划的正式成员，
+Agent 自己的 MCP client 完成。因此宿主调用是 Workflow 的正式成员，
 不需要绕道 `manual`。
 
-## 退出码
+## 输出信封
 
-每条命令都打印一个 JSON 对象，退出码含义：
+每条命令都打印**同一个信封**：相同的键、相同的顺序。调用方不需要知道跑的是哪条
+命令、载荷嵌得多深，就能读出结论。
+
+```json
+{
+  "command": "stage",
+  "ok": false,
+  "verdict": "blocked",
+  "exit_code": 1,
+  "detail": { "...该命令自己的载荷..." },
+  "errors": ["required Stage checks lack evidence: ran"]
+}
+```
+
+| 键 | 含义 |
+| --- | --- |
+| `command` | 哪条命令产生的 |
+| `ok` | 是否非阻塞（等价于 `exit_code == 0`） |
+| `verdict` | 发生了什么，**统一词汇** |
+| `exit_code` | 进程退出码，冗余写进 JSON，调用方不必读退出码 |
+| `detail` | 该命令自己的载荷；永远是对象 |
+| `errors` | 永远是数组；成功时为空 |
+
+## 统一词汇
+
+`verdict` 对所有命令用同一套词。Stage 与 Task 的结果本来就说 `TaskStatus`；清单项的
+`CheckStatus` **映射**过去，所以调用方只需匹配一套词：
+
+| 清单项 | → `verdict` |
+| --- | --- |
+| `pass` | `succeeded` |
+| `warn` | `degraded` |
+| `fail` | `failed` |
+| `unknown` | `blocked` |
+| `needs_human` | `needs_approval` |
+
+因此 `record` 的 `succeeded` 与 `item` 的 `pass` 都报 `"verdict": "succeeded"`，
+调用方一处判断即可。
+
+## 退出码
 
 ```text
 0   结果非阻塞（succeeded / degraded）
@@ -80,17 +118,17 @@ Agent 自己的 MCP Client 完成。因此宿主调用是计划的正式成员�
 2   命令本身没能跑起来（state 不可读、Workflow/结果 JSON 非法、字段缺失等）
 ```
 
-`item` / `check` 提交的结果状态为 `fail` 或 `needs_human` 时同样退出 1。
+等价关系写在信封里：`"ok": true` ⟺ `"exit_code": 0`。
 
-退出码 2 时同样打印 JSON，形如
-`{"status": "blocked", "command": "...", "errors": ["..."]}`；Workflow 反序列化失败会
-指明出错的 JSON 路径，便于 Agent 直接修文档。
+退出码 2 表示**命令自己失败，不是任务失败**——Workflow 与已记录的证据都没动，
+调用方修好输入重试即可。这类输出同样是标准信封，`exit_code` 为 2；Workflow
+反序列化失败会在 `errors` 里指明出错的 JSON 路径，便于 Agent 直接修文档。
 
 ## 关键保证
 
 一次调用返回 `succeeded` **不等于** Stage 完成。Stage 只在其冻结的 acceptance
 check 通过时才完成。例如对 `preserved_relations` 做 `truthy` 检查而实际为空列表，
-会得到 check `fail` → stage `failed` → 退出码 1。
+会得到 check `fail` → stage `failed` → `verdict` 为 `failed`、退出码 1。
 
 acceptance check 通过 `ExecutionResult.evidence_view()` 读取证据，因此 `actual_path`
 除了 `outputs` 里的键，还可以直接寻址一等证据：`status`、`target`、
@@ -103,4 +141,4 @@ acceptance check 通过 `ExecutionResult.evidence_view()` 读取证据，因此 
 ainative.session  接收 Agent 的 Workflow 与结果，返回 Stage 判定
 ```
 
-它不生成计划、不调度 Stage、不执行调用、不替 Agent 决定下一步。
+它不生成 Workflow、不调度 Stage、不执行调用、不替 Agent 决定下一步。
