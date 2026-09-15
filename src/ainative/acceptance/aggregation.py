@@ -52,6 +52,24 @@ def aggregate_task_status(
     return TaskStatus.SUCCEEDED, WorkflowStatus.COMPLETED
 
 
+def outstanding_stages(
+    *,
+    required_stages: frozenset[str],
+    completed_stages: frozenset[str],
+) -> tuple[str, ...]:
+    """Return the required Stage ids that have not been closed, in sorted order.
+
+    A blocked Task tells the Agent that something is missing. Naming the Stages is
+    what lets it act without re-reading the Workflow it authored.
+
+    @param required_stages: Stage ids the Workflow marked required.
+    @param completed_stages: Stage ids that reached succeeded or degraded.
+    @returns the ids still outstanding.
+    """
+
+    return tuple(sorted(required_stages - completed_stages))
+
+
 def next_action_for(status: TaskStatus, *, gate_ready: bool) -> str | None:
     """State what the Agent should do next, or None when the task is done.
 

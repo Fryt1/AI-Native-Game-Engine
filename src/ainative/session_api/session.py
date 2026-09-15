@@ -12,7 +12,11 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from ainative.acceptance import StageAcceptanceEvaluator
-from ainative.acceptance.aggregation import aggregate_task_status, next_action_for
+from ainative.acceptance.aggregation import (
+    aggregate_task_status,
+    next_action_for,
+    outstanding_stages,
+)
 from ainative.model.checklists import (
     CheckOperator,
     CheckResult,
@@ -150,6 +154,10 @@ class AcceptanceSession:
         This is the only execution entry point. Python never invokes the call; it
         validates the submitted result against the declaration and dependency
         order, then records it as evidence for the Stage.
+
+        The result must name the target it ran. A result that omits it cannot be
+        checked against the declaration, and "do not silently substitute another
+        target" is only a rule if the target is reported.
         """
 
         location = self._call_locations.get(result.call_id)
@@ -160,7 +168,12 @@ class AcceptanceSession:
         _, stage = location
         call = next(call for call in stage.calls if call.call_id == result.call_id)
         self.check_call_ready(result.call_id)
-        if result.target is not None and result.target != call.target:
+        if result.target is None:
+            raise WorkflowError(
+                f"Execution result must report the target it ran: {result.call_id} "
+                f"declared {call.qualified_name}, got nothing"
+            )
+        if result.target != call.target:
             raise WorkflowError(
                 f"Execution result target mismatch for {result.call_id}: "
                 f"declared {call.qualified_name}, got {result.target.owner}/{result.target.name}"
@@ -368,6 +381,10 @@ class AcceptanceSession:
             required_stages=required_stages,
             completed_stages=frozenset(self._completed_stages),
         )
+        outstanding = outstanding_stages(
+            required_stages=required_stages,
+            completed_stages=frozenset(self._completed_stages),
+        )
 
         artifacts = []
         warnings: list[str] = []
@@ -386,11 +403,16 @@ class AcceptanceSession:
             artifacts.extend(result.artifacts)
             warnings.extend(result.warnings)
             errors.extend(result.errors)
+        # A blocked Task must say what it is waiting for, or the Agent has to go
+        # looking for the reason it already earned.
+        if outstanding and status is TaskStatus.BLOCKED:
+            errors.append("required Stages not closed: " + ", ".join(outstanding))
         details = dict(self.state)
         details["agent_execution"] = {
             "completed_calls": list(self.completed_call_ids),
             "completed_stages": list(self.completed_stage_ids),
         }
+        details["outstanding_stages"] = list(outstanding)
         return TaskResult(
             status=status,
             route=self.workflow.route.value,

@@ -49,6 +49,70 @@ checklist 结果、已关闭的 Stage），以及被替换掉的修订。顺序�
 
 除 `open` 的 `--task` / `--workflow` 外，各命令只需要 `--state` 加上自己的那个参数。
 
+## 提交调用结果必须报出 target
+
+`record` 的 `--result` **必须**带 `target`：
+
+```json
+{
+  "call_id": "a1",
+  "status": "succeeded",
+  "target": {"owner": "ue5", "name": "set_actor_transform"}
+}
+```
+
+它必须与 Workflow 里声明的逐字一致。省略会被拒绝：
+
+```text
+Execution result must report the target it ran: a1 declared ue5/set_actor_transform, got nothing
+```
+
+**为什么必填**：执行规则写着"用你选定的那个调用，不要悄悄换 target"。只在报出 target 时
+才校验，这条规则就只是建议——不填就绕过了。校验要么成立，要么不成立。
+
+## 每个命令能看到什么
+
+`status` 会把**当前绑定的 Workflow** 一起报出来，Agent 不必回头读自己写的那个文件
+（它可能已被改过，也可能随进程丢了）：
+
+```json
+{
+  "workflow": {
+    "workflow_id": "t:workflow", "revision": 2, "guidance": "host-operation",
+    "replaced": ["t:workflow:r1"],
+    "stages": [
+      {
+        "stage_id": "stage.a", "step_id": "move", "stage_kind": "change",
+        "required": true, "closed": true, "side_effects_recorded": true,
+        "calls": [{"call_id": "a1", "target": {"owner": "ue5", "name": "do_a"}}],
+        "execution_checklist": [{"item_id": "i-a", "required": true}],
+        "acceptance_checklist": [{"check_id": "k-a", "operator": "tool_succeeded", "required": true}]
+      }
+    ]
+  }
+}
+```
+
+`finish` 在 `blocked` 时指名还差哪些 Stage：
+
+```json
+{
+  "verdict": "blocked",
+  "errors": ["required Stages not closed: stage.a, stage.b"],
+  "detail": {"details": {"outstanding_stages": ["stage.a", "stage.b"]}}
+}
+```
+
+`item` / `check` 即使被拒绝也报出是哪一条：
+
+```json
+{
+  "command": "item", "verdict": "blocked", "exit_code": 2,
+  "detail": {"item_id": "not-declared", "status": "pass"},
+  "errors": ["execution item is not declared in the Workflow: not-declared"]
+}
+```
+
 ## 替换 Workflow：`supersede`
 
 Workflow 修订不可变（Workflow 规则第 8 条）。要改就产生新修订：

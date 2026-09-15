@@ -67,6 +67,18 @@ from ainative.session_api import AcceptanceGuide, AcceptanceSession, WorkflowErr
 CLOSED_STATUSES = frozenset({TaskStatus.SUCCEEDED, TaskStatus.DEGRADED})
 
 
+# A command may learn facts about its input before it can fail. `announce` records
+# them so a rejected submission still tells the caller which item or check it was,
+# instead of an empty detail.
+_CONTEXT: dict[str, Any] = {}
+
+
+def announce(key: str, value: Any) -> None:
+    """Record one identifying fact about the current command's input."""
+
+    _CONTEXT[key] = value
+
+
 def _load_json(path: str | None, what: str) -> Any:
     if not path:
         raise SessionStateError(f"{what} file is required")
@@ -267,10 +279,30 @@ def command_record(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
 
 
 def command_item(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
-    """Submit one execution checklist item result."""
+    """Submit one execution checklist item result.
+
+    The item id is read before anything else, so a rejected submission still names
+    the item it concerned.
+    """
 
     state = SessionState.load(Path(args.state))
     item = execution_item_result_from_dict(_load_json(args.result, "result"), "result")
+    announce("item_id", item.item_id)
+    announce("status", item.status.value)
+
+    session = replay(state)
+    owning = next(
+        (
+            stage.stage_id
+            for stage in session.workflow.stage_requests
+            if any(entry.item_id == item.item_id for entry in stage.execution_checklist)
+        ),
+        None,
+    )
+    if owning is None:
+        raise SessionStateError(f"execution item is not declared in the Workflow: {item.item_id}")
+    announce("stage_id", owning)
+
     state.append(EVENT_EXECUTION_ITEM, item.to_dict())
     replay(state)
     state.save(Path(args.state))
@@ -278,17 +310,41 @@ def command_item(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
     payload = envelope(
         "item",
         verdict=verdict_for_check_status(item.status),
-        detail={"item_id": item.item_id, "status": item.status.value},
+        detail={
+            "item_id": item.item_id,
+            "status": item.status.value,
+            "stage_id": owning,
+        },
         errors=(item.reason,) if item.reason else (),
     )
     return payload, payload["exit_code"]
 
 
 def command_check(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
-    """Submit one manual acceptance check result."""
+    """Submit one manual acceptance check result.
+
+    The check id is read before anything else, so a rejected submission still names
+    the check it concerned.
+    """
 
     state = SessionState.load(Path(args.state))
     check = check_result_from_dict(_load_json(args.result, "result"), "result")
+    announce("check_id", check.check_id)
+    announce("status", check.status.value)
+
+    session = replay(state)
+    owning = next(
+        (
+            stage.stage_id
+            for stage in session.workflow.stage_requests
+            if any(entry.check_id == check.check_id for entry in stage.acceptance_checklist)
+        ),
+        None,
+    )
+    if owning is None:
+        raise SessionStateError(f"acceptance check is not declared in the Workflow: {check.check_id}")
+    announce("stage_id", owning)
+
     state.append(EVENT_CHECK, check.to_dict())
     replay(state)
     state.save(Path(args.state))
@@ -296,7 +352,11 @@ def command_check(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
     payload = envelope(
         "check",
         verdict=verdict_for_check_status(check.status),
-        detail={"check_id": check.check_id, "status": check.status.value},
+        detail={
+            "check_id": check.check_id,
+            "status": check.status.value,
+            "stage_id": owning,
+        },
         errors=(check.reason,) if check.reason else (),
     )
     return payload, payload["exit_code"]
@@ -347,7 +407,12 @@ def command_finish(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
 
 
 def command_status(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
-    """Show the current session state without changing it."""
+    """Show the current session state without changing it.
+
+    Includes a summary of the bound Workflow, so the Agent can see what it is
+    committed to without re-reading the file it authored -- which it may have
+    edited since, or lost with the process.
+    """
 
     state = SessionState.load(Path(args.state))
     session = replay(state)
@@ -370,10 +435,59 @@ def command_status(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
                 if stage.required and stage.stage_id not in closed
             ],
             "blocked_reasons": list(session.gate.blocked_reasons),
+            "workflow": _workflow_summary(session, state),
         },
         errors=session.gate.blocked_reasons,
     )
     return payload, payload["exit_code"]
+
+
+def _workflow_summary(session: AcceptanceSession, state: SessionState) -> dict[str, Any]:
+    """Describe the bound Workflow: its identity, its Stages, and what each needs.
+
+    Enough for the Agent to act without opening the Workflow file again: which
+    Stage is closed, which calls it declared, and which checks must be proven.
+    """
+
+    closed = set(session.completed_stage_ids)
+    touched = set(session.stages_with_side_effects)
+    return {
+        "workflow_id": session.workflow.workflow_id,
+        "revision": session.workflow.revision,
+        "guidance": session.workflow.guidance,
+        "route": session.workflow.route.value,
+        "supersedes_workflow_id": session.workflow.supersedes_workflow_id,
+        "replaced": [
+            entry.get("revision_id")
+            for entry in state.revisions
+        ],
+        "stages": [
+            {
+                "stage_id": stage.stage_id,
+                "step_id": step.step_id,
+                "stage_kind": stage.stage_kind.value,
+                "purpose": stage.purpose,
+                "required": stage.required,
+                "closed": stage.stage_id in closed,
+                "side_effects_recorded": stage.stage_id in touched,
+                "calls": [
+                    {"call_id": call.call_id, "target": call.target.to_dict()}
+                    for call in stage.calls
+                ],
+                "execution_checklist": [
+                    {"item_id": item.item_id, "required": item.required}
+                    for item in stage.execution_checklist
+                ],
+                "acceptance_checklist": [
+                    {"check_id": check.check_id, "operator": check.operator.value,
+                     "required": check.required}
+                    for check in stage.acceptance_checklist
+                ],
+            }
+            for step in session.workflow.steps
+            for stage in step.stages
+        ],
+    }
 
 
 COMMANDS = {
@@ -417,10 +531,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "stage" and not args.stage:
         parser.error("stage requires --stage")
 
+    _CONTEXT.clear()
     try:
         payload, code = COMMANDS[args.command](args)
     except (SessionStateError, WorkflowDeserializationError, WorkflowIntegrityError, WorkflowError) as exc:
-        payload, code = unusable(args.command, str(exc))
+        payload, code = unusable(args.command, str(exc), context=_CONTEXT)
     emit(payload)
     return code
 

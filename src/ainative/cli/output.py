@@ -125,7 +125,11 @@ def envelope(
     }
 
 
-def unusable(command: str, *errors: str) -> tuple[dict[str, Any], int]:
+def unusable(
+    command: str,
+    *errors: str,
+    context: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any], int]:
     """Build the envelope for a command that could not run at all.
 
     The Workflow and the recorded evidence are untouched; the command itself
@@ -133,10 +137,17 @@ def unusable(command: str, *errors: str) -> tuple[dict[str, Any], int]:
 
     @param command: the command that was attempted.
     @param errors: one message per problem found.
+    @param context: identifying facts learned about the input before it failed,
+        so a rejected submission still names what it concerned.
     @returns the envelope and the exit code, ready to return from `main`.
     """
 
-    payload = envelope(command, verdict=Verdict.BLOCKED, errors=errors)
+    payload = envelope(
+        command,
+        verdict=Verdict.BLOCKED,
+        detail=dict(context) if context else None,
+        errors=errors,
+    )
     payload["ok"] = False
     payload["exit_code"] = EXIT_UNUSABLE
     return payload, EXIT_UNUSABLE
