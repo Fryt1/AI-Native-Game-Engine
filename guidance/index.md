@@ -10,6 +10,7 @@ Maintainer-only inventory. It is not runtime dispatch input and not a registry.
 - `native-blender-operation.md`
 - `provider-artifact-apply.md`
 - `failure-recovery.md`
+- `procedural-scene/` — a directory form; entry document `procedural-scene/README.md`
 
 ## Guidance forms
 

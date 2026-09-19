@@ -219,7 +219,7 @@ ComfyUI MCP 是外置 stdio Server；它不是 ComfyUI 内置插件，也不进�
 
 ```text
 Python >= 3.11
-Blender MCP Add-on >= 5.1.0
+Blender >= 5.1.0            （不是 Add-on 的版本；Add-on 包是 1.0.0，见上一节）
 Unreal Engine >= 5.8.0
 UE5 ModelContextProtocol enabled
 Agent MCP Client configured for Blender and UE5
@@ -411,4 +411,5 @@ artifacts/evidence/comfyui-mcp-live/  (workflow JSON、verification.json、outpu
 ## 相关文档
 
 - `README.md`：仓库安装入口和边界说明；
-- `docs/DEPENDENCIES.md`：宿主与 MCP 版本声明（本文件的各宿主小节）。
+- `AGENTS.md`：加载顺序与仓库级规则；
+- `SKILL.md`：Workflow 怎么写，以及每个 Stage 的动态清单规则。

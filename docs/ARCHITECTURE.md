@@ -148,7 +148,7 @@ NodeResult                          树的判定（自底向上，子节点判�
 StageResult                         关闭一个节点时的判定
 ├── node_path                        节点的唯一身份（原 stage_id + step_id）
 ├── status                           用**任务**词表
-├── call_ids[] / execution_results[]
+├── execution_results[] / execution_item_results[] / check_results[]
 ├── execution_item_results[]
 ├── check_results[]
 ├── execution_summary / acceptance_summary
