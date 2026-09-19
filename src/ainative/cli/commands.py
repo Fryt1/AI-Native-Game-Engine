@@ -205,7 +205,12 @@ def command_open(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         workflow=workflow_document,
     )
     workflow = state.workflow_object()
-    validate_tree_structure(workflow)
+    # Semantic validation belongs to `start`, which every entry point goes through.
+    # Calling it here too ran it twice on the same document -- measured at 79 ms for
+    # a 3001-node tree, so cheap, but it made this function's contract ambiguous
+    # about which layer owns the check. `supersede` keeps its own call for a
+    # different reason: it mutates the state before `start` runs, so a document that
+    # fails validation there would leave the state already written.
     session = AcceptanceGuide().start(task_from_dict(state.task, "task"), workflow)
     state.save(path)
 
@@ -243,6 +248,9 @@ def command_supersede(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
     workflow_document = _load_json(args.workflow, "workflow")
     _spec_check(workflow_document)
     replacement = workflow_from_dict(workflow_document)
+    # Before `state.supersede` below, not merely before `start`: the replacement is
+    # written into the state, so a document that fails validation afterwards would
+    # already have replaced a working revision.
     validate_tree_structure(replacement)
 
     if state.has_progress and not replacement.supersedes_workflow_id:
@@ -337,15 +345,20 @@ def command_record(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
                 "author a replacement revision"
             )
 
-    # The ordering check belongs to accepting a submission, and `replay` no longer
-    # repeats it -- re-applying the log must not re-litigate an order that was
-    # valid when it was taken in. So it has to happen here, before the append.
-    replay(state).check_call_ready(result.call_id, node_path)
+    # One rebuild, one check, one apply -- in that order. Checking against a
+    # throwaway replay rebuilt the session twice for a single append, and appending
+    # before checking would validate a submission the state already carries. The
+    # ordering check belongs to accepting a submission, so it runs on the session as
+    # it stands, before the event exists.
+    session = replay(state)
+    session.check_call_ready(result.call_id, node_path)
 
     body = result.to_dict()
     body["node_path"] = node_path
     state.append(EVENT_EXECUTION_RESULT, body)
-    replay(state)
+    # `submitted=False`: the event has already been checked above, and replaying it
+    # must not re-litigate an order that was valid when it was taken in.
+    session.record_execution_result(result, node_path, submitted=False)
     state.save(Path(args.state))
 
     payload = envelope(
@@ -393,7 +406,9 @@ def command_item(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
     body = item.to_dict()
     body["node_path"] = owning
     state.append(EVENT_EXECUTION_ITEM, body)
-    replay(state)
+    # Apply to the session already built above rather than rebuilding it: the
+    # declaration lookup needed a session, but the append does not invalidate it.
+    session.record_execution_item(owning, item)
     state.save(Path(args.state))
 
     payload = envelope(
@@ -428,7 +443,8 @@ def command_check(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
     body = check.to_dict()
     body["node_path"] = owning
     state.append(EVENT_CHECK, body)
-    replay(state)
+    # Same as `item`: the session that resolved the owning node is still current.
+    session.record_check_result(owning, check)
     state.save(Path(args.state))
 
     payload = envelope(
