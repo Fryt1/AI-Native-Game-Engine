@@ -438,6 +438,51 @@ def test_the_schema_enforces_the_id_rules_the_validator_does_not():
         "the schema must reject what the validator wrongly accepts")
 
 
+def test_the_field_an_evidence_error_names_is_one_a_document_mentions():
+    """A result document has no schema, so the error is the only pointer to it.
+
+    The Workflow schema describes the Workflow, not the results submitted against
+    it, so nothing in the spec can tell an author that a submitted result carries
+    `evidence_refs`. That field decides whether a manual item or check can pass at
+    all -- and its absence is reported one command LATER, so the author has no
+    other signal to follow. The error text has to name it, and a document has to
+    name it too, or the method has a dead end in it.
+    """
+
+    import re
+
+    from ainative.acceptance.evaluator import require_check_evidence
+    from ainative.model.checklists import (
+        AcceptanceCheck,
+        CheckOperator,
+        CheckResult,
+        CheckStatus,
+    )
+
+    check = AcceptanceCheck(check_id="signed", description="a human signed off",
+                            operator=CheckOperator.MANUAL, evidence_required=True)
+    downgraded = require_check_evidence(
+        check, CheckResult(check_id="signed", status=CheckStatus.PASS))
+
+    assert downgraded.status is CheckStatus.UNKNOWN, (
+        "a pass with no evidence must not stand")
+    assert "evidence_refs" in downgraded.reason, (
+        f"the author is not told which field to fill: {downgraded.reason!r}")
+
+    root = Path(__file__).resolve().parents[3]
+    documents = [
+        path for path in root.rglob("*.md")
+        if not any(part.startswith(".") or part in {"__pycache__", "artifacts"}
+                   for part in path.relative_to(root).parts)
+    ]
+    mentioned = [path.relative_to(root).as_posix() for path in documents
+                 if re.search(r"\bevidence_refs\b", path.read_text(encoding="utf-8"))]
+
+    assert mentioned, (
+        "no document names `evidence_refs`, and no result document has a schema, "
+        "so the field the error demands is undiscoverable")
+
+
 def test_a_constraint_beside_a_ref_is_rejected_not_silently_dropped(tmp_path):
     """``_resolve`` returns the ``$ref`` target and discards every sibling.
 

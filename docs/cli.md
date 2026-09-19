@@ -106,6 +106,37 @@ Execution result must report the target it ran: a1 declared ue5/set_actor_transf
 **为什么必填**：执行规则写着"用你选定的那个调用，不要悄悄换 target"。只在报出 target 时
 才校验，这条规则就只是建议——不填就绕过了。校验要么成立，要么不成立。
 
+## 提交清单结果：`item` 与 `check`
+
+这两个命令提交的是**清单项**的结果，形状和调用结果不同：
+
+```json
+{"item_id": "reviewed", "status": "pass", "evidence_refs": ["note:review-2024-01"]}
+{"check_id": "signed",  "status": "pass", "evidence_refs": ["note:signoff-2024-01"]}
+```
+
+**`evidence_refs` 不是可选装饰。** 清单项和检查默认 `evidence_required: true`：报
+`pass`/`warn` 却不带证据引用的结果会被降级成 `unknown`，于是那个节点永远关不上。
+
+关键在于**报错发生在后面一步，不在提交这一步**：
+
+```text
+$ … --result check.json --stage /work/review/ check
+{"verdict": "succeeded"}          ← 收下了
+
+$ … --stage /work/review/ stage
+{"verdict": "blocked", "errors": [
+  "'signed' reports pass but names no evidence; a submitted result must carry
+   'evidence_refs', a non-empty list of strings naming what was looked at"]}
+```
+
+它是一个**非空字符串数组**，内容由你定：文件路径、哈希、人类备注的编号都行。引擎不解析、
+不校验它指向的东西存不存在——它记的只是"你凭什么这么说"。
+
+`record` 不需要自己填：调用结果的引用由引擎按 `execution-result:<call_id>` 自动生成。
+所以只有 `item` 和 `check` 会遇到这个要求。把 `evidence_required` 显式写成 `false`
+也可以免除，但那等于声明"这一项不需要任何凭据"——想清楚再写。
+
 ## 每个命令能看到什么
 
 `status` 会把**当前绑定的 Workflow** 一起报出来，Agent 不必回头读自己写的那个文件

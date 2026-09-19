@@ -178,7 +178,10 @@
           "type": "boolean",
           "description": "Defaults to true when absent."
         },
-        "evidence_required": {"type": "boolean"},
+        "evidence_required": {
+          "type": "boolean",
+          "description": "Defaults to true. An item reporting pass or warn while naming no evidence is downgraded to unknown -- a claim with nothing behind it is not proof. The evidence is supplied when the RESULT is submitted, not here: the result document carries 'evidence_refs', a non-empty list of strings naming what was looked at. An item derived from a call gets its reference from the engine, so this bites hardest on an item with an empty call_ids."
+        },
         "call_ids": {
           "type": "array",
           "items": {"type": "string"},
@@ -224,7 +227,10 @@
           "description": "Required when the operator is within_tolerance; the comparison is symmetric."
         },
         "required": {"type": "boolean"},
-        "evidence_required": {"type": "boolean"},
+        "evidence_required": {
+          "type": "boolean",
+          "description": "Defaults to true. A check reporting pass or warn while naming no evidence is downgraded to unknown. A check that reads a call gets its reference from the engine, so this field decides whether a MANUAL check can pass at all: submit its result with 'evidence_refs', a non-empty list of strings, or the check stays unknown however many times it is submitted."
+        },
         "call_ids": {"type": "array", "items": {"type": "string"}},
         "metadata": {"type": "object"}
       }
@@ -257,7 +263,10 @@
         },
         "tolerance": {"type": ["number", "null"]},
         "required": {"type": "boolean"},
-        "evidence_required": {"type": "boolean"},
+        "evidence_required": {
+          "type": "boolean",
+          "description": "Defaults to true. A composite check reads a descendant's verdict, which the engine already has, so this field only decides whether a MANUAL composite check can pass: submit its result with 'evidence_refs', a non-empty list of strings."
+        },
         "metadata": {"type": "object"}
       }
     }

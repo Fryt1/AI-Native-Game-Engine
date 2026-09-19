@@ -82,6 +82,20 @@ needs_human
 ```
 
 A pass/warn with `evidence_required: true` needs at least one evidence reference.
+That reference travels in the SUBMITTED result, in a field called `evidence_refs`:
+
+```json
+{"item_id": "reviewed", "status": "pass", "evidence_refs": ["note:review-2024-01"]}
+{"check_id": "signed",  "status": "pass", "evidence_refs": ["note:signoff-2024-01"]}
+```
+
+It is a non-empty list of strings. The engine does not parse them or check that
+what they name exists -- they record what you looked at, and nothing else. Omit
+them and the item or check is downgraded to `unknown`, which blocks the node; note
+that the submission itself still reports success, so the failure surfaces on the
+next command rather than this one. A result submitted with `record` does not need
+them: the engine builds `execution-result:<call_id>` itself.
+
 Simple deterministic checks support:
 
 ```text

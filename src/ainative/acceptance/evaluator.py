@@ -152,7 +152,11 @@ def require_check_evidence(check: AcceptanceCheck, result: CheckResult) -> Check
         return replace(
             result,
             status=CheckStatus.UNKNOWN,
-            reason="required acceptance evidence is missing",
+            reason=(
+                f"'{check.check_id}' reports {result.status.value} but names no "
+                "evidence; a submitted result must carry 'evidence_refs', a "
+                "non-empty list of strings naming what was looked at"
+            ),
         )
     return result
 
@@ -476,7 +480,11 @@ class StageAcceptanceEvaluator:
             return replace(
                 result,
                 status=CheckStatus.UNKNOWN,
-                reason="required execution evidence is missing",
+                reason=(
+                    f"'{item.item_id}' reports {result.status.value} but names no "
+                    "evidence; a submitted result must carry 'evidence_refs', a "
+                    "non-empty list of strings naming what was looked at"
+                ),
             )
         return result
 
@@ -547,11 +555,31 @@ class StageAcceptanceEvaluator:
             if not acceptance_specs[result.check_id].required and result.status is not CheckStatus.PASS
         ]
 
+        reasons = {result.check_id: result.reason for result in check_results}
+        reasons.update({result.item_id: result.reason for result in item_results})
+
         def matching(status: CheckStatus) -> tuple[str, ...]:
-            return tuple(
+            """Name each item or check that landed on ``status``, with its reason.
+
+            The reason travels with the name because the top-level error is what a
+            caller reads first, and "signed (check)" alone does not say that the
+            fix is to resubmit with `evidence_refs`. A reason is dropped when it is
+            empty or merely repeats the name, and the list is capped so a wide
+            failure does not bury the first cause.
+            """
+
+            named = (
                 [f"{item_id} (item)" for item_id, s in required_items if s is status]
                 + [f"{check_id} (check)" for check_id, s in required_checks if s is status]
             )
+            out: list[str] = []
+            for name in named[:3]:
+                identifier = name.split(" ", 1)[0]
+                reason = (reasons.get(identifier) or "").strip()
+                out.append(f"{name}: {reason}" if reason else name)
+            if len(named) > 3:
+                out.append(f"... and {len(named) - 3} more")
+            return tuple(out)
 
         human = matching(CheckStatus.NEEDS_HUMAN)
         if human:
