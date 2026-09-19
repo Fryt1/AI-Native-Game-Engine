@@ -89,12 +89,15 @@ StageBody                           一个 STAGE 叶声明的工作
 ├── execution_checklist[]           ExecutionChecklistItem：做什么，防漏
 └── acceptance_checklist[]          NodeCheck：证明什么，防"没报错就算过"
 
-NodeCheck                           一条验收项
-├── check_id / description / required
-├── source_call_id                  STAGE 叶：读自己声明的一条调用
-├── source_node                     WORKFLOW 复合：读一个后代，相对路径
-├── operator / actual_path / expected / tolerance
-└── metadata
+NodeCheck                           一条验收项：包一层 AcceptanceCheck
+├── check                           AcceptanceCheck，真正存储字段的地方
+├── check_id                        ┐
+├── source_call_id                  ├ 三个转发属性，直接读 .check 上的同名字段
+└── source_node                     ┘ 唯一例外：存在 .check.metadata 里
+
+一条验收项其余的内容 —— `description` / `required` / `operator` / `actual_path` /
+`expected` / `tolerance` / `evidence_required` —— 都在内层 `check` 上，写成
+`node_check.check.operator`。
 
 ToolCall                             一次 Agent 声明的调用
 ├── call_id                          只在自己的 STAGE 内唯一
@@ -148,6 +151,7 @@ NodeResult                          树的判定（自底向上，子节点判�
 StageResult                         关闭一个节点时的判定
 ├── node_path                        节点的唯一身份（原 stage_id + step_id）
 ├── status                           用**任务**词表
+├── call_ids[]                      派生属性：execution_results 里各 result 的 call_id
 ├── execution_results[] / execution_item_results[] / check_results[]
 ├── execution_item_results[]
 ├── check_results[]
@@ -271,7 +275,12 @@ warnings / errors
 | | 用在哪 | 取值 |
 |---|---|---|
 | **节点判定** `CheckStatus` | `NodeResult.status`、清单项、check | `pass` / `warn` / `fail` / `unknown` / `needs_human` |
-| **任务状态** `TaskStatus` | `StageResult.status`、`TaskResult.status`、CLI 信封的 `verdict` | `succeeded` / `degraded` / `blocked` / `failed` / `needs_approval` |
+| **任务状态** `TaskStatus` | `StageResult.status`、`TaskResult.status` | `planned` / `running` / `succeeded` / `degraded` / `blocked` / `failed` / `needs_approval` |
+| **信封判定** `Verdict` | CLI 每条命令输出的 `verdict` | `succeeded` / `degraded` / `blocked` / `failed` / `needs_approval` |
+
+`TaskStatus` 比 `Verdict` 多出 `planned` 与 `running`：那两个是任务尚未结束时的内部
+进行态，不会出现在信封里。信封只需要回答"这次命令的结果阻塞不阻塞"，进行态回答不了
+这个问题。
 
 节点判定按固定映射投影到任务状态，CLI 的 `verdict` 因此对所有命令只有一套词。
 
@@ -356,11 +365,11 @@ required 节点未全部关闭          → blocked（running）
 Agent 写计划
     ToolCall(call_id, target{owner,name}, arguments, depends_on)
         │
-                │      Agent 自己的 MCP client
-        │          → Blender / UE5 / ComfyUI MCP Server
-        │          → 结果交回 record，成为该 STAGE 的证据
-        │
-                       契约里是一等形状，但本仓库不附带任何可执行的 Toolset
+        │  Agent 自己的 MCP client
+        ├──→ Blender / UE5 / ComfyUI MCP Server
+        └──→ 结果交回 record，成为该 STAGE 的证据
+
+契约里是一等形状，但本仓库不附带任何可执行的 Toolset
 ```
 
 **没有执行绑定，没有 provider 列表，没有注册步骤，没有发现索引。** 计划只做结构
@@ -413,7 +422,7 @@ Agent 写计划
 ## 八、目录
 
 ```
-game-engine/
+<repository root>/
 ├── AGENTS.md                仓库级 Agent 规则
 ├── SKILL.md                 Skill 入口
 ├── guidance/                生命周期指引（单文档或目录两种形态）

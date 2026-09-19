@@ -44,11 +44,12 @@ ok: true
 ```text
 MCP call
     → target: owner/name
-    → Agent MCP Client → Blender MCP / UE5 MCP / ComfyUI MCP
+    → Agent MCP Client
+    → Blender MCP / UE5 MCP / ComfyUI MCP
 ```
 
 There is no execution binding, no Tool registry, and no discovery index: the
-the Workflow's `target` names what the Agent will invoke, and the Agent's own MCP client
+Workflow's `target` names what the Agent will invoke, and the Agent's own MCP client
 resolves and runs it. This repository ships no executable Toolset.
 
 ## 自动化覆盖

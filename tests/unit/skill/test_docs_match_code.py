@@ -325,6 +325,36 @@ def test_the_documented_ownership_matches_the_tree():
     assert "references/" not in drawing, "AGENTS.md still draws a directory that is gone"
 
 
+def test_the_data_structure_section_draws_every_model_class_it_should():
+    """The drawing is the reader's map, so the main shapes must all appear.
+
+    A structure missing from the drawing is invisible, and nothing about the names
+    that ARE present would notice. This is the half that can be checked robustly:
+    the document draws field lists as `├── call_id / status`, not as `Class.field`,
+    so a per-field assertion against the model has no subject matter -- and a shape
+    parser over the ASCII trees misattributes `ChecklistSummary` (named without a
+    drawing) and the directory tree at the end.
+    """
+
+    import dataclasses
+
+    from ainative import model as model_module
+
+    text = (REPO_ROOT / "docs" / "ARCHITECTURE.md").read_text(encoding="utf-8")
+    section = text.split("## 三、数据结构", 1)[1].split("\n## ", 1)[0]
+
+    expected = (
+        "TaskContract", "WorkflowTree", "WorkflowNode", "StageBody",
+        "AcceptanceCheck", "ToolCall", "ExecutionResult", "StageResult", "TaskResult",
+    )
+
+    missing = [name for name in expected if name not in section]
+
+    assert not missing, f"docs/ARCHITECTURE.md's data-structure drawing omits: {missing}"
+    assert all(dataclasses.is_dataclass(getattr(model_module, name)) for name in expected), (
+        "this list names something the model no longer defines")
+
+
 def test_the_readme_agent_api_example_still_runs():
     """A code example is the most rottable statement a document can make.
 
