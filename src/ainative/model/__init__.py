@@ -6,7 +6,7 @@ node is either a STAGE (leaf, holds calls and its frozen checklists) or a WORKFL
 type -- a phase is a WORKFLOW node used for grouping.
 """
 
-from .artifacts import ArtifactKind, ArtifactRef
+from .artifacts import ArtifactRef
 from .checklists import (
     AcceptanceCheck,
     ChecklistSummary,
@@ -49,7 +49,6 @@ from .tree import (
 
 __all__ = [
     "AcceptanceCheck",
-    "ArtifactKind",
     "ArtifactRef",
     "CallTarget",
     "CheckOperator",

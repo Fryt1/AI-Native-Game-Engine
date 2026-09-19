@@ -55,6 +55,32 @@ acceptance checklist
 Checklist composition does not bind Tools. The final Workflow references the
 exact calls the Agent selected.
 
+## ArtifactRef — a file a call produced
+
+`artifacts` is a list of these. Each one needs `artifact_id` and `uri`:
+
+```json
+{"artifact_id": "render-01", "uri": "file:///out/frame_0001.png"}
+```
+
+`metadata` is free-form and optional, for anything else worth recording about the
+file. An unrecognized key is ignored rather than refused, because a submitted result
+has no schema of its own.
+
+Nothing here classifies an artifact. `artifact_id` and `uri` are what the engine
+stores and what a check can address, through the evidence view's `artifact_count`
+and `artifacts` paths:
+
+```json
+{"operator": "count_equals", "source_call_id": "render", "actual_path": ["artifact_count"], "expected": 4}
+```
+
+Three fields were removed rather than documented: `kind`, `provider_id`, and
+`media_type`. All three were read and written back and nothing else -- no engine code
+branched on them, and no document listed what values `kind` accepted. `kind` declared
+ten artifact types that an Agent could not discover from anywhere, and every value
+except the default appeared only in its own enum declaration.
+
 ## ExecutionResult — what `record` submits
 
 An ExecutionResult records call-level facts:

@@ -19,11 +19,10 @@ import pytest
 
 import ainative.model as m
 
-MODULES = [m.artifacts, m.checklists, m.tools, m.tree, m.results, m.task]
+MODULES = [m.checklists, m.tools, m.tree, m.results, m.task]
 
 # A minimal valid constructor per class, so a string can be passed for one field.
 CTORS = {
-    "ArtifactRef": lambda **kw: m.ArtifactRef(artifact_id="a", uri="file:///a", **kw),
     "ExecutionChecklistItem": lambda **kw: m.ExecutionChecklistItem(item_id="i", description="d", **kw),
     "AcceptanceCheck": lambda **kw: m.AcceptanceCheck(check_id="k", description="d", **kw),
     "ExecutionItemResult": lambda **kw: m.ExecutionItemResult(item_id="i", **kw),
@@ -44,7 +43,6 @@ CTORS = {
 
 # One valid string value per enum.
 ENUM_VALUES = {
-    "ArtifactKind": "unknown",
     "CheckStatus": "pass",
     "CheckOperator": "exists",
     "NodeKind": "stage",
@@ -93,7 +91,6 @@ FIELDS = sorted(enum_fields())
 # Guard: if the model grows an enum field, this list must grow too.
 EXPECTED = {
     ("AcceptanceCheck", "operator"),
-    ("ArtifactRef", "kind"),
     ("CheckResult", "status"),
     ("ExecutionItemResult", "status"),
     ("ExecutionResult", "status"),

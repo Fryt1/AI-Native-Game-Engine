@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ainative.model.artifacts import ArtifactKind, ArtifactRef
+from ainative.model.artifacts import ArtifactRef
 from ainative.model.checklists import (
     AcceptanceCheck,
     CheckOperator,
@@ -167,14 +167,17 @@ def acceptance_check_from_dict(document: Any, path: str) -> AcceptanceCheck:
 
 
 def artifact_from_dict(document: Any, path: str) -> ArtifactRef:
-    """Read one artifact reference."""
+    """Read one artifact reference.
+
+    Only `artifact_id` and `uri` are required. An unrecognized key is ignored rather
+    than rejected: a submitted result is not a Workflow document, and the shapes
+    here have no schema of their own, so failing closed on an extra key would break
+    a caller for adding something harmless.
+    """
 
     return ArtifactRef(
         artifact_id=str(_require(document, "artifact_id", path)),
-        kind=_enum(ArtifactKind, document.get("kind", ArtifactKind.UNKNOWN.value), f"{path}.kind"),
         uri=str(_require(document, "uri", path)),
-        provider_id=document.get("provider_id"),
-        media_type=document.get("media_type"),
         metadata=dict(document.get("metadata", {})),
     )
 
