@@ -47,7 +47,6 @@ def _workflow(**overrides):
     doc = {
         "workflow_id": "p",
         "guidance": "host-operation",
-        "route": "host_operation",
         "revision": 1,
         "root": {"node_id": "w", "kind": "workflow", "purpose": "w",
                  "children": [GOOD_STAGE]},
@@ -58,8 +57,7 @@ def _workflow(**overrides):
 
 def _task(**overrides):
     doc = {
-        "task_id": "p", "objective": "o", "route": "host_operation",
-        "guidance": "host-operation",
+        "task_id": "p", "objective": "o", "guidance": "host-operation",
     }
     doc.update(overrides)
     return doc
@@ -102,7 +100,7 @@ def test_an_unknown_guidance_name_reports_an_envelope(paths, capsys):
     ("label", "task_doc", "workflow_doc"),
     [
         ("unknown guidance", _task(guidance="nope"), _workflow()),
-        ("invalid route", _task(route="NOT_A_ROUTE"), _workflow()),
+        ("invalid workflow status", _task(), _workflow(status="NOT_A_STATUS")),
         ("task is a list", [1, 2, 3], _workflow()),
         ("task is empty", {}, _workflow()),
         ("workflow is a list", _task(), [1, 2]),

@@ -37,7 +37,6 @@ from typing import Any
 
 from .checklists import AcceptanceCheck, CheckStatus, StageKind
 from .coercion import coerce_enum
-from .task import TaskRoute
 from .tools import ToolCall
 
 #: A :class:`CheckStatus` a required item counts as satisfied by.
@@ -277,7 +276,6 @@ class WorkflowTree:
 
     workflow_id: str
     root: WorkflowNode
-    route: TaskRoute | None = None
     guidance: str | None = None
     revision: int = 1
     status: WorkflowStatus = WorkflowStatus.DRAFT
@@ -287,11 +285,8 @@ class WorkflowTree:
     warnings: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        # ``route`` and ``status`` arrive as bare strings from JSON. The entry gate
-        # compares ``route`` against the task's, and ``to_dict`` reaches for
-        # ``.value`` on both, so both are coerced where they enter.
-        if self.route is not None:
-            coerce_enum(self, "route", TaskRoute)
+        # ``status`` arrives as a bare string from JSON, and ``to_dict`` reaches for
+        # ``.value`` on it, so it is coerced where it enters.
         coerce_enum(self, "status", WorkflowStatus)
 
     @property
@@ -525,8 +520,6 @@ class WorkflowTree:
             "status": self.status.value,
             "warnings": list(self.warnings),
         }
-        if self.route is not None:
-            out["route"] = self.route.value
         if self.guidance:
             out["guidance"] = self.guidance
         for name in ("supersedes_workflow_id", "replacement_reason", "recovery_pointer"):

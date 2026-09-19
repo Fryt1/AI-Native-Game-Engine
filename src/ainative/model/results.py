@@ -126,7 +126,6 @@ class StageResult:
 @dataclass(frozen=True, slots=True)
 class TaskResult:
     status: TaskStatus
-    route: str
     guidance: str | None = None
     workflow_id: str | None = None
     workflow_revision: int | None = None
@@ -161,7 +160,6 @@ class TaskResult:
     def to_dict(self) -> dict[str, Any]:
         return {
             "status": self.status.value,
-            "route": self.route,
             "guidance": self.guidance,
             "workflow_id": self.workflow_id,
             "workflow_revision": self.workflow_revision,

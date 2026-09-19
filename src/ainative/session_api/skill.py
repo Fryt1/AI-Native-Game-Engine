@@ -76,10 +76,6 @@ class SkillSession:
     guidance_package: GuidancePackage | None = None
     warnings: tuple[str, ...] = field(default=())
 
-    @property
-    def route(self):
-        return self.task.route
-
 
 #: Files that name the document an Agent should read first inside a directory.
 ENTRY_NAMES = ("README.md", "index.md", "SKILL.md", "GUIDANCE.md")

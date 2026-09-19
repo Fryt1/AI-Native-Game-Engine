@@ -6,8 +6,8 @@ and a schema describe the same thing, and two descriptions of one thing drift. T
 schema is the one an Agent or an AI can be checked against, so it is the one kept.
 
 These tests assert the schema still carries the vocabulary an author must know --
-every operator, every route -- because a value missing from the spec is a value the
-author cannot discover.
+every operator -- because a value missing from the spec is a value the author
+cannot discover.
 """
 
 from __future__ import annotations
@@ -27,7 +27,6 @@ OPERATORS = [
     "manual", "tool_succeeded", "exists", "truthy",
     "equals", "set_equals", "count_equals", "within_tolerance",
 ]
-ROUTES = ["host_operation", "asset_transfer", "artifact_pipeline"]
 
 
 @pytest.fixture(scope="module")
@@ -47,7 +46,7 @@ def test_the_schema_is_loadable_and_is_json_schema(schema: dict):
 
 
 def test_the_schema_declares_each_required_top_level_field(schema: dict):
-    for field in ("workflow_id", "route", "root"):
+    for field in ("workflow_id", "root"):
         assert field in schema["required"], f"{field} must be required"
         assert field in schema["properties"], f"{field} must be declared"
 
@@ -59,9 +58,21 @@ def test_the_schema_states_every_operator(schema_text: str, operator: str):
     assert f'"{operator}"' in schema_text, f"the schema omits the operator {operator!r}"
 
 
-@pytest.mark.parametrize("route", ROUTES)
-def test_the_schema_states_every_route(schema_text: str, route: str):
-    assert f'"{route}"' in schema_text, f"the schema omits the route {route!r}"
+def test_the_schema_no_longer_declares_a_route(schema: dict, schema_text: str):
+    """`route` was a label whose only reader compared it against the task's.
+
+    It was not a behavioral branch: every value contributed the same context, and
+    the judgment code never read it. The schema's own description recorded that
+    four independent authors split 3-1 on the same task, which is the measurement
+    that settled it. Removing the field means a document carrying one now fails the
+    spec, which is the point -- an unknown property is rejected, not ignored.
+    """
+
+    assert "route" not in schema["properties"]
+    assert "route" not in schema["required"]
+    assert '"host_operation"' not in schema_text
+    assert '"asset_transfer"' not in schema_text
+    assert '"artifact_pipeline"' not in schema_text
 
 
 def test_the_schema_states_every_verdict_the_engine_can_return(schema: dict):

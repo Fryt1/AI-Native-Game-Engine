@@ -11,7 +11,6 @@ from ainative.reading import workflow_from_dict
 TASK = {
     "task_id": "loop-1",
     "objective": "Validate the transferred asset",
-    "route": "asset_transfer",
     "source_context": {"app": "ue5"},
     "target_context": {"app": "ue5"},
     "preserve_relations": ["asset_identity"],
@@ -19,7 +18,6 @@ TASK = {
 
 PLAN = {
     "guidance": "asset-roundtrip",
-    "route": "asset_transfer",
     "workflow_id": "loop-1:workflow",
     "root": {
         "node_id": "validate",
@@ -240,7 +238,6 @@ def test_missing_state_file_is_reported_not_crashed(tmp_path, capsys):
 
 DEPENDENT_PLAN = {
     "guidance": "asset-roundtrip",
-    "route": "asset_transfer",
     "workflow_id": "dep:workflow",
     "root": {
         "node_id": "work",
@@ -356,7 +353,6 @@ def test_ordered_replay_completes_every_dependent_stage(tmp_path, capsys):
 
 AMBIGUOUS_PLAN = {
     "guidance": "asset-roundtrip",
-    "route": "asset_transfer",
     "workflow_id": "ambiguous:workflow",
     "root": {
         "node_id": "work",

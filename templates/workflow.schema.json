@@ -5,17 +5,13 @@
   "description": "The Agent-authored Workflow. A node is either a STAGE (a leaf that holds calls and its frozen checklists) or a WORKFLOW (a composite that holds children and reads their verdicts). 'Tree' describes only the shape this structure may take; the semantics are 'a Workflow contains Workflows'. ORDER comes only from depends_on: the order nodes are written in carries no meaning, and two nodes with no dependency between them are unordered -- the Agent, which executes every call itself, may run them in any order or at the same time. This document is judged, not scheduled: nothing here runs anything.",
 
   "type": "object",
-  "required": ["workflow_id", "route", "root"],
+  "required": ["workflow_id", "root"],
   "additionalProperties": false,
   "properties": {
     "workflow_id": {"type": "string", "minLength": 1},
     "guidance": {
       "type": "string",
       "description": "Provenance only. Which guidance document the author followed."
-    },
-    "route": {
-      "enum": ["host_operation", "asset_transfer", "artifact_pipeline"],
-      "description": "The lifecycle domain. Pick by what the task DOES at its centre, not by which host it touches -- every route reaches every host. host_operation: drive a running host through its own MCP calls (create or edit a scene, actor, or asset in place). asset_transfer: move one asset between hosts and return it, preserving its identity and relations. artifact_pipeline: produce files or artifacts through a pipeline, where the output is the deliverable rather than a change to a live scene. Four independent authors given this schema without the preceding sentence split 3-1 between artifact_pipeline and host_operation for the same Blender scene-generation task."
     },
     "revision": {"type": "integer", "minimum": 1},
     "status": {

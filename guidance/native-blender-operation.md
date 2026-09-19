@@ -33,7 +33,7 @@ Blender CLI + Python
 ```
 
 The call surface is an implementation detail of the selected MCP call on the
-`blender` server. It does not change the Workflow or create another Route.
+`blender` server. It does not change the Workflow.
 
 ## Tool planning rule
 

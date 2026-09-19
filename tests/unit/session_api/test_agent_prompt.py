@@ -1,13 +1,9 @@
 import pytest
 
 from ainative.model import (
-    NodeKind,
     TaskContract,
-    TaskRoute,
     TaskStatus,
-    WorkflowNode,
     WorkflowStatus,
-    WorkflowTree,
 )
 from ainative.session_api import AcceptanceGuide, WorkflowError
 from tests.support.workflow_factory import (
@@ -24,7 +20,6 @@ def blender_task(task_id: str = "agent-task") -> TaskContract:
     return TaskContract(
         task_id=task_id,
         objective="在当前 Scene 里交互修改模型",
-        route=TaskRoute.HOST_OPERATION,
         target_context={"app": "blender"},
     )
 
@@ -43,7 +38,6 @@ def test_the_agent_may_request_the_native_blender_variant_explicitly():
     task = TaskContract(
         task_id="prompt-2",
         objective="在当前 Scene 里交互修改模型",
-        route=TaskRoute.HOST_OPERATION,
         target_context={"app": "blender"},
         guidance="native-blender-operation",
     )
@@ -82,26 +76,12 @@ def test_a_plan_selecting_a_tool_that_is_not_declared_anywhere_is_still_openable
     assert session.ready
 
 
-def test_agent_rejects_a_plan_whose_route_contradicts_the_task():
-    task = blender_task("wrong-route")
-    workflow = WorkflowTree(
-        workflow_id="wrong-route:workflow",
-        root=WorkflowNode(node_id="workflow", kind=NodeKind.WORKFLOW, purpose="the Workflow"),
-        route=TaskRoute.ASSET_TRANSFER,
-        guidance="asset-roundtrip",
-    )
-
-    with pytest.raises(WorkflowError, match="does not match task route"):
-        AcceptanceGuide().start(task, workflow)
-
-
 def test_the_framework_does_not_police_host_or_call_surface_choices():
     """Hosts are reached through MCP, so these are the Agent's calls, not workflow fields."""
 
     task = TaskContract(
         task_id="no-host-dimensions",
         objective="Inspect the UE5 level",
-        route=TaskRoute.HOST_OPERATION,
     )
     inspect = call("ue5", "inspect_active", "inspect-1")
     workflow = workflow_for(
@@ -119,7 +99,6 @@ def test_agent_rejects_superseded_plan_revision():
     task = TaskContract(
         task_id="superseded-workflow",
         objective="Inspect the UE5 level",
-        route=TaskRoute.HOST_OPERATION,
     )
     workflow = workflow_for(task, (step("step", "Inspect", (stage_spec("stage", "Inspect"),)),))
     superseded = replace(workflow, status=WorkflowStatus.SUPERSEDED)

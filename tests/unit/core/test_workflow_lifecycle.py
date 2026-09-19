@@ -3,7 +3,6 @@ from dataclasses import replace
 from ainative.model import (
     NodeKind,
     TaskContract,
-    TaskRoute,
     TaskStatus,
     WorkflowNode,
     WorkflowStatus,
@@ -28,7 +27,6 @@ def test_agent_authored_plan_starts_as_an_immutable_draft_revision():
     task = TaskContract(
         task_id="plan-lifecycle",
         objective="Inspect a Blender object",
-        route=TaskRoute.HOST_OPERATION,
         target_context={"app": "blender"},
     )
     workflow = workflow_for(
@@ -46,7 +44,6 @@ def test_replan_attaches_a_new_agent_authored_revision_without_mutating_old_plan
     task = TaskContract(
         task_id="replan-task",
         objective="Move an Actor in a UE5 level",
-        route=TaskRoute.HOST_OPERATION,
         target_context={"app": "ue5"},
     )
     previous = workflow_for(
@@ -91,7 +88,6 @@ def test_agent_execution_records_plan_revision_after_selected_calls_finish():
     task = TaskContract(
         task_id="completed-workflow",
         objective="Inspect an object on the edit host",
-        route=TaskRoute.HOST_OPERATION,
         target_context={"app": "blender"},
     )
     selected_call = call("blender", "inspect_active", "inspect-1")
@@ -116,7 +112,6 @@ def test_invalid_stage_dependency_is_rejected_before_execution():
     workflow = WorkflowTree(
         workflow_id="invalid-dependency:workflow",
         guidance="host-operation",
-        route=TaskRoute.HOST_OPERATION,
         root=WorkflowNode(
             node_id="workflow",
             kind=NodeKind.WORKFLOW,
@@ -155,7 +150,6 @@ def test_a_failed_call_suspends_the_plan_revision():
     task = TaskContract(
         task_id="suspended-workflow",
         objective="Inspect an Actor in a UE5 level",
-        route=TaskRoute.HOST_OPERATION,
         target_context={"app": "ue5"},
     )
     selected_call = call("ue5", "read_actor_transform", "read-1")

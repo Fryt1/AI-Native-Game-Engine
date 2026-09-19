@@ -13,7 +13,6 @@ from tests.support.workflow_factory import first_stage
 def _workflow_document() -> dict:
     return {
         "guidance": "asset-roundtrip",
-        "route": "asset_transfer",
         "workflow_id": "p:workflow",
         "root": {
             "node_id": "validate",
@@ -55,7 +54,6 @@ def test_plan_round_trips_through_json():
     workflow = workflow_from_dict(_workflow_document())
 
     assert workflow.guidance == "asset-roundtrip"
-    assert workflow.route.value == "asset_transfer"
     stage = first_stage(workflow)
     assert stage.node_id == "stage.validate_asset"
     assert stage.stage.calls[0].target.owner == "blender"
@@ -87,7 +85,7 @@ def test_missing_required_field_names_the_json_path():
 
 def test_unknown_enum_value_lists_the_allowed_values():
     document = _workflow_document()
-    document["route"] = "not_a_route"
+    document["status"] = "not_a_status"
 
     with pytest.raises(WorkflowDeserializationError, match="is not one of"):
         workflow_from_dict(document)

@@ -1,20 +1,5 @@
 from dataclasses import dataclass, field
-from enum import StrEnum
 from typing import Any
-
-from .coercion import coerce_enum
-
-
-class TaskRoute(StrEnum):
-    """Stable lifecycle domains used as routing guardrails.
-
-    A Route narrows the applicable safety and validation rules. It does not
-    identify a tool, Backend, or file format.
-    """
-
-    HOST_OPERATION = "host_operation"
-    ASSET_TRANSFER = "asset_transfer"
-    ARTIFACT_PIPELINE = "artifact_pipeline"
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,7 +15,6 @@ class TaskContract:
 
     task_id: str
     objective: str
-    route: TaskRoute
     asset_type: str = "unknown"
     direction: str = "none"
     preserve_relations: frozenset[str] = field(default_factory=frozenset)
@@ -40,14 +24,10 @@ class TaskContract:
     confirmation_required: bool = False
     metadata: dict[str, Any] = field(default_factory=dict)
 
-    def __post_init__(self) -> None:
-        coerce_enum(self, "route", TaskRoute)
-
     def to_dict(self) -> dict[str, Any]:
         return {
             "task_id": self.task_id,
             "objective": self.objective,
-            "route": self.route.value,
             "asset_type": self.asset_type,
             "direction": self.direction,
             "preserve_relations": sorted(self.preserve_relations),

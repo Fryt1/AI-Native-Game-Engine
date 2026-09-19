@@ -222,7 +222,6 @@ def command_open(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
             "state": str(args.state),
             "ready": session.ready,
             "guidance": workflow.guidance,
-            "route": workflow.route.value if workflow.route else None,
             "revision_id": workflow.revision_id,
             "nodes": list(workflow.stage_paths),
             "blocked_reasons": list(session.gate.blocked_reasons),
@@ -561,7 +560,6 @@ def _workflow_summary(session: AcceptanceSession, state: SessionState) -> dict[s
         "workflow_id": session.workflow.workflow_id,
         "revision": session.workflow.revision,
         "guidance": session.workflow.guidance,
-        "route": session.workflow.route.value if session.workflow.route else None,
         "supersedes_workflow_id": session.workflow.supersedes_workflow_id,
         "replaced": [
             entry.get("revision_id")

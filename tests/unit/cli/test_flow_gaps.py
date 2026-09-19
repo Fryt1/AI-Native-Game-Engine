@@ -56,7 +56,6 @@ def _workflow(stages):
     return {
         "workflow_id": "t:workflow",
         "guidance": "host-operation",
-        "route": "host_operation",
         "revision": 1,
         "root": {"node_id": "work", "kind": "workflow", "purpose": "work",
                  "children": stages},
@@ -78,8 +77,7 @@ def _stage_paths() -> dict[str, str]:
 def workspace(tmp_path, capsys):
     state = str(tmp_path / "state.json")
     task = _write(tmp_path / "task.json", {
-        "task_id": "t", "objective": "o", "route": "host_operation",
-        "guidance": "host-operation",
+        "task_id": "t", "objective": "o", "guidance": "host-operation",
     })
     workflow = _write(tmp_path / "wf.json", WORKFLOW)
 

@@ -74,7 +74,6 @@ def _workflow(stages, revision=1, supersedes=None):
     doc = {
         "workflow_id": "t:workflow",
         "guidance": "host-operation",
-        "route": "host_operation",
         "revision": revision,
         "root": {"node_id": "work", "kind": "workflow", "purpose": "work",
                  "children": stages},
@@ -138,7 +137,7 @@ def _write(path, data):
 def workspace(tmp_path, capsys):
     state = str(tmp_path / "state.json")
     task = _write(tmp_path / "task.json", {
-        "task_id": "t", "objective": "o", "route": "host_operation", "guidance": "host-operation",
+        "task_id": "t", "objective": "o", "guidance": "host-operation",
     })
 
     def open_with(stages, revision=1, supersedes=None):
@@ -380,7 +379,6 @@ def test_a_workflow_with_no_stages_round_trips():
     workflow = WorkflowTree(
         workflow_id="t:workflow",
         guidance="g",
-        route="host_operation",
         root=WorkflowNode(node_id="workflow", kind=NodeKind.WORKFLOW, purpose="the Workflow"),
     )
 

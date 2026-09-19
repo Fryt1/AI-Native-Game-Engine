@@ -6,7 +6,6 @@ that cannot be judged:
 
     the Skill package is intact and the named guidance resolves
     the Workflow revision is still executable
-    the Workflow's route matches the task's route
     the Workflow is structurally valid
     the entry gate passes
 """
@@ -66,12 +65,6 @@ class AcceptanceGuide:
 
         skill_session = self.load_skill(task)
         _reject_unexecutable_revision(workflow)
-        if workflow.route is None:
-            raise WorkflowError("workflow declares no route")
-        if workflow.route is not task.route:
-            raise WorkflowError(
-                f"workflow route {workflow.route.value} does not match task route {task.route.value}"
-            )
         try:
             validate_tree_structure(workflow)
         except TreeIntegrityError as exc:

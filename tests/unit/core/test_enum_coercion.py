@@ -31,17 +31,15 @@ CTORS = {
     "ToolCall": lambda **kw: m.ToolCall(call_id="c", target=m.CallTarget("o", "n"), **kw),
     "ExecutionResult": lambda **kw: m.ExecutionResult(call_id="c", **kw),
     "StageResult": lambda **kw: m.StageResult(node_path="/s/", **kw),
-    "TaskResult": lambda **kw: m.TaskResult(route="host_operation", **kw),
+    "TaskResult": lambda **kw: m.TaskResult(**kw),
     "StageBody": lambda **kw: m.StageBody(**kw),
     "WorkflowNode": lambda **kw: m.WorkflowNode(node_id="n", purpose="p", **kw),
     "WorkflowTree": lambda **kw: m.WorkflowTree(
         workflow_id="w",
         root=m.WorkflowNode(node_id="root", purpose="p", kind="workflow"),
-        **{"route": "host_operation", **kw},
+        **kw,
     ),
-    "TaskContract": lambda **kw: m.TaskContract(
-        task_id="t", objective="o", **{"route": "host_operation", **kw}
-    ),
+    "TaskContract": lambda **kw: m.TaskContract(task_id="t", objective="o", **kw),
 }
 
 # One valid string value per enum.
@@ -51,7 +49,6 @@ ENUM_VALUES = {
     "CheckOperator": "exists",
     "NodeKind": "stage",
     "StageKind": "change",
-    "TaskRoute": "host_operation",
     "TaskStatus": "succeeded",
     "WorkflowStatus": "draft",
 }
@@ -102,10 +99,8 @@ EXPECTED = {
     ("ExecutionResult", "status"),
     ("StageBody", "stage_kind"),
     ("StageResult", "status"),
-    ("TaskContract", "route"),
     ("TaskResult", "status"),
     ("WorkflowNode", "kind"),
-    ("WorkflowTree", "route"),
     ("WorkflowTree", "status"),
 }
 

@@ -57,7 +57,6 @@
 ```
 TaskContract                        这次任务"是什么"
 ├── task_id / objective
-├── route                           host_operation | asset_transfer | artifact_pipeline
 ├── asset_type / direction
 ├── preserve_relations              必须存活的关系
 ├── guidance                        Agent 想读哪份指引（可选，自由字符串）
@@ -66,7 +65,7 @@ TaskContract                        这次任务"是什么"
 └── metadata
 
 WorkflowTree                        一个任务 = 一棵工作流修订
-├── workflow_id / guidance / route
+├── workflow_id / guidance
 ├── root                            WorkflowNode：整棵树的根，路径为 "/"
 ├── revision / status
 ├── supersedes_workflow_id / replacement_reason
@@ -160,7 +159,7 @@ StageResult                         关闭一个节点时的判定
 └── resume_pointer
 
 TaskResult                          最终汇总
-├── status / route / workflow_id
+├── status / workflow_id
 ├── workflow_revision / workflow_revision_id / workflow_status
 ├── nodes_completed[] / node_results[]
 ├── preserved_relations / lost_relations

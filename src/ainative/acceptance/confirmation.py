@@ -1,13 +1,14 @@
-"""A route is a label, plus a confirmation precondition.
+"""The entry gate: one precondition, and it is the task's own.
 
-A route names the primary lifecycle of a task. That is all it is: a label the
-Workflow carries so the record shows which lifecycle it followed. It is *not* a
-behavioral branch — every route contributes the same context, and this module
-used to model that sameness with three byte-identical authority objects. They
-are gone.
+A task may declare that it needs confirmation before work starts. That is the only
+thing this gate observes, and it is independent of everything else the task carries.
 
-The one precondition this module does observe is the task's own confirmation
-requirement, which is independent of the route.
+The module used to model a `route` as a second precondition. A route was never a
+behavioral branch -- every route contributed the same context, and three
+byte-identical authority objects existed to express that sameness. They are gone,
+along with the route itself: the entry gate compared `workflow.route` against
+`task.route` and nothing else read either value, so a field whose only purpose was
+to equal another field was removed rather than kept as a label.
 """
 
 from __future__ import annotations

@@ -16,7 +16,7 @@ import pytest
 
 from ainative.cli.commands import COMMANDS
 from ainative.cli.output import Verdict
-from ainative.model import CheckOperator, CheckStatus, StageKind, TaskRoute
+from ainative.model import CheckOperator, CheckStatus, StageKind
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
 
@@ -273,13 +273,10 @@ def test_the_stage_operators_are_stated_in_the_schema():
     assert not missing, f"the schema omits operators: {missing}"
 
 
-def test_the_stage_kinds_and_routes_are_stated_where_they_are_chosen():
+def test_the_stage_kinds_are_stated_where_they_are_chosen():
     skill = (REPO_ROOT / "SKILL.md").read_text(encoding="utf-8")
-    schema = (REPO_ROOT / "templates" / "workflow.schema.json").read_text(encoding="utf-8")
 
     assert not [k.value for k in StageKind if k.value not in skill], "SKILL.md omits a Stage kind"
-    assert not [r.value for r in TaskRoute if f'"{r.value}"' not in schema], (
-        "the schema omits a route")
 
 
 def test_every_top_level_directory_is_one_of_the_owned_categories():
@@ -369,14 +366,12 @@ def test_the_readme_agent_api_example_still_runs():
         CallTarget,
         ExecutionResult,
         TaskContract,
-        TaskRoute,
         TaskStatus,
     )
     from ainative.session_api import AcceptanceGuide
     from tests.support.workflow_factory import call, stage_spec, step, workflow_for
 
-    task = TaskContract(task_id="readme", objective="run the README example",
-                        route=TaskRoute.HOST_OPERATION)
+    task = TaskContract(task_id="readme", objective="run the README example")
     workflow = workflow_for(task, (
         step("step-1", "a phase", (
             stage_spec("validate-asset", "validate", "check",

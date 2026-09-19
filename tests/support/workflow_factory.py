@@ -148,7 +148,6 @@ def workflow_for(
             purpose="the Workflow",
             children=tuple(steps),
         ),
-        route=task.route,
         guidance=guidance if guidance is not None else (task.guidance or None),
         revision=revision,
         status=status,

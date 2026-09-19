@@ -18,7 +18,6 @@ import pytest
 
 from ainative.acceptance.tree_evaluator import evaluate_tree
 from ainative.model.results import ExecutionResult, TaskStatus
-from ainative.model.task import TaskRoute
 from ainative.model.tools import CallTarget
 from ainative.model.tree import NodeKind, walk
 from ainative.reading.deserialize import workflow_from_dict
@@ -38,7 +37,6 @@ def document() -> dict:
 
     return {
         "workflow_id": "probe",
-        "route": "host_operation",
         "root": {
             "node_id": "city",
             "kind": "workflow",
@@ -167,8 +165,9 @@ def test_the_model_does_not_drop_a_field_the_schema_requires(schema: dict):
     """A required field the model drops is silent, which is the whole hazard.
 
     The document passes every check and the engine reads nothing, so the failure
-    shows up later as a wrong verdict rather than as an error. ``route`` was
-    missing when this test was written; ``source_node`` was the same defect.
+    shows up later as a wrong verdict rather than as an error. ``source_node`` was
+    the defect this was written for; ``route`` was an earlier one, since removed
+    from the schema entirely.
 
     This reads ``schema['required']`` rather than naming fields, so adding a
     required field to the spec extends this test instead of needing a new one.
@@ -202,15 +201,6 @@ def test_the_model_emits_documents_the_schema_accepts(schema: dict):
     assert is_valid(tree.to_dict(), schema), (
         "the model emitted a document the spec rejects: "
         f"{tree.to_dict()}")
-
-
-def test_the_route_survives_because_the_entry_gate_compares_it():
-    """The gate refuses a Workflow whose route differs from the task's."""
-
-    tree = workflow_from_dict(document())
-
-    assert tree.route is TaskRoute.HOST_OPERATION
-    assert tree.to_dict()["route"] == "host_operation"
 
 
 def test_a_stage_node_keeps_its_kind_through_the_round_trip():

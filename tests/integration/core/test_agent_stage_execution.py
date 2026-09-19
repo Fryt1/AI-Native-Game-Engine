@@ -11,7 +11,6 @@ from ainative.model import (
     StageBody,
     StageKind,
     TaskContract,
-    TaskRoute,
     TaskStatus,
 )
 from ainative.session_api import AcceptanceGuide
@@ -30,7 +29,6 @@ def host_task(task_id: str) -> TaskContract:
     return TaskContract(
         task_id=task_id,
         objective="Move an Actor in a UE5 level",
-        route=TaskRoute.HOST_OPERATION,
     )
 
 
@@ -105,7 +103,6 @@ def test_tool_success_alone_does_not_prove_a_preserved_relation():
     task = TaskContract(
         task_id="relation-not-proven",
         objective="Round-trip a mesh and keep its identity",
-        route=TaskRoute.ASSET_TRANSFER,
         preserve_relations=frozenset({"asset_identity"}),
     )
     transfer, stage = relation_stage()
@@ -125,7 +122,6 @@ def test_proven_relations_pass_the_same_check():
     task = TaskContract(
         task_id="relation-proven",
         objective="Round-trip a mesh and keep its identity",
-        route=TaskRoute.ASSET_TRANSFER,
         preserve_relations=frozenset({"asset_identity"}),
     )
     transfer, stage = relation_stage()

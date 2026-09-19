@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from ainative.model.task import TaskContract, TaskRoute
+from ainative.model.task import TaskContract
 from ainative.session_api.skill import (
     ENTRY_NAMES,
     AINativeSkill,
@@ -75,7 +75,7 @@ def package(tmp_path: Path) -> Path:
 
 def task(guidance: str | None) -> TaskContract:
     return TaskContract(
-        task_id="t", objective="o", route=TaskRoute.HOST_OPERATION, guidance=guidance)
+        task_id="t", objective="o", guidance=guidance)
 
 
 def skill(package: Path) -> AINativeSkill:

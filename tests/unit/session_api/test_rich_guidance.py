@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from ainative.model.task import TaskContract, TaskRoute
+from ainative.model.task import TaskContract
 from ainative.session_api.skill import AINativeSkill
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -36,7 +36,6 @@ GOOD_RECORD = {
 @pytest.fixture(scope="module")
 def resolved():
     task = TaskContract(task_id="t", objective="o",
-                        route=TaskRoute.HOST_OPERATION,
                         guidance="procedural-scene")
     return AINativeSkill(package_root=REPO_ROOT).load(task).guidance_package
 

@@ -72,7 +72,7 @@ def stage_document(node_id: str = "mass") -> dict:
 
 
 def workflow_document(root: dict) -> dict:
-    return {"workflow_id": "probe", "route": "host_operation", "root": root}
+    return {"workflow_id": "probe", "root": root}
 
 
 # --------------------------------------------------------------------------- #
@@ -226,7 +226,6 @@ def test_the_schema_accepts_every_well_formed_shape_the_engine_builds(schema):
     document = {
         "workflow_id": "probe",
         "guidance": "procedural-city",
-        "route": "host_operation",
         "revision": 1,
         "warnings": ["a warning carried from the guidance invariants"],
         "root": {

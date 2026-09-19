@@ -236,7 +236,6 @@ class AcceptanceSession:
 
         return TaskResult(
             status=result.status,
-            route=self.workflow.route.value if self.workflow.route else "",
             guidance=self.workflow.guidance,
             workflow_id=self.workflow.workflow_id,
             workflow_revision=self.workflow.revision,
@@ -505,7 +504,6 @@ class AcceptanceSession:
         details["outstanding_nodes"] = list(outstanding)
         return TaskResult(
             status=status,
-            route=self.workflow.route.value if self.workflow.route else "",
             guidance=self.workflow.guidance,
             workflow_id=self.workflow.workflow_id,
             workflow_revision=self.workflow.revision,

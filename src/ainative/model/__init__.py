@@ -18,7 +18,7 @@ from .checklists import (
     StageKind,
 )
 from .results import ExecutionResult, StageResult, TaskResult, TaskStatus
-from .task import TaskContract, TaskRoute
+from .task import TaskContract
 from .tools import CallTarget, ToolCall
 from .tree import (
     ROOT_PATH,
@@ -71,7 +71,6 @@ __all__ = [
     "StageResult",
     "TaskContract",
     "TaskResult",
-    "TaskRoute",
     "TaskStatus",
     "ToolCall",
     "UNRESOLVED_STATUSES",

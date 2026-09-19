@@ -16,7 +16,6 @@ from ainative.model import (
     StageBody,
     StageKind,
     TaskContract,
-    TaskRoute,
     TaskStatus,
     WorkflowNode,
 )
@@ -37,7 +36,6 @@ def host_task(task_id: str = "ue5-actor-stage") -> TaskContract:
     return TaskContract(
         task_id=task_id,
         objective="Move an Actor in a UE5 level",
-        route=TaskRoute.HOST_OPERATION,
     )
 
 

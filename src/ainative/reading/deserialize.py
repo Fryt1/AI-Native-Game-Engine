@@ -23,7 +23,7 @@ from ainative.model.checklists import (
     StageKind,
 )
 from ainative.model.results import ExecutionResult, TaskStatus
-from ainative.model.task import TaskContract, TaskRoute
+from ainative.model.task import TaskContract
 from ainative.model.tools import CallTarget, ToolCall
 from ainative.model.tree import (
     NodeCheck,
@@ -193,7 +193,6 @@ def task_from_dict(raw: Any, path: str = "task") -> TaskContract:
     return TaskContract(
         task_id=str(raw.get("task_id", "cli-task")),
         objective=str(raw.get("objective", "")),
-        route=_enum(TaskRoute, raw.get("route", TaskRoute.HOST_OPERATION.value), f"{path}.route"),
         asset_type=str(raw.get("asset_type", "unknown")),
         direction=str(raw.get("direction", "none")),
         preserve_relations=frozenset(raw.get("preserve_relations", [])),
@@ -435,7 +434,6 @@ def workflow_from_dict(document: Any) -> WorkflowTree:
     return WorkflowTree(
         workflow_id=str(body.get("workflow_id", "")),
         root=node_from_dict(_require(body, "root", path), f"{path}.root"),
-        route=_optional_enum(TaskRoute, body.get("route"), f"{path}.route"),
         guidance=body.get("guidance"),
         revision=int(body.get("revision", 1)),
         status=_enum(

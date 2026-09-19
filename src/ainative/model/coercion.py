@@ -1,8 +1,8 @@
 """Coerce a plain string into its enum on a frozen dataclass.
 
-`TaskContract.route` accepts either a `TaskRoute` or its string value, so a
-hand-written task JSON behaves identically to one built in Python. Every other
-enum field must behave the same way: otherwise `to_dict()` reaches
+`TaskContract` and `WorkflowTree` fields such as `status` accept either the enum or
+its string value, so a hand-written JSON document behaves identically to one built
+in Python. Every enum field must behave the same way: otherwise `to_dict()` reaches
 `self.field.value` and raises `AttributeError: 'str' object has no attribute
 'value'` instead of working.
 

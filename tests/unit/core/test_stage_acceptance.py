@@ -18,7 +18,6 @@ from ainative.model import (
     StageBody,
     StageKind,
     TaskContract,
-    TaskRoute,
     TaskStatus,
     WorkflowNode,
 )
@@ -38,7 +37,6 @@ def _task(task_id: str) -> TaskContract:
     return TaskContract(
         task_id=task_id,
         objective="Move and verify an Actor through UE5 MCP",
-        route=TaskRoute.HOST_OPERATION,
     )
 
 

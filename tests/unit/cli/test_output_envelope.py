@@ -168,7 +168,6 @@ def _write(path, data):
 def _workflow_doc():
     return {
         "guidance": "host-operation",
-        "route": "host_operation",
         "workflow_id": "v:workflow",
         "root": {
             "node_id": "s",
@@ -213,8 +212,7 @@ def _stage_path() -> str:
 def workspace(tmp_path, capsys):
     state = str(tmp_path / "state.json")
     task = _write(tmp_path / "task.json", {
-        "task_id": "v", "objective": "Move", "route": "host_operation",
-        "guidance": "host-operation",
+        "task_id": "v", "objective": "Move", "guidance": "host-operation",
     })
     workflow = _write(tmp_path / "workflow.json", _workflow_doc())
 
