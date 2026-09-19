@@ -388,3 +388,64 @@ def test_a_workflow_with_no_stages_round_trips():
     rebuilt = workflow_from_dict(workflow.to_dict())
     assert rebuilt.stages == ()
     assert rebuilt.root.node_id == workflow.root.node_id
+
+
+def _dependent_stages() -> list[dict]:
+    """``stage.b`` waits for ``stage.a``, so b's evidence rests on a's."""
+
+    first = _stage()
+    second = _stage(
+        node_id="stage.b",
+        calls=[{"call_id": "b1", "target": {"owner": "ue5", "name": "do_b"}}],
+        execution_checklist=[{"item_id": "ib", "description": "ran", "call_ids": ["b1"]}],
+        acceptance_checklist=[{"check_id": "kb", "description": "ok",
+                               "operator": "tool_succeeded", "source_call_id": "b1",
+                               "call_ids": ["b1"]}])
+    second["depends_on"] = ["../stage.a"]
+    return [first, second]
+
+
+def test_a_supersede_that_invalidates_a_dependency_keeps_the_state_readable(workspace):
+    """The log must stay replayable after a replacement archives a dependency.
+
+    A replacement archives the events of a node whose definition changed and
+    forwards the rest. If a forwarded event belongs to a node that *depended* on an
+    archived one, re-applying it finds the dependency unsatisfied -- and the
+    ordering check that catches that is only meaningful for a NEW submission. It
+    ran on every replay, so the whole state answered nothing: `status` and `finish`
+    both failed with "Call b1 cannot execute", and the Agent could not even ask
+    what was left. Replay now applies the log without re-litigating an order that
+    was valid when it was taken in.
+    """
+
+    code, payload = workspace["open"](_dependent_stages())
+    assert code == 0, payload["errors"]
+
+    # The fixture hangs the stages straight off the root, and the root's own
+    # node_id is never part of a path -- the root IS "/". So these are "/stage.a/",
+    # not "/work/stage.a/".
+    code, payload = workspace["record"]("c1", "do_thing")
+    assert code == 0, payload["errors"]
+    code, payload = workspace["stage"]("/stage.a/")
+    assert code == 0, payload["errors"]
+    code, payload = workspace["record"]("b1", "do_b")
+    assert code == 0, payload["errors"]
+    code, payload = workspace["stage"]("/stage.b/")
+    assert code == 0, payload["errors"]
+
+    changed = _dependent_stages()
+    changed[0] = _stage(purpose="A different goal")
+    changed[1]["depends_on"] = ["../stage.a"]
+    code, payload = workspace["supersede"](changed, revision=2, supersedes="t:workflow:r1")
+    assert code == 0, payload["errors"]
+    assert "/stage.b/" in payload["detail"]["carried_over"]
+    assert "/stage.a/" in payload["detail"]["invalidated"]
+
+    code = session_cli.main(["--state", workspace["state"], "status"])
+    payload = json.loads(workspace["capsys"].readouterr().out)
+
+    errors = " | ".join(payload["errors"])
+    assert "cannot execute" not in errors, (
+        "the state was unreadable after the replacement: " + errors)
+    assert "/stage.a/" in payload["detail"]["remaining_nodes"], payload["detail"]
+    assert code == 1, "an unfinished task reports blocked, but it must answer"

@@ -166,7 +166,11 @@ def replay(state: SessionState) -> AcceptanceSession:
     session = AcceptanceGuide().start(task, workflow)
     for event_type, payload, owner in state.event_objects():
         if event_type == EVENT_EXECUTION_RESULT:
-            session.record_execution_result(payload, owner)
+            # Applying the log is not accepting a submission: the ordering was
+            # checked when the event was taken in, and a replacement can archive a
+            # dependency since. Re-checking here is what made a superseded state
+            # unreadable by every command.
+            session.record_execution_result(payload, owner, submitted=False)
         elif event_type == EVENT_EXECUTION_ITEM:
             session.record_execution_item(owner or _owning_node(session, payload.item_id,
                                                                 "execution item"), payload)
@@ -332,6 +336,11 @@ def command_record(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
                 "the same change twice. Pass --confirm-side-effects to proceed, or "
                 "author a replacement revision"
             )
+
+    # The ordering check belongs to accepting a submission, and `replay` no longer
+    # repeats it -- re-applying the log must not re-litigate an order that was
+    # valid when it was taken in. So it has to happen here, before the append.
+    replay(state).check_call_ready(result.call_id, node_path)
 
     body = result.to_dict()
     body["node_path"] = node_path

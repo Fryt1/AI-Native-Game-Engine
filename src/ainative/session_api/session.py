@@ -178,8 +178,10 @@ class AcceptanceSession:
         self,
         result: ExecutionResult,
         node_path: str | None = None,
+        *,
+        submitted: bool = True,
     ) -> ExecutionResult:
-        """Record a raw call result the Agent reports.
+        """Record a raw call result.
 
         This is the only execution entry point. Python never invokes the call; it
         validates the submitted result against the declaration and dependency
@@ -188,6 +190,15 @@ class AcceptanceSession:
         @param result: what the Agent reported.
         @param node_path: the node that declared the call. Required only when the
             call id is declared by more than one node.
+        @param submitted: True for a result the Agent has just reported, False when
+            re-applying an event already in the log. The two are not the same act.
+            An event was accepted under the revision it was submitted to, and its
+            ordering was checked then; re-applying it after a replacement can find
+            a dependency whose evidence was archived, so re-litigating the order
+            would leave the state file unreadable -- and a state no command can
+            read is worse than one with a stale verdict in it. The target check
+            still applies either way, because a target that no longer matches the
+            declaration means the event does not belong to this revision at all.
 
         The result must name the target it ran. A result that omits it cannot be
         checked against the declaration, and "do not silently substitute another
@@ -202,7 +213,8 @@ class AcceptanceSession:
         call = next(
             call for call in self._node(path).declared_calls
             if call.call_id == result.call_id)
-        self.check_call_ready(result.call_id, path)
+        if submitted:
+            self.check_call_ready(result.call_id, path)
         if result.target is None:
             raise WorkflowError(
                 f"Execution result must report the target it ran: {result.call_id} "
