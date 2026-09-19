@@ -53,10 +53,22 @@ UNRESOLVED_STATUSES = frozenset({CheckStatus.UNKNOWN, CheckStatus.NEEDS_HUMAN})
 
 
 class WorkflowStatus(StrEnum):
-    """Lifecycle state of one immutable Workflow revision."""
+    """Lifecycle state of one immutable Workflow revision.
+
+    Two different readers use this, and they ask different questions:
+
+    * `session_api/guide.py` asks whether the revision can still be opened, so it
+      only separates terminal values from live ones;
+    * `acceptance/aggregation.py` asks how far the run got, and its answer reaches
+      `TaskResult.workflow_status` on every `finish`.
+
+    That second reader is why `running` and `suspended` are distinct rather than both
+    collapsing into "not finished", and why every value here has a producer. A value
+    no code writes is a word an author can choose and the engine will never emit --
+    `feasible` was one, and was removed.
+    """
 
     DRAFT = "draft"
-    FEASIBLE = "feasible"
     RUNNING = "running"
     SUSPENDED = "suspended"
     COMPLETED = "completed"

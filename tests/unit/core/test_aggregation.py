@@ -106,3 +106,48 @@ def test_next_action_matches_the_status(status, gate_ready, expected):
     else:
         assert action is not None
         assert expected in action
+
+
+def test_every_workflow_status_either_has_a_producer_or_a_reader():
+    """A status value must be one the engine writes or one it acts on.
+
+    `WorkflowStatus` has two readers asking different questions: `guide.py` refuses
+    to reopen a terminal revision, and this module's `aggregate_task_status`
+    produces the three that reach `TaskResult.workflow_status`. A value is justified
+    by either half:
+
+    * produced -- the engine emits it, as aggregation does for running, suspended,
+      and completed;
+    * read -- the engine branches on it, as `guide.py` does for completed, failed,
+      invalid, and superseded, which an author declares and the engine honours by
+      refusing to reopen;
+    * or a default, like draft.
+
+    `feasible` had none of the three: no code wrote it, no branch read it. An author
+    could declare a revision feasible and the engine would treat it as an unnamed
+    draft. It was removed, and this test is derived from the enum so a new value
+    forces the question rather than passing by default.
+    """
+
+    import re
+    from pathlib import Path
+
+    repo = Path(__file__).resolve().parents[3]
+    sources = "\n".join(
+        path.read_text(encoding="utf-8") for path in (repo / "src").rglob("*.py"))
+
+    unjustified = []
+    for member in WorkflowStatus:
+        name = member.name
+        produced = re.search(rf"status\s*=\s*\w*\.?{name}\b", sources)
+        returned = re.search(rf"return\s+[^\n]*WorkflowStatus\.{name}\b", sources)
+        default = re.search(rf"=\s*WorkflowStatus\.{name}\b", sources)
+        # Read: named inside a frozenset, tuple, or comparison the engine branches on.
+        read = re.search(rf"WorkflowStatus\.{name}\b", sources) and not (
+            produced or returned)
+        if not (produced or returned or default or read):
+            unjustified.append(member.value)
+
+    assert not unjustified, (
+        f"WorkflowStatus declares {unjustified}, which nothing produces and nothing "
+        "reads: an author could choose them and the engine would never emit them")

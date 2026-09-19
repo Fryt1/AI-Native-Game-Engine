@@ -15,7 +15,8 @@
     },
     "revision": {"type": "integer", "minimum": 1},
     "status": {
-      "enum": ["draft", "feasible", "running", "suspended", "completed", "failed", "invalid", "superseded"]
+      "enum": ["draft", "running", "suspended", "completed", "failed", "invalid", "superseded"],
+      "description": "Lifecycle state of this revision. Every value here is one the engine can emit or act on: guide.py refuses to reopen a terminal revision (completed, failed, invalid, superseded), and aggregation.py produces running, suspended, and completed for TaskResult.workflow_status. It defaults to draft."
     },
     "supersedes_workflow_id": {"type": ["string", "null"]},
     "recovery_pointer": {"type": ["string", "null"]},
