@@ -131,64 +131,37 @@ document; do not ask for the check to be relaxed.
    before any side effect, inside its `stage` body. Give every WORKFLOW node the
    checks that read a descendant's verdict where the roll-up matters.
 4. Select the exact calls that satisfy those checklists.
-5. Write the Workflow as JSON and hand it to Python with `open`, then call one at a
-   time and record each structured result as evidence against that same state
-   file:
+5. Write the Workflow as JSON and hand it to Python with `open`, then execute one
+   call at a time and record each structured result as evidence against that same
+   state file. Later commands need only `--state` plus their own argument.
+   `docs/cli.md` is the authority on the commands themselves — the envelope, the
+   exit codes, and what each one may see — and `templates/result-contract.md` is
+   the authority on what you submit. Read them there rather than here:
 
    ```powershell
    python -m ainative.session --state s.json --task task.json --workflow workflow.json open
    python -m ainative.session --state s.json --result executed-call.json record
-   ```
-
-   `open` validates the Workflow structure and writes `--state`, which carries the
-   Workflow and the task for the rest of the loop. Use `record` for a call result,
-   `item` for an execution checklist item, and `check` for a manual acceptance
-   check. Later commands need only `--state` plus their own argument.
-6. Complete a node only by asking for the deterministic verdict against its
-   frozen checklists, never from a call's own status. `--stage` names the node by
-   **path**, and the path may address a STAGE leaf or a WORKFLOW composite —
-   closing a composite judges its whole subtree and reports the roll-up:
-
-   ```powershell
    python -m ainative.session --state s.json --stage /step-1/validate-asset/ stage
    python -m ainative.session --state s.json finish
-   python -m ainative.session --state s.json status
    ```
 
-   `item` and `check` also accept `--stage`, to name the node when a bare item or
-   check id is declared by more than one node. An ambiguous id is refused rather
-   than resolved by guessing, because judging the wrong subtree silently is worse
-   than asking.
+   An `item` result covers an execution checklist item and a `check` result covers a
+   manual acceptance check. `open` validates the Workflow structure and writes
+   `--state`, which carries the Workflow and the task for the rest of the loop.
 
-   Every command prints the same envelope, so read `verdict` and `errors` without
-   knowing which command ran:
+6. Complete a node only by asking for the deterministic verdict against its frozen
+   checklists, never from a call's own status. `stage` names the node by **path**,
+   and the path may address a STAGE leaf or a WORKFLOW composite — closing a
+   composite judges its whole subtree and reports the roll-up. `item` and `check`
+   also accept `--stage`, to name the node when a bare item or check id is declared
+   by more than one node; an ambiguous id is refused rather than resolved by
+   guessing, because judging the wrong subtree silently is worse than asking.
 
-   ```json
-   {
-     "command": "stage",
-     "ok": false,
-     "verdict": "blocked",
-     "exit_code": 1,
-     "detail": { "...the command's own payload..." },
-     "errors": ["required Stage checks lack evidence: ran"]
-   }
-   ```
+   A call returning `succeeded` does not complete a node. A WORKFLOW node completes
+   when every required child completed and its own checks pass; an unresolved
+   required descendant makes every ancestor `unknown`, which is not the same as
+   `failed`.
 
-   `verdict` uses one vocabulary everywhere: `succeeded`, `degraded`, `blocked`,
-   `failed`, `needs_approval`. That is the **task** vocabulary; a node's own
-   verdict is `pass`, `warn`, `fail`, `unknown`, or `needs_human` and is mapped
-   onto it. A checklist `pass` reports `succeeded` and a `warn` reports
-   `degraded`, so one comparison covers every command.
-
-   Exit codes agree with the envelope: 0 is a non-blocking result, 1 is blocking
-   or failing, and 2 means the command itself could not run (the Workflow and the
-   recorded evidence are untouched). A call returning `succeeded` does not
-   complete a node — a `truthy` acceptance check on an empty
-   `preserved_relations` yields check `fail`, then stage `failed`, then verdict
-   `failed` and exit 1. A WORKFLOW node completes when every required child
-   completed and its own checks pass; an unresolved required descendant makes
-   every ancestor `unknown`, which is not the same as `failed`. Python never picks
-   a call, orders a node, or adds a checklist item.
 7. Continue, retry, wait for evidence or a human decision, compensate, or
    author a replacement Workflow according to the node result.
 
@@ -240,7 +213,7 @@ A WORKFLOW node has no stage kind: it declares no calls and no stage body.
 
 ## Checklist outcomes
 
-Every execution or acceptance item uses the **node** verdict vocabulary:
+Two vocabularies exist and they are never interchangeable. A **node** verdict uses:
 
 ```text
 pass
@@ -250,7 +223,10 @@ unknown
 needs_human
 ```
 
-A STAGE aggregates deterministically:
+A **task** status — what the envelope's `verdict` field carries, whichever command
+ran — uses `succeeded`, `degraded`, `blocked`, `failed`, `needs_approval`.
+
+A STAGE aggregates deterministically, mapping the first onto the second:
 
 ```text
 required fail          → failed

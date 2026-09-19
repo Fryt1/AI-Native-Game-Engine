@@ -246,56 +246,33 @@ confirms the host prerequisites itself.
 ## Acceptance loop
 
 One process-level CLI exists: `python -m ainative.session` takes the
-Agent-authored Workflow tree and returns a node verdict.
+Agent-authored Workflow tree and returns a node verdict. It has eight commands —
+`open`, `record`, `item`, `check`, `stage`, `finish`, `status`, `supersede` — and
+`docs/cli.md` is the authority on all of them, including the envelope, the exit
+codes, and what each one may see. Read it there rather than here.
 
-`python -m ainative.session` is how a Workflow and its reported results reach Python.
-The Agent authors the Workflow as JSON, executes every call itself, and reports each
-result back; Python validates the Workflow structure, stores the evidence in the
-`--state` file, and evaluates each node against its frozen checklists, bottom-up, so
-a composite's verdict is earned on its children's. Python still chooses nothing.
+What belongs here is what you must never get wrong, whichever command you run:
 
-```text
-open       hand over --task and --workflow
-record     submit one executed call result (--result)
-item       submit one execution checklist item result (--result)
-check      submit one manual acceptance check result (--result)
-stage      evaluate and close one node, named by path (--stage)
-finish     aggregate the final TaskResult
-status     read the current state without changing it
-supersede  replace the Workflow revision, archiving the old one and its evidence
-```
+- A call returning `succeeded` does not complete a node. A STAGE completes only
+  when its frozen acceptance checks pass. An unresolved required node makes every
+  ancestor `unknown`, which is **not** the same as `failed`: incomplete evidence is
+  not a failure.
+- Closing a node is done by asking for the verdict, never by asserting one.
+  `stage` names the node by **path**, so `node_id` never has to be globally unique.
+  An ambiguous bare id is refused rather than guessed.
+- The task vocabulary and the node vocabulary are different words for different
+  things. Never report one as the other.
+- A Workflow revision is immutable. A node carries over to a replacement only when
+  its **path and content fingerprint** are both unchanged — the fingerprint covers
+  the node's goal, checklists and calls, and deliberately excludes `node_id`, so a
+  changed subtree is re-run instead of inheriting a verdict that no longer applies.
+- A node that already ran a call may have changed the host. Re-reporting that call
+  is refused without `--confirm-side-effects`, and passing it should be rare: the
+  flag exists for a re-run after a replacement invalidated the node, not for
+  retrying one that already succeeded.
 
-`--stage` takes a node **path** (`/step-1/validate-asset/`), and the path may
-address a STAGE leaf or a WORKFLOW composite: closing a composite judges its whole
-subtree and reports the roll-up. `item` and `check` also accept `--stage`, to name
-the node when a bare item or check id is declared by more than one node — an
-ambiguous id is refused rather than resolved by guessing.
-
-Every command prints the same envelope — `command`, `ok`, `verdict`, `exit_code`,
-`detail`, `errors` — and exits 0 for a non-blocking result, 1 for a blocking or
-failing result, and 2 when the command itself could not run.
-
-`verdict` uses the **task** vocabulary for every command: `succeeded`, `degraded`,
-`blocked`, `failed`, `needs_approval`. Task outcomes already speak those words and
-a node verdict is mapped onto them; a checklist `pass` reports `succeeded` and a
-`warn` reports `degraded`, so a caller reads one field without knowing which
-command ran. A node's own verdict stays in the node vocabulary — `pass`, `warn`,
-`fail`, `unknown`, `needs_human` — and appears as the result's `status` only after
-that mapping.
-
-A call returning `succeeded` does not complete a node. A STAGE completes only
-when its frozen acceptance checks pass — an empty `preserved_relations` against a
-`truthy` check yields check `fail`, then stage `failed`, then verdict `failed`
-and exit 1. A WORKFLOW node completes when every required child completed **and**
-its own checks pass; an unresolved required descendant makes every ancestor
-`unknown`, which is not the same as `failed`.
-
-A Workflow revision is immutable. A node carries over to a replacement only when
-its **path and content fingerprint** are both unchanged — the fingerprint covers
-the node's goal, checklists and calls, and deliberately excludes `node_id`, so a
-changed subtree is re-run instead of inheriting a verdict that no longer applies.
-A node that already ran a call may have changed the host, and re-reporting that
-call is refused without `--confirm-side-effects`.
+The Workflow, the task, and every submitted result live in the `--state` file, so
+later commands need only `--state` and their own argument.
 
 ## Engineering rules
 
@@ -337,6 +314,3 @@ python -m ainative.session --state s.json --stage /step-1/validate-asset/ stage
 python -m ainative.session --state s.json finish
 python -m ainative.session --state s.json status
 ```
-
-The Workflow, the task, and every submitted result live in the `--state` file, so
-later commands need only `--state` and their own argument.
