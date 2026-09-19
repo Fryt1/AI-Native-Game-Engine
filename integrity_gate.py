@@ -31,7 +31,6 @@ def check_package(package_root: Path) -> IntegrityReport:
         "guidance/provider-artifact-apply.md",
         "guidance/failure-recovery.md",
         "guidance/procedural-scene/README.md",
-        "templates/guidance-template.md",
         "templates/workflow.schema.json",
         "templates/result-contract.md",
     )

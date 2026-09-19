@@ -30,12 +30,19 @@ the other without changing how a task refers to it.
 
 ## Templates
 
-- `templates/guidance-template.md` — the shape of a guidance document
+There is no Workflow template and no guidance template.
 
-There is no Workflow template. `templates/workflow.schema.json` is the definition of
-the Workflow data structure, and a template beside it would be a second description
-of the same thing — two descriptions drift, and this repository has paid for that
-twice. The schema is the one an author or an AI can be checked against.
+`templates/workflow.schema.json` is the definition of the Workflow data structure, so
+a template beside it would be a second description of the same thing — two
+descriptions drift, and this repository has paid for that twice. The schema is the one
+an author or an AI can be checked against.
+
+A guidance document is prose plus a fixed skeleton, and `docs/ADDING_GUIDANCE.md`
+defines that skeleton. A guidance template used to sit in `templates/`, describing a
+YAML front-matter format that converts to a Workflow. No guidance ever used it, in
+the whole history of the repository — all of them are plain Markdown written to the
+skeleton in `ADDING_GUIDANCE.md` — and nothing loaded it. It was a format for a
+conversion no one performed, so it is gone.
 
 Host capabilities — Blender, UE5, and ComfyUI — are reached through their own MCP
 servers by the Agent's MCP client. This package documents what to call; it ships
