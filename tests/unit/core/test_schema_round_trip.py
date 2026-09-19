@@ -182,6 +182,28 @@ def test_the_model_does_not_drop_a_field_the_schema_requires(schema: dict):
         "conforms to the spec must not lose anything on the way in")
 
 
+def test_the_model_emits_documents_the_schema_accepts(schema: dict):
+    """The direction nothing guarded.
+
+    ``test_the_model_does_not_drop_a_field_the_schema_requires`` guards one way
+    round: a field the schema requires must survive the model. Nothing guarded the
+    other -- a field the MODEL emits that the schema forbids. Injecting
+    ``"priority": 7`` into ``WorkflowTree.to_dict()`` passed all 355 tests, which
+    means the engine could start emitting documents its own ``open`` refuses, since
+    the schema closes every object with ``additionalProperties: false``.
+
+    One document is enough to bind it: a field added anywhere in ``to_dict`` has to
+    appear on a node this document contains, and an unknown key is rejected
+    wherever it appears.
+    """
+
+    tree = workflow_from_dict(document())
+
+    assert is_valid(tree.to_dict(), schema), (
+        "the model emitted a document the spec rejects: "
+        f"{tree.to_dict()}")
+
+
 def test_the_route_survives_because_the_entry_gate_compares_it():
     """The gate refuses a Workflow whose route differs from the task's."""
 

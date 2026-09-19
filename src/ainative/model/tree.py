@@ -136,7 +136,31 @@ class NodeCheck:
         return str(value) if value else None
 
     def to_dict(self) -> dict[str, Any]:
-        return self.check.to_dict()
+        """Return the check in the shape the spec declares for a composite.
+
+        Two deliberate departures from ``AcceptanceCheck.to_dict()``, both of them
+        toward the spec rather than away from it:
+
+        * ``call_ids`` is dropped. A composite reads a descendant, so a call list
+          on one is meaningless and the spec forbids the field; emitting the stored
+          shape produced a document the spec rejects, which no test noticed until
+          ``to_dict`` was checked against the schema at all.
+        * ``source_node`` is lifted out of ``metadata`` to the top level, which is
+          where the spec puts it. The reader accepts both spellings, so a document
+          written either way still loads -- but what this model EMITS should be
+          what an author would have written.
+        """
+
+        payload = self.check.to_dict()
+        payload.pop("call_ids", None)
+
+        source = self.source_node
+        if source:
+            payload["source_node"] = source
+            metadata = dict(payload.get("metadata") or {})
+            metadata.pop("source_node", None)
+            payload["metadata"] = metadata
+        return payload
 
 
 @dataclass(frozen=True, slots=True)
