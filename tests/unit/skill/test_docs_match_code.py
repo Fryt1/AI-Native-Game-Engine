@@ -163,6 +163,40 @@ def test_no_doc_describes_a_removed_concept(doc):
 
 PATH_PATTERN = re.compile(r"`([A-Za-z0-9_][A-Za-z0-9_./\\-]*\.(?:py|md|json|toml|yml|yaml))`")
 
+#: A markdown link target: `[label](target)`. Backticked paths were checked and
+#: link targets were not, which is backwards -- a link is what a reader clicks, and
+#: both `references/` files pointed two directory levels too high because of it.
+LINK_PATTERN = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
+
+
+@pytest.mark.parametrize("doc", DOCS, ids=lambda p: p.as_posix())
+def test_every_markdown_link_resolves(doc):
+    """A link that goes nowhere is worse than no link: it looks like the way in.
+
+    The target is resolved against the document's own directory, which is how a
+    reader's browser resolves it. An absolute URL, a bare anchor, and a `mailto:`
+    are not filesystem paths and are skipped. A relative target that climbs out of
+    the repository is NOT skipped: that is exactly what a link with one `..` too
+    many looks like, and skipping it is what let both `references/` links point two
+    levels too high unnoticed.
+    """
+
+    unresolved = []
+
+    for target in sorted(set(LINK_PATTERN.findall(doc.read_text(encoding="utf-8")))):
+        if target.startswith(("http://", "https://", "mailto:", "#", "/")):
+            continue
+        path = target.split("#", 1)[0]
+        if not path:
+            continue
+        resolved = (doc.parent / path).resolve()
+        if not resolved.exists():
+            unresolved.append(target)
+
+    assert not unresolved, (
+        f"{doc.relative_to(REPO_ROOT).as_posix()} has links that resolve to nothing: "
+        f"{unresolved}")
+
 
 @pytest.mark.parametrize("doc", DOCS, ids=lambda p: p.as_posix())
 def test_every_referenced_path_exists(doc):
@@ -171,6 +205,12 @@ def test_every_referenced_path_exists(doc):
     A path is accepted when it resolves from the repository root, from the
     document's own directory, or as a suffix of a real path -- docs shorten
     `src/ainative/model/tools.py` to `model/tools.py` on purpose.
+
+    A path with `..` in it used to be skipped outright, which meant the relative
+    links were the only ones never checked -- and both `references/` link targets
+    were wrong by two directory levels for as long as that exemption existed. A
+    relative link is resolved against the document's own directory and must land
+    on something; only one that climbs out of the repository is skipped.
     """
 
     text = doc.read_text(encoding="utf-8")
@@ -178,7 +218,14 @@ def test_every_referenced_path_exists(doc):
 
     for raw in sorted(set(PATH_PATTERN.findall(text))):
         candidate = raw.replace("\\", "/")
-        if candidate.startswith(("http", "C:")) or ".." in candidate:
+        if candidate.startswith(("http", "C:")):
+            continue
+        if ".." in candidate:
+            resolved = (doc.parent / candidate).resolve()
+            if not resolved.is_relative_to(REPO_ROOT):
+                continue
+            if not resolved.exists():
+                unresolved.append(raw)
             continue
         if (REPO_ROOT / candidate).exists() or (doc.parent / candidate).exists():
             continue

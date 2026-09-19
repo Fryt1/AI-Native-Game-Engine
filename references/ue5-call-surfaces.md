@@ -17,7 +17,7 @@ reachable, and that the target project is the intended one. A tool listing, or a
 trivial read, proves the server is up. A documented interface is not a live
 server.
 
-See [docs/DEPENDENCIES.md](../../../docs/DEPENDENCIES.md) for the supported
+See [docs/DEPENDENCIES.md](../docs/DEPENDENCIES.md) for the supported
 engine version and the project prerequisites.
 
 ## Recorded evidence

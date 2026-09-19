@@ -20,5 +20,5 @@ Confirm through the Agent's own MCP client that the Blender MCP server is runnin
 and reachable. A tool listing, or a trivial read, proves it. A documented
 interface is not a live server.
 
-See [docs/DEPENDENCIES.md](../../../docs/DEPENDENCIES.md) for the supported
+See [docs/DEPENDENCIES.md](../docs/DEPENDENCIES.md) for the supported
 Blender and MCP Add-on versions.
