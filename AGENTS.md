@@ -149,8 +149,13 @@ This repository owns the first one and must not absorb the second.
 
 Rules:
 
-- A Stage `pass` proves the Agent did what its own checklist said. It does not
-  prove the task is done, because the Agent wrote the checklist. Never present it
+- A Stage `pass` proves the Agent's **submitted evidence** satisfied its own
+  checklist. It does not prove the work was done. Python never sees the host, so a
+  submission whose reported outputs satisfy every check passes whether or not the
+  call behind it behaved as reported -- the engine can check shape, references,
+  dependency order, repeat runs, and whether required evidence was supplied, and it
+  cannot check whether any of it is true. Nor does a pass prove the task is done,
+  because the Agent wrote the checklist. Never present it
   as task-level success.
 - This repository never imports, depends on, or defers to `AI-Native-Evals`. The
   evaluator stays usable with no eval framework installed.
