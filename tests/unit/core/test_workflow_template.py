@@ -75,6 +75,44 @@ def test_the_schema_no_longer_declares_a_route(schema: dict, schema_text: str):
     assert '"artifact_pipeline"' not in schema_text
 
 
+def test_every_optional_schema_field_can_actually_be_written(schema: dict):
+    """A declared field nothing ever writes is a form with no one to fill it in.
+
+    `replacement_reason` was one: in the schema, in the model, read from JSON, and
+    emitted by `to_dict` -- but never assigned by any production code. `supersede`
+    records why a revision was abandoned in the archived revision's `reason` key
+    instead, so the document field was a second spelling of one fact with only one
+    of them live. It was removed.
+
+    This checks that every optional top-level field the schema declares is named
+    somewhere in `src/` outside the model module -- the reader, the writer, or the
+    CLI. A field that appears ONLY in `model/tree.py` (its declaration and its
+    `to_dict`) has no producer, which is how `replacement_reason` survived.
+    """
+
+    import re
+
+    repo = REPO_ROOT
+    sources = {
+        path.relative_to(repo).as_posix(): path.read_text(encoding="utf-8")
+        for path in (repo / "src").rglob("*.py")
+    }
+
+    orphans = []
+    for name in schema["properties"]:
+        if name in schema["required"]:
+            continue
+        # Everything outside the model tree, which owns declaration and to_dict.
+        outside = "\n".join(
+            text for rel, text in sources.items() if "/model/" not in rel)
+        if not re.search(rf"\b{name}\b", outside):
+            orphans.append(name)
+
+    assert not orphans, (
+        f"the schema declares {orphans}, which src/ never names outside the model: "
+        "either nothing writes them, or the check needs widening on purpose")
+
+
 def test_the_schema_states_every_verdict_the_engine_can_return(schema: dict):
     """The words a composite check compares against are the engine's own.
 

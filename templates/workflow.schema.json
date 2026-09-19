@@ -18,7 +18,6 @@
       "enum": ["draft", "feasible", "running", "suspended", "completed", "failed", "invalid", "superseded"]
     },
     "supersedes_workflow_id": {"type": ["string", "null"]},
-    "replacement_reason": {"type": ["string", "null"]},
     "recovery_pointer": {"type": ["string", "null"]},
     "warnings": {"type": "array", "items": {"type": "string"}},
     "root": {"$ref": "#/$defs/node"}

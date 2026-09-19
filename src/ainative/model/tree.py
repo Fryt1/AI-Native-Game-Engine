@@ -280,7 +280,6 @@ class WorkflowTree:
     revision: int = 1
     status: WorkflowStatus = WorkflowStatus.DRAFT
     supersedes_workflow_id: str | None = None
-    replacement_reason: str | None = None
     recovery_pointer: str | None = None
     warnings: tuple[str, ...] = ()
 
@@ -522,7 +521,7 @@ class WorkflowTree:
         }
         if self.guidance:
             out["guidance"] = self.guidance
-        for name in ("supersedes_workflow_id", "replacement_reason", "recovery_pointer"):
+        for name in ("supersedes_workflow_id", "recovery_pointer"):
             value = getattr(self, name)
             if value is not None:
                 out[name] = value

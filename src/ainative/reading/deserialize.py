@@ -442,7 +442,6 @@ def workflow_from_dict(document: Any) -> WorkflowTree:
             f"{path}.status",
         ),
         supersedes_workflow_id=body.get("supersedes_workflow_id"),
-        replacement_reason=body.get("replacement_reason"),
         recovery_pointer=body.get("recovery_pointer"),
         warnings=_str_tuple(body.get("warnings"), f"{path}.warnings"),
     )

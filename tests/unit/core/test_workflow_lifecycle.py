@@ -61,7 +61,6 @@ def test_replan_attaches_a_new_agent_authored_revision_without_mutating_old_plan
     superseded = replace(
         previous,
         status=WorkflowStatus.SUPERSEDED,
-        replacement_reason="the first workflow selected the wrong target",
     )
     revised = replace(
         replacement,
@@ -69,7 +68,6 @@ def test_replan_attaches_a_new_agent_authored_revision_without_mutating_old_plan
         revision=previous.revision + 1,
         status=WorkflowStatus.DRAFT,
         supersedes_workflow_id=previous.revision_id,
-        replacement_reason="the first workflow selected the wrong target",
     )
     validate_tree_structure(revised)
 
@@ -79,7 +77,6 @@ def test_replan_attaches_a_new_agent_authored_revision_without_mutating_old_plan
     assert revised.workflow_id == previous.workflow_id
     assert revised.revision == previous.revision + 1
     assert revised.supersedes_workflow_id == previous.revision_id
-    assert revised.replacement_reason == "the first workflow selected the wrong target"
     assert revised.status is WorkflowStatus.DRAFT
     assert revised.stage_paths == (first_stage_path(replacement),)
 

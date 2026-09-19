@@ -68,7 +68,7 @@ WorkflowTree                        一个任务 = 一棵工作流修订
 ├── workflow_id / guidance
 ├── root                            WorkflowNode：整棵树的根，路径为 "/"
 ├── revision / status
-├── supersedes_workflow_id / replacement_reason
+├── supersedes_workflow_id
 └── recovery_pointer / warnings
 
 WorkflowNode                        一个节点：叶，或复合
