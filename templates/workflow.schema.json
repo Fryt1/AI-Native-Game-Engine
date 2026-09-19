@@ -1,0 +1,265 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-native.local/schema/workflow.json",
+  "title": "Workflow document",
+  "description": "The Agent-authored Workflow. A node is either a STAGE (a leaf that holds calls and its frozen checklists) or a WORKFLOW (a composite that holds children and reads their verdicts). 'Tree' describes only the shape this structure may take; the semantics are 'a Workflow contains Workflows'. ORDER comes only from depends_on: the order nodes are written in carries no meaning, and two nodes with no dependency between them are unordered -- the Agent, which executes every call itself, may run them in any order or at the same time. This document is judged, not scheduled: nothing here runs anything.",
+
+  "type": "object",
+  "required": ["workflow_id", "route", "root"],
+  "additionalProperties": false,
+  "properties": {
+    "workflow_id": {"type": "string", "minLength": 1},
+    "guidance": {
+      "type": "string",
+      "description": "Provenance only. Which guidance document the author followed."
+    },
+    "route": {
+      "enum": ["host_operation", "asset_transfer", "artifact_pipeline"],
+      "description": "The lifecycle domain. Pick by what the task DOES at its centre, not by which host it touches -- every route reaches every host. host_operation: drive a running host through its own MCP calls (create or edit a scene, actor, or asset in place). asset_transfer: move one asset between hosts and return it, preserving its identity and relations. artifact_pipeline: produce files or artifacts through a pipeline, where the output is the deliverable rather than a change to a live scene. Four independent authors given this schema without the preceding sentence split 3-1 between artifact_pipeline and host_operation for the same Blender scene-generation task."
+    },
+    "revision": {"type": "integer", "minimum": 1},
+    "status": {
+      "enum": ["draft", "feasible", "running", "suspended", "completed", "failed", "invalid", "superseded"]
+    },
+    "supersedes_workflow_id": {"type": ["string", "null"]},
+    "replacement_reason": {"type": ["string", "null"]},
+    "recovery_pointer": {"type": ["string", "null"]},
+    "warnings": {"type": "array", "items": {"type": "string"}},
+    "root": {"$ref": "#/$defs/node"}
+  },
+
+  "$defs": {
+
+    "nodeId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9_.-]+$",
+      "description": "Unique among SIBLINGS only. The character class excludes '/' and whitespace: a path is built by joining ids with '/', so an id containing '/' would produce a path that walk() emits and resolve() cannot reach. '.' is allowed -- nothing parses it out of a path."
+    },
+
+    "dependencyRef": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*$",
+      "description": "A reference to a node, walked FROM the declaring node: '..' moves to its parent, any other segment names a child of where the walk has arrived. So '../mass' is a sibling, '../../site/street-trees' reaches into another branch, and '..' alone is the parent. It is relative, not absolute, because a reusable subtree does not know where it will be placed and so could not name its own siblings otherwise. A bare 'mass' resolves to the declaring node's own CHILD -- a node it already waits for -- and is refused with the spelling that was meant."
+    },
+
+    "node": {
+      "description": "Discriminated by 'kind'. Exactly one branch matches, because the branches close their own properties.",
+      "oneOf": [
+        {"$ref": "#/$defs/stageNode"},
+        {"$ref": "#/$defs/workflowNode"}
+      ]
+    },
+
+    "stageNode": {
+      "type": "object",
+      "required": ["node_id", "kind", "purpose", "stage"],
+      "additionalProperties": false,
+      "properties": {
+        "node_id": {"$ref": "#/$defs/nodeId"},
+        "kind": {"const": "stage"},
+        "purpose": {"type": "string", "minLength": 1},
+        "required": {
+          "type": "boolean",
+          "description": "Defaults to true when absent. A required node must complete for its parent to complete; an optional one may be omitted, and omitting it never fails the parent."
+        },
+        "depends_on": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/dependencyRef"},
+          "description": "Nodes that must complete before this stage runs, each written from this node. A dependency MAY cross branches -- '../../site/street-trees' declared under '/buildings/...' is legal, and is why this is a walked reference and not a sibling id. An ancestor's dependency already gates this stage, so repeat it here only when the ordering is genuinely local. This is the ONLY source of order: written order means nothing, and two nodes with no dependency between them may run in any order or at the same time. A cycle is refused, including one formed with the implicit rule that a composite waits for its own children."
+        },
+        "guidance": {"type": "string"},
+        "recovery": {"type": "string"},
+        "metadata": {"type": "object"},
+        "stage": {"$ref": "#/$defs/stageBody"}
+      }
+    },
+
+    "workflowNode": {
+      "type": "object",
+      "required": ["node_id", "kind", "purpose", "children"],
+      "additionalProperties": false,
+      "properties": {
+        "node_id": {"$ref": "#/$defs/nodeId"},
+        "kind": {"const": "workflow"},
+        "purpose": {"type": "string", "minLength": 1},
+        "required": {"type": "boolean"},
+        "depends_on": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/dependencyRef"},
+          "description": "Nodes that must complete before this composite runs, each written from this node. See the stage branch: a dependency may cross branches, a cycle is refused, and this is the only source of order. A composite's dependency gates its WHOLE subtree -- no descendant may run until it is satisfied -- so a leaf does NOT repeat its ancestors' references. Declare the ordering once, at the level where it is true."
+        },
+        "guidance": {"type": "string"},
+        "recovery": {"type": "string"},
+        "metadata": {"type": "object"},
+        "children": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/node"}
+        },
+        "acceptance_checklist": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/nodeCheck"},
+          "description": "Checks that read DESCENDANT verdicts. A composite never reads its own."
+        }
+      }
+    },
+
+    "stageBody": {
+      "type": "object",
+      "required": ["calls", "execution_checklist", "acceptance_checklist"],
+      "additionalProperties": false,
+      "properties": {
+        "stage_kind": {
+          "enum": ["change", "investigation", "planning"],
+          "description": "Which lifecycle this leaf follows, which decides what must be frozen before its first side effect. A change freezes execution and acceptance; an investigation freezes scope and stop conditions; a planning stage proves goals, constraints, call feasibility, dependencies and risks. Defaults to 'change' when absent."
+        },
+        "calls": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/call"},
+          "description": "An EMPTY list is legal, and is how a leaf that runs no host call is written -- a human review, or a checkpoint whose evidence someone submits. A required STAGE must declare at least one call, which the validator enforces; a leaf marked required:false need not. Remember that 'calls' itself is still required: omit the key and the document is not a stage."
+        },
+        "execution_checklist": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/executionItem"}
+        },
+        "acceptance_checklist": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/callCheck"}
+        }
+      }
+    },
+
+    "call": {
+      "type": "object",
+      "required": ["call_id"],
+      "additionalProperties": false,
+      "properties": {
+        "call_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "description": "Unique inside its STAGE, which is the scope every other reference to it lives in. Plain by convention: an id is addressed by itself, never by a prefix."
+        },
+        "arguments": {"type": "object"},
+        "target": {
+          "description": "The MCP server and tool. Optional in a guidance document, where a call names a role and the caller binds the target after confirming the live server.",
+          "oneOf": [
+            {"type": "null"},
+            {
+              "type": "object",
+              "required": ["owner", "name"],
+              "additionalProperties": false,
+              "properties": {
+                "owner": {"type": "string", "minLength": 1},
+                "name": {"type": "string", "minLength": 1}
+              }
+            }
+          ]
+        },
+        "depends_on": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Call ids inside the same STAGE that must complete first."
+        }
+      }
+    },
+
+    "executionItem": {
+      "type": "object",
+      "required": ["item_id", "description", "call_ids"],
+      "additionalProperties": false,
+      "properties": {
+        "item_id": {"type": "string", "minLength": 1},
+        "description": {"type": "string", "minLength": 1},
+        "required": {
+          "type": "boolean",
+          "description": "Defaults to true when absent."
+        },
+        "evidence_required": {"type": "boolean"},
+        "call_ids": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Satisfied when every named call succeeded. A call with no reported result counts as failed. An EMPTY list is legal and means the item derives from no call: it is satisfied only by an explicit result the Agent submits, which is how a human judgement enters the record."
+        },
+        "metadata": {"type": "object"}
+      }
+    },
+
+    "operator": {
+      "enum": ["manual", "tool_succeeded", "exists", "truthy", "equals",
+               "set_equals", "count_equals", "within_tolerance"],
+      "description": "The comparison vocabulary. What each one compares, given the value read at 'actual_path': manual -- nothing; it awaits a human verdict. tool_succeeded -- the call's own status; no actual_path needed. exists -- the value is not null. truthy -- the value is truthy. equals -- the value equals 'expected'. set_equals -- the value's SET equals 'expected's set, so order and duplicates do not matter, and set_equals with an empty list asserts the value is empty. count_equals -- len(value) equals 'expected', so a LIST or OBJECT is counted by its item or key count. within_tolerance -- the value is numerically within 'tolerance' of 'expected'; the comparison is symmetric. A comparison needing logic of its own belongs in a call that returns a boolean, not in a new operator."
+    },
+
+    "verdict": {
+      "enum": ["pass", "warn", "fail", "unknown", "needs_human"],
+      "description": "One node's verdict, and the ONLY thing a composite check observes when it reads a descendant. It is not the task vocabulary: a NODE is 'pass' or 'fail', a TASK is 'succeeded' or 'failed'. Two independent authors given this schema without this line guessed 'succeeded' and 'pass' for the same field; the first produces a check that can never pass."
+    },
+
+    "callCheck": {
+      "type": "object",
+      "required": ["check_id", "description", "operator"],
+      "additionalProperties": false,
+      "properties": {
+        "check_id": {"type": "string", "minLength": 1},
+        "description": {"type": "string", "minLength": 1},
+        "operator": {"$ref": "#/$defs/operator"},
+        "source_call_id": {
+          "type": ["string", "null"],
+          "description": "A call declared in this same STAGE, or null. A STAGE check may not read a node. Required for every operator except 'manual', which reads nothing; the VALIDATOR enforces that split, not this schema, so do not read the absence of a required array as permission."
+        },
+        "actual_path": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Where in the call's evidence to read, as a path of keys into the result -- object keys, or a digit for a list index. An EMPTY path reads the whole evidence view, which is an object that always carries status, target, preserved_relations, lost_relations, artifact_count, artifacts, warnings and errors before any of the call's own outputs. Do not leave it empty to mean 'the call's output': the view is larger than the output, so a count_equals over it counts those fixed fields too."
+        },
+        "expected": {
+          "description": "What the check compares against: the value found in the call's own result at 'actual_path'. If the path is absent from the result the check is UNKNOWN, not failed, so a missing field is never silently read as a wrong value."
+        },
+        "tolerance": {
+          "type": ["number", "null"],
+          "description": "Required when the operator is within_tolerance; the comparison is symmetric."
+        },
+        "required": {"type": "boolean"},
+        "evidence_required": {"type": "boolean"},
+        "call_ids": {"type": "array", "items": {"type": "string"}},
+        "metadata": {"type": "object"}
+      }
+    },
+
+    "nodeCheck": {
+      "type": "object",
+      "required": ["check_id", "description", "operator"],
+      "additionalProperties": false,
+      "properties": {
+        "check_id": {"type": "string", "minLength": 1},
+        "description": {"type": "string", "minLength": 1},
+        "operator": {
+          "enum": ["equals", "manual"],
+          "description": "A composite observes exactly ONE descendant's verdict -- a single word -- so 'equals' against a verdict word is the only comparison that carries meaning, and 'manual' is the only one that observes nothing and awaits a human. Every other operator applied to a word yields an accident rather than a judgement: tool_succeeded and exists would always pass, count_equals and within_tolerance always fail."
+        },
+        "source_call_id": {
+          "type": "null",
+          "description": "Always null on a composite. A workflow check reads a DESCENDANT, never a call, so the field is pinned to null rather than merely unused: allowing a string here would let a document carry a call reference the engine can never honour."
+        },
+        "source_node": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*$",
+          "description": "A DESCENDANT of the declaring node, as a relative path. Must not begin with '/': an absolute-looking path would be resolved relatively and mean different nodes at different depths. Required for an 'equals' check; a 'manual' check reads no descendant and omits it."
+        },
+        "actual_path": {"type": "array", "items": {"type": "string"}},
+        "expected": {
+          "$ref": "#/$defs/verdict",
+          "description": "What the check compares against. A source_node check observes exactly ONE descendant's verdict, so this is a verdict word -- NOT a list of descendants, and NOT a task status such as 'succeeded'. A check reads one descendant: to assert several, declare one check each, or add a composite node whose verdict they roll up into. Two blind authors given this schema without this line wrote a list and wrote 'succeeded'; both produce checks that can never pass."
+        },
+        "tolerance": {"type": ["number", "null"]},
+        "required": {"type": "boolean"},
+        "evidence_required": {"type": "boolean"},
+        "metadata": {"type": "object"}
+      }
+    }
+  }
+}

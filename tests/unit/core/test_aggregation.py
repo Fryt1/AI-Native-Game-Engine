@@ -11,18 +11,18 @@ import pytest
 
 from ainative.acceptance import aggregate_task_status, next_action_for
 from ainative.model.results import TaskStatus
-from ainative.model.workflow import WorkflowStatus
+from ainative.model.tree import WorkflowStatus
 
-REQUIRED = frozenset({"stage.a"})
-DONE = frozenset({"stage.a"})
+REQUIRED = frozenset({"/workflow/work/stage.a/"})
+DONE = frozenset({"/workflow/work/stage.a/"})
 
 
 def decide(statuses, *, gate_ready=True, required=REQUIRED, completed=DONE):
     return aggregate_task_status(
         gate_ready=gate_ready,
-        stage_statuses=frozenset(statuses),
-        required_stages=required,
-        completed_stages=completed,
+        node_statuses=frozenset(statuses),
+        required_paths=required,
+        completed_paths=completed,
     )
 
 

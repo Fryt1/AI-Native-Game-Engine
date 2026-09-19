@@ -7,22 +7,24 @@ from ainative.reading.deserialize import (
     execution_result_from_dict,
     workflow_from_dict,
 )
+from tests.support.workflow_factory import first_stage
 
 
-def _plan_document() -> dict:
+def _workflow_document() -> dict:
     return {
         "guidance": "asset-roundtrip",
         "route": "asset_transfer",
-                "workflow_id": "p:workflow",
-        "steps": [
-            {
-                "step_id": "validate",
-                "purpose": "Validate",
-                "stages": [
-                    {
-                        "stage_id": "stage.validate_asset",
-                        "purpose": "Validate",
-                        "operation": "validate",
+        "workflow_id": "p:workflow",
+        "root": {
+            "node_id": "validate",
+            "kind": "workflow",
+            "purpose": "Validate",
+            "children": [
+                {
+                    "node_id": "stage.validate_asset",
+                    "kind": "stage",
+                    "purpose": "Validate",
+                    "stage": {
                         "stage_kind": "change",
                         "calls": [
                             {
@@ -42,49 +44,49 @@ def _plan_document() -> dict:
                                 "actual_path": ["preserved_relations"],
                             }
                         ],
-                    }
-                ],
-            }
-        ],
+                    },
+                }
+            ],
+        },
     }
 
 
 def test_plan_round_trips_through_json():
-    workflow = workflow_from_dict(_plan_document())
+    workflow = workflow_from_dict(_workflow_document())
 
     assert workflow.guidance == "asset-roundtrip"
     assert workflow.route.value == "asset_transfer"
-    stage = workflow.stage_requests[0]
-    assert stage.stage_id == "stage.validate_asset"
-    assert stage.calls[0].target.owner == "blender"
-    assert stage.calls[0].target.name == "read_scene"
-    assert stage.execution_checklist[0].item_id == "run-validator"
-    assert stage.acceptance_checklist[0].actual_path == ("preserved_relations",)
-    assert stage.acceptance_checklist[0].operator.value == "truthy"
+    stage = first_stage(workflow)
+    assert stage.node_id == "stage.validate_asset"
+    assert stage.stage.calls[0].target.owner == "blender"
+    assert stage.stage.calls[0].target.name == "read_scene"
+    assert stage.stage.execution_checklist[0].item_id == "run-validator"
+    assert stage.declared_checks[0].check.actual_path == ("preserved_relations",)
+    assert stage.declared_checks[0].check.operator.value == "truthy"
 
 
 def test_plan_serializes_back_to_an_equivalent_document():
-    workflow = workflow_from_dict(_plan_document())
+    workflow = workflow_from_dict(_workflow_document())
 
-    assert workflow.to_dict()["steps"][0]["stages"][0]["acceptance_checklist"][0]["check_id"] == "relations-proven"
+    assert workflow.to_dict()["root"]["children"][0]["stage"]["acceptance_checklist"][0]["check_id"] == "relations-proven"
 
 
 def test_a_plan_wrapped_in_workflow_is_accepted():
-    workflow = workflow_from_dict({"workflow": _plan_document()})
+    workflow = workflow_from_dict({"workflow": _workflow_document()})
 
     assert workflow.guidance == "asset-roundtrip"
 
 
 def test_missing_required_field_names_the_json_path():
-    document = _plan_document()
-    del document["steps"][0]["stages"][0]["calls"][0]["target"]
+    document = _workflow_document()
+    del document["root"]["children"][0]["stage"]["calls"][0]["call_id"]
 
-    with pytest.raises(WorkflowDeserializationError, match="target"):
+    with pytest.raises(WorkflowDeserializationError, match="call_id"):
         workflow_from_dict(document)
 
 
 def test_unknown_enum_value_lists_the_allowed_values():
-    document = _plan_document()
+    document = _workflow_document()
     document["route"] = "not_a_route"
 
     with pytest.raises(WorkflowDeserializationError, match="is not one of"):
@@ -92,8 +94,8 @@ def test_unknown_enum_value_lists_the_allowed_values():
 
 
 def test_stage_kind_enum_is_enforced():
-    document = _plan_document()
-    document["steps"][0]["stages"][0]["stage_kind"] = "sideways"
+    document = _workflow_document()
+    document["root"]["children"][0]["stage"]["stage_kind"] = "sideways"
 
     with pytest.raises(WorkflowDeserializationError, match="stage_kind"):
         workflow_from_dict(document)
@@ -147,6 +149,6 @@ def test_execution_result_rejects_a_non_object_outputs_field():
 
 
 def test_serialized_plan_is_valid_json():
-    workflow = workflow_from_dict(_plan_document())
+    workflow = workflow_from_dict(_workflow_document())
 
     assert json.loads(json.dumps(workflow.to_dict()))["guidance"] == "asset-roundtrip"

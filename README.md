@@ -2,7 +2,7 @@
 
 Agent-driven Stage composition and evidence-backed acceptance for UE5, Blender, and ComfyUI.
 
-An Agent composes each Stage from the Stage kind, the processing object, the operation type, and the current facts, decides what to run, and calls real capabilities one at a time — every host software call goes through its own MCP server. The runtime never picks a call for the Agent. Every Stage completes only when structured checklist evidence proves it, never from a process exit code alone.
+An Agent composes each node from the Stage kind, the processing object, the operation type, and the current facts, decides what to run, and calls real capabilities one at a time — every host software call goes through its own MCP server. The runtime never picks a call for the Agent. A node completes only when structured checklist evidence proves it, never from a process exit code alone.
 
 ## Table of Contents
 
@@ -60,12 +60,14 @@ ComfyUI MCP     → discover, validate, and run the workflow
 
 ### CLI
 
-One command surface exists: `python -m ainative.session` is where the Agent hands its own Workflow and its own reported results to Python and gets a deterministic Stage verdict. Python validates the Workflow structure, stores the submitted evidence in the `--state` file, and evaluates each Stage against its frozen checklists. It never picks a call, orders a Stage, or invents a checklist item.
+One command surface exists: `python -m ainative.session` is where the Agent hands its own Workflow and its own reported results to Python and gets a deterministic node verdict. Python validates the Workflow structure, stores the submitted evidence in the `--state` file, and evaluates each node against its frozen checklists, bottom-up, so a composite's verdict is earned on its children's. It never picks a call, orders a node, or invents a checklist item.
+
+A Workflow is a tree of nodes: a `STAGE` leaf holds the calls and both frozen checklists, a `WORKFLOW` node holds children and checks that read a descendant's verdict. A node's identity is its **path** (`/step-1/validate-asset/`), because `node_id` is unique only among siblings — so `--stage` takes a path, and the path may address a leaf or a composite.
 
 ```powershell
 python -m ainative.session --state s.json --task task.json --workflow workflow.json open
 python -m ainative.session --state s.json --result executed-call.json record
-python -m ainative.session --state s.json --stage stage.validate_asset stage
+python -m ainative.session --state s.json --stage /step-1/validate-asset/ stage
 python -m ainative.session --state s.json finish
 python -m ainative.session --state s.json status
 ```
@@ -77,25 +79,25 @@ open       validate an Agent-authored Workflow and start a session
 record     submit one executed call result as evidence (--result)
 item       submit one execution checklist item result (--result)
 check      submit one manual acceptance check result (--result)
-stage      evaluate one Stage and close it (--stage)
+stage      evaluate one node by path and close it (--stage)
 finish     aggregate the final TaskResult
 status     show current session state without changing it
 supersede  replace the Workflow revision, archiving the old one and its evidence
 ```
 
-Every command prints the same envelope — `command`, `ok`, `verdict`, `exit_code`, `detail`, `errors` — and exits 0 on a non-blocking result, 1 on a blocking or failing result, and 2 when the command itself could not run. The Workflow, the task, and every submitted result live in the `--state` file, so later commands need only `--state` plus their own argument. The Agent keeps executing every MCP call itself; this CLI only carries the Workflow in and the verdict out.
+Every command prints the same envelope — `command`, `ok`, `verdict`, `exit_code`, `detail`, `errors` — and exits 0 on a non-blocking result, 1 on a blocking or failing result, and 2 when the command itself could not run. The Workflow, the task, and every submitted result live in the `--state` file, so later commands need only `--state` plus their own argument. The Agent keeps executing every MCP call itself; this CLI only carries the Workflow in and the verdict out. `--stage` takes a node path; `item` and `check` also accept it, to name the node when a bare item or check id is declared by more than one node.
 
 There is no host-editor configuration: Blender and UE5 are reached through their own MCP servers by the Agent. Detailed CLI semantics live in [docs/cli.md](docs/cli.md).
 
 ### Agent-facing API
 
-The Agent supplies a `TaskContract`, loads Workflow guidance, authors a `Workflow`, and opens a validation session:
+The Agent supplies a `TaskContract`, loads Workflow guidance, authors a `WorkflowTree`, and opens a validation session:
 
 ```python
 from ainative.session_api import AcceptanceGuide
 
 task = ...          # Agent-authored TaskContract
-workflow = ...      # Agent-authored Workflow
+workflow = ...      # Agent-authored WorkflowTree
 
 guide = AcceptanceGuide()
 session = guide.start(task, workflow)
@@ -105,13 +107,13 @@ The Agent executes each MCP call itself and submits the raw structured result:
 
 ```python
 session.record_execution_result(execution_result)
-stage_result = session.complete_stage("stage.change")
+node_result = session.complete_node("/step-1/validate-asset/")
 result = session.finish()
 ```
 
-`AcceptanceSession` never invokes an MCP Server. It validates the submitted result against the Workflow, records evidence, evaluates each Stage deterministically, and aggregates the final result.
+`AcceptanceSession` never invokes an MCP Server. It validates the submitted result against the Workflow, records evidence, evaluates each node deterministically (a `StageResult` carries the `node_path` it closed), and aggregates the final result.
 
-The same loop is available process-level as `python -m ainative.session`, which reads an Agent-authored Workflow from JSON and reports a verdict per Stage — see the [CLI](#cli) section. Either way, a call returning `succeeded` does not complete a Stage: an acceptance check reads `ExecutionResult.evidence_view()`, so a check can address first-class evidence (`status`, `target`, `preserved_relations`, `lost_relations`, `artifact_count`, `artifacts`, `warnings`, `errors`) as well as any key in `outputs`. The Stage completes only when its frozen acceptance checks pass.
+The same loop is available process-level as `python -m ainative.session`, which reads an Agent-authored Workflow from JSON and reports a verdict per node — see the [CLI](#cli) section. Either way, a call returning `succeeded` does not complete a node: an acceptance check reads `ExecutionResult.evidence_view()`, so a check can address first-class evidence (`status`, `target`, `preserved_relations`, `lost_relations`, `artifact_count`, `artifacts`, `warnings`, `errors`) as well as any key in `outputs`. The node completes only when its frozen acceptance checks pass.
 
 ### Adding a reusable workflow
 
@@ -122,19 +124,21 @@ See [docs/ADDING_GUIDANCE.md](docs/ADDING_GUIDANCE.md) for the step-by-step guid
 ```text
 Agent intent
     → TaskContract
-    → Agent composes each Stage from Stage kind, object, operation, current facts
+    → Agent composes each node from Stage kind, object, operation, current facts
     → Agent decides what to run
-       └── each Stage freezes execution + acceptance checklists
+       └── a STAGE leaf freezes execution + acceptance checklists
+           a WORKFLOW node groups nodes and reads a descendant's verdict
     → structural Workflow validation
     → Agent calls one MCP tool at a time
     → ExecutionResult + Evidence
     → Agent submits the Workflow and the results to Python
        └── ExecutionItemResult + CheckResult
-    → deterministic StageResult
+    → deterministic NodeResult per node, bottom-up
+    → StageResult for the node closed
     → continue / retry / wait / compensate / re-plan
 ```
 
-Guidance documents lock macro invariants, not a universal Step list. The Agent chooses the concrete Stages, checklist items, and exact calls for the current task.
+Guidance documents lock macro invariants, not a universal sequence of nodes. The Agent chooses the concrete tree, checklist items, and exact calls for the current task.
 
 ### Stage closure
 
@@ -143,13 +147,15 @@ execution checklist   prevents omitted preparation or work
 acceptance checklist  prevents Tool success from being mistaken for goal completion
 ```
 
-Checklist results are:
+Checklist results use the **node** verdict vocabulary:
 
 ```text
 pass | warn | fail | unknown | needs_human
 ```
 
-Required failures, unknowns, and human decisions block completion. A Stage with only warnings completes as `degraded`; all required items passing completes as `succeeded`.
+Required failures, unknowns, and human decisions block completion. A STAGE with only warnings completes as `degraded`; all required items passing completes as `succeeded`. A `WORKFLOW` node completes when every required child completed and its own checks pass, and an unresolved required descendant makes every ancestor `unknown` rather than `failed`.
+
+A task, by contrast, has a **status**: `succeeded`, `degraded`, `blocked`, `failed`, or `needs_approval`. The CLI envelope's `verdict` field uses that task vocabulary, with each node verdict mapped onto it.
 
 ### Execution paths
 
@@ -160,7 +166,8 @@ Call
     → Blender MCP / UE5 MCP / ComfyUI MCP
 ```
 
-Copy `templates/workflow-plan-template.json` and fill it in to author a Workflow.
+Author a Workflow against `templates/workflow.schema.json`, which defines the data
+structure: every node kind, every field, every operator.
 
 A call like `{"call_id": "m1", "target": {"owner": "ue5", "name": "set_actor_transform"}}` is a first-class entry in the Workflow's call graph. There is no execution binding, no provider list, and no per-run provider check: the Workflow is validated structurally, and the Agent's own MCP client resolves and runs every call. This repository owns no transfer Tool — moving an asset between hosts means the Agent calls the source host's MCP export, performs its own file operation, and calls the target host's MCP import. Host dependencies are declared in `docs/DEPENDENCIES.md`.
 

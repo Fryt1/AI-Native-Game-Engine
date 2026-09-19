@@ -19,6 +19,7 @@ import pytest
 
 from ainative.cli import commands as session_cli
 from ainative.cli.output import EXIT_BLOCKING, EXIT_OK, EXIT_UNUSABLE
+from ainative.reading import workflow_from_dict
 
 ENVELOPE_KEYS = ["command", "ok", "verdict", "exit_code", "detail", "errors"]
 
@@ -30,21 +31,24 @@ def _write(path, data):
 
 def _stage(stage_id, call_id, tool, *, manual_check=False):
     checks = [
-        {"check_id": f"k-{stage_id}", "description": "ok",
-         "operator": "tool_succeeded", "call_ids": [call_id]}
+        {"check_id": f"k-{stage_id}", "description": "ok", "operator": "tool_succeeded",
+         "source_call_id": call_id, "call_ids": [call_id]}
     ]
     if manual_check:
         checks.append({"check_id": f"m-{stage_id}", "description": "sign-off",
                        "operator": "manual"})
     return {
-        "stage_id": stage_id,
+        "node_id": stage_id,
+        "kind": "stage",
         "purpose": f"{stage_id} goal",
-        "stage_kind": "change",
-        "calls": [{"call_id": call_id, "target": {"owner": "ue5", "name": tool}}],
-        "execution_checklist": [
-            {"item_id": f"i-{stage_id}", "description": "ran", "call_ids": [call_id]}
-        ],
-        "acceptance_checklist": checks,
+        "stage": {
+            "stage_kind": "change",
+            "calls": [{"call_id": call_id, "target": {"owner": "ue5", "name": tool}}],
+            "execution_checklist": [
+                {"item_id": f"i-{stage_id}", "description": "ran", "call_ids": [call_id]}
+            ],
+            "acceptance_checklist": checks,
+        },
     }
 
 
@@ -54,8 +58,20 @@ def _workflow(stages):
         "guidance": "host-operation",
         "route": "host_operation",
         "revision": 1,
-        "steps": [{"step_id": "work", "purpose": "work", "stages": stages}],
+        "root": {"node_id": "work", "kind": "workflow", "purpose": "work",
+                 "children": stages},
     }
+
+
+WORKFLOW = _workflow([
+    _stage("a", "a1", "do_a", manual_check=True),
+    _stage("b", "b1", "do_b"),
+])
+
+
+def _stage_paths() -> dict[str, str]:
+    workflow = workflow_from_dict(WORKFLOW)
+    return {node.node_id: path for path, node in workflow.stages}
 
 
 @pytest.fixture
@@ -65,10 +81,7 @@ def workspace(tmp_path, capsys):
         "task_id": "t", "objective": "o", "route": "host_operation",
         "guidance": "host-operation",
     })
-    workflow = _write(tmp_path / "wf.json", _workflow([
-        _stage("a", "a1", "do_a", manual_check=True),
-        _stage("b", "b1", "do_b"),
-    ]))
+    workflow = _write(tmp_path / "wf.json", WORKFLOW)
 
     session_cli.main(["--state", state, "--task", task, "--workflow", workflow, "open"])
     opened = json.loads(capsys.readouterr().out)
@@ -80,7 +93,10 @@ def workspace(tmp_path, capsys):
     def record(body):
         return run("--result", _write(tmp_path / "r.json", body), "record")
 
-    return {"state": state, "tmp": tmp_path, "open": opened, "run": run, "record": record}
+    return {
+        "state": state, "tmp": tmp_path, "open": opened, "run": run, "record": record,
+        "paths": _stage_paths(),
+    }
 
 
 # --- gap 1: the target is not optional -----------------------------------------
@@ -132,10 +148,12 @@ def test_finish_names_the_stages_that_are_not_closed(workspace):
 
     assert code == EXIT_BLOCKING
     assert payload["verdict"] == "blocked"
-    assert "required Stages not closed" in payload["errors"][0]
-    assert "a" in payload["errors"][0]
-    assert "b" in payload["errors"][0]
-    assert payload["detail"]["details"]["outstanding_stages"] == ["a", "b"]
+    assert "required nodes not closed" in payload["errors"][0]
+    assert workspace["paths"]["a"] in payload["errors"][0]
+    assert workspace["paths"]["b"] in payload["errors"][0]
+    workflow = workflow_from_dict(WORKFLOW)
+    assert payload["detail"]["details"]["outstanding_nodes"] == [
+        *workflow.composite_paths, *workflow.stage_paths]
 
 
 def test_finish_reports_nothing_outstanding_once_everything_closes(workspace):
@@ -143,15 +161,15 @@ def test_finish_reports_nothing_outstanding_once_everything_closes(workspace):
                          "target": {"owner": "ue5", "name": "do_a"}})
     workspace["run"]("--result", _write(workspace["tmp"] / "m.json", {
         "check_id": "m-a", "status": "pass", "evidence_refs": ["human:ok"]}), "check")
-    workspace["run"]("--stage", "a", "stage")
+    workspace["run"]("--stage", workspace["paths"]["a"], "stage")
     workspace["record"]({"call_id": "b1", "status": "succeeded",
                          "target": {"owner": "ue5", "name": "do_b"}})
-    workspace["run"]("--stage", "b", "stage")
+    workspace["run"]("--stage", workspace["paths"]["b"], "stage")
 
     code, payload = workspace["run"]("finish")
 
     assert code == EXIT_OK
-    assert payload["detail"]["details"]["outstanding_stages"] == []
+    assert payload["detail"]["details"]["outstanding_nodes"] == []
 
 
 # --- gap 3: a rejected item or check still names itself ------------------------
@@ -182,10 +200,14 @@ def test_an_accepted_item_names_its_stage(workspace):
 
     # i-b declares a call, so it is derived and cannot be submitted.
     assert code == EXIT_UNUSABLE
-    assert payload["detail"]["stage_id"] == "b"
+    assert payload["detail"]["node_path"] == workspace["paths"]["b"]
 
 
 # --- gap 4: status lets the Agent read back its Workflow -----------------------
+
+
+def _stages(summary):
+    return [node for node in summary["nodes"] if node["kind"] == "stage"]
 
 
 def test_status_describes_the_bound_workflow(workspace):
@@ -195,12 +217,12 @@ def test_status_describes_the_bound_workflow(workspace):
     assert summary["workflow_id"] == "t:workflow"
     assert summary["revision"] == 1
     assert summary["guidance"] == "host-operation"
-    assert [s["stage_id"] for s in summary["stages"]] == ["a", "b"]
+    assert [s["node_id"] for s in _stages(summary)] == ["a", "b"]
 
 
 def test_status_lists_each_stage_call_and_check(workspace):
     _, payload = workspace["run"]("status")
-    stages = {s["stage_id"]: s for s in payload["detail"]["workflow"]["stages"]}
+    stages = {s["node_id"]: s for s in _stages(payload["detail"]["workflow"])}
 
     assert [c["call_id"] for c in stages["a"]["calls"]] == ["a1"]
     assert stages["a"]["calls"][0]["target"] == {"owner": "ue5", "name": "do_a"}
@@ -209,16 +231,17 @@ def test_status_lists_each_stage_call_and_check(workspace):
 
 
 def test_status_marks_closure_and_side_effects(workspace):
-    before = workspace["run"]("status")[1]["detail"]["workflow"]["stages"]
+    before = _stages(workspace["run"]("status")[1]["detail"]["workflow"])
     assert all(not s["closed"] and not s["side_effects_recorded"] for s in before)
 
     workspace["record"]({"call_id": "a1", "status": "succeeded",
                          "target": {"owner": "ue5", "name": "do_a"}})
     workspace["run"]("--result", _write(workspace["tmp"] / "m.json", {
         "check_id": "m-a", "status": "pass", "evidence_refs": ["human:ok"]}), "check")
-    workspace["run"]("--stage", "a", "stage")
+    workspace["run"]("--stage", workspace["paths"]["a"], "stage")
 
-    after = {s["stage_id"]: s for s in workspace["run"]("status")[1]["detail"]["workflow"]["stages"]}
+    after = {s["node_id"]: s for s in
+             _stages(workspace["run"]("status")[1]["detail"]["workflow"])}
     assert after["a"]["closed"] is True
     assert after["a"]["side_effects_recorded"] is True
     assert after["b"]["closed"] is False
@@ -230,7 +253,7 @@ def test_status_no_longer_requires_reading_the_workflow_file(workspace):
     _, payload = workspace["run"]("status")
     summary = payload["detail"]["workflow"]
 
-    for stage in summary["stages"]:
+    for stage in _stages(summary):
         assert stage["calls"], "a Stage must show what it will invoke"
         assert stage["acceptance_checklist"], "a Stage must show what it must prove"
         assert "closed" in stage

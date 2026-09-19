@@ -5,14 +5,19 @@ state is *only* what the Agent submitted, in the order it submitted it: the task
 the current Workflow revision, an ordered event log of evidence, and the
 revisions this one replaced.
 
-The order matters. A call may not be recorded before the Stage it depends on has
+The order matters. A call may not be recorded before the node it depends on has
 closed, so replaying a flat set of results would re-trigger dependency failures
 the Agent already satisfied. Keeping one chronological log makes replay faithful
 to what actually happened.
 
-A Workflow revision is immutable. When the Agent replaces it, the old revision
-and the evidence recorded against it move to `revisions` rather than being
-discarded: that history is the audit trail of what was actually attempted.
+**Every event names the node it belongs to, by path.** A ``node_id`` is unique
+only among siblings, so an event carrying a bare id could not be attributed to one
+node once two subtrees declare the same name. The path is stored rather than
+re-derived for the same reason.
+
+A Workflow revision is immutable. When the Agent replaces it, the old revision and
+the evidence recorded against it move to `revisions` rather than being discarded:
+that history is the audit trail of what was actually attempted.
 
 @see ainative.cli.commands for the command surface.
 """
@@ -24,7 +29,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from ainative.model.workflow import Workflow
+from ainative.model.tree import WorkflowTree
 from ainative.reading.deserialize import (
     check_result_from_dict,
     execution_item_result_from_dict,
@@ -37,7 +42,7 @@ STATE_VERSION = 1
 EVENT_EXECUTION_RESULT = "execution_result"
 EVENT_EXECUTION_ITEM = "execution_item"
 EVENT_CHECK = "check"
-EVENT_STAGE_CLOSED = "stage_closed"
+EVENT_NODE_CLOSED = "node_closed"
 
 
 class SessionStateError(RuntimeError):
@@ -57,19 +62,20 @@ class SessionState:
         """Append one submitted evidence event.
 
         @param event_type: one of the ``EVENT_*`` constants.
-        @param payload: the event body.
+        @param payload: the event body, which must carry ``node_path`` for every
+            type except a raw call result (attributed through its call id).
         """
 
         self.events.append({"type": event_type, "payload": payload})
 
     @property
-    def closed_stages(self) -> list[str]:
-        """Return the Stage ids the Agent has closed, in order."""
+    def closed_nodes(self) -> list[str]:
+        """Return the node paths the Agent has closed, in order."""
 
         return [
-            str(event["payload"]["stage_id"])
+            str(event["payload"]["node_path"])
             for event in self.events
-            if event.get("type") == EVENT_STAGE_CLOSED
+            if event.get("type") == EVENT_NODE_CLOSED
         ]
 
     @property
@@ -85,18 +91,18 @@ class SessionState:
     def supersede(self, workflow: dict[str, Any], reason: str) -> tuple[str, ...]:
         """Replace the current revision, archiving the old one and its evidence.
 
-        A Stage whose definition is unchanged carries forward, and so do the
-        events recorded against it: the new revision declares the same work with
-        the same proof, so the earlier verdict still means something. Every other
-        event is archived, because its call ids belong to a Stage that no longer
-        exists in the same form.
+        A node whose definition is unchanged carries forward, and so do the events
+        recorded against it: the new revision declares the same work with the same
+        proof, so the earlier verdict still means something. Every other event is
+        archived, because its call ids belong to a node that no longer exists in
+        the same form.
 
         @param workflow: the replacement Workflow document.
         @param reason: why the previous revision was abandoned.
-        @returns the Stage ids that carried forward.
+        @returns the node paths that carried forward.
         """
 
-        carried = set(self.carried_over_stages(workflow))
+        carried = set(self.carried_over_nodes(workflow))
         archived, forwarded = self._split_events(workflow, carried)
 
         self.revisions.append({
@@ -106,7 +112,7 @@ class SessionState:
             "reason": reason,
             "superseded_by": revision_id_of(workflow),
             "carried_over": sorted(carried),
-            "side_effect_stages": list(_stages_with_side_effects(self.workflow, archived)),
+            "side_effect_nodes": list(_nodes_with_side_effects(self.workflow, archived)),
         })
         self.workflow = workflow
         self.events = forwarded
@@ -119,13 +125,13 @@ class SessionState:
     ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         """Split the event log into what is archived and what carries forward.
 
-        Events are attributed to a Stage by the *new* revision's declarations:
-        a call event belongs to whichever Stage declares that call id, and an item
-        or check event belongs to the Stage that declares it. Events belonging to
-        a carried-over Stage carry forward; everything else is archived.
+        Events are attributed to a node by the *new* revision's declarations: a
+        call event belongs to whichever node declares that call id, and the other
+        kinds carry their own node path. Events belonging to a carried-over node
+        carry forward; everything else is archived.
 
         @param workflow: the replacement Workflow document.
-        @param carried: Stage ids whose definition is unchanged.
+        @param carried: node paths whose definition is unchanged.
         @returns the archived events and the events that carry forward.
         """
 
@@ -133,36 +139,30 @@ class SessionState:
         if replacement is None:
             return list(self.events), []
 
-        def owning_stage(payload: dict[str, Any], event_type: str) -> str | None:
-            if event_type == EVENT_STAGE_CLOSED:
-                return str(payload.get("stage_id", "")) or None
-            for stage in replacement.stage_requests:
-                if any(call.call_id == payload.get("call_id") for call in stage.calls):
-                    return stage.stage_id
-                if any(item.item_id == payload.get("item_id") for item in stage.execution_checklist):
-                    return stage.stage_id
-                if any(check.check_id == payload.get("check_id") for check in stage.acceptance_checklist):
-                    return stage.stage_id
-            return None
+        def owning_node(payload: dict[str, Any], event_type: str) -> str | None:
+            if event_type == EVENT_NODE_CLOSED:
+                return str(payload.get("node_path", "")) or None
+            declared = payload.get("node_path")
+            if declared:
+                return str(declared)
+            call_id = payload.get("call_id")
+            return replacement.path_of_call(str(call_id)) if call_id else None
 
         archived: list[dict[str, Any]] = []
         forwarded: list[dict[str, Any]] = []
         for event in self.events:
             payload = event.get("payload", {})
-            owner = owning_stage(payload, str(event.get("type", "")))
+            owner = owning_node(payload, str(event.get("type", "")))
             (forwarded if owner in carried else archived).append(event)
         return archived, forwarded
 
-    def carried_over_stages(self, workflow: dict[str, Any]) -> tuple[str, ...]:
-        """Return the Stage ids whose definition is unchanged since a prior revision.
+    def carried_over_nodes(self, workflow: dict[str, Any]) -> tuple[str, ...]:
+        """Return the node paths whose definition is unchanged since a prior revision.
 
-        A Stage carries over only when an earlier revision declared a Stage with
-        the same ``stage_id`` *and* the same content fingerprint. Same name is not
-        enough: if the goal, the checklist, or the calls changed, the old verdict
-        says nothing about the new Stage.
-
-        @param workflow: the candidate replacement Workflow document.
-        @returns the Stage ids whose earlier outcome is still meaningful.
+        A node carries over only when an earlier revision declared a node at the
+        same path *and* with the same content fingerprint. The same path is not
+        enough: if the goal, the checklists, or the calls changed, the old verdict
+        says nothing about the new node.
         """
 
         candidate = _read_workflow(workflow)
@@ -174,74 +174,85 @@ class SessionState:
             document = _read_workflow(entry["workflow"])
             if document is None:
                 continue
-            for stage in document.stage_requests:
-                previous[stage.stage_id] = stage.fingerprint
+            previous.update(document.fingerprints())
 
+        current = candidate.fingerprints()
         return tuple(
-            stage.stage_id
-            for stage in candidate.stage_requests
-            if previous.get(stage.stage_id) == stage.fingerprint
+            path for path, fingerprint in current.items()
+            if previous.get(path) == fingerprint
         )
 
-    def calls_already_run(self) -> dict[str, str]:
-        """Return, per call id, the revision that recorded it.
+    def calls_already_run(self) -> dict[tuple[str, str], str]:
+        """Return, per ``(node path, call id)``, the revision that recorded it.
 
-        Includes every revision, current and archived, because a call that ran
-        once has already touched the host even if the revision carrying it was
-        later replaced. This is what makes a repeat visible.
+        Keyed by the pair, not by the call id alone. A call id is scoped to the
+        STAGE that declares it -- two sibling towers may each declare a ``build``
+        -- so keying by the bare id would refuse the second tower's perfectly
+        distinct host change. It is the same call in the same node that is a
+        repeat, and only that.
 
-        A call recorded in the *current* revision is expected to appear here; the
-        caller decides what that means for its own context.
+        Includes every revision, current and archived, because a call that ran once
+        has already touched the host even if the revision carrying it was later
+        replaced. An archived event that predates ``node_path`` is resolved through
+        its own revision's Workflow; when that is ambiguous the path is left empty,
+        which fails closed rather than open.
 
-        @returns a mapping of call id to the revision id that recorded it.
+        @returns a mapping of ``(node path, call id)`` to the revision id that
+            recorded it.
         """
 
-        recorded: dict[str, str] = {}
+        recorded: dict[tuple[str, str], str] = {}
 
-        def collect(workflow_document: dict[str, Any], events: list[dict[str, Any]], label: str) -> None:
+        def collect(workflow_document: Any, events: list[dict[str, Any]], label: str) -> None:
+            workflow = _read_workflow(workflow_document)
             for event in events:
                 if event.get("type") != EVENT_EXECUTION_RESULT:
                     continue
                 payload = event.get("payload")
-                if isinstance(payload, dict) and payload.get("call_id"):
-                    recorded.setdefault(str(payload["call_id"]), label)
+                if not isinstance(payload, dict) or not payload.get("call_id"):
+                    continue
+                call_id = str(payload["call_id"])
+                node_path = payload.get("node_path")
+                if not node_path and workflow is not None:
+                    node_path = workflow.path_of_call(call_id)
+                recorded.setdefault((str(node_path or ""), call_id), label)
 
         for entry in self.revisions:
-            collect(entry["workflow"], entry.get("events", []), str(entry.get("revision_id") or "archived"))
+            collect(entry.get("workflow"), entry.get("events", []),
+                    str(entry.get("revision_id") or "archived"))
         collect(self.workflow, self.events, str(self.current_revision_id or "current"))
         return recorded
 
     @property
-    def side_effect_stages(self) -> tuple[str, ...]:
-        """Return every Stage, across all revisions, that has touched the world.
+    def side_effect_nodes(self) -> tuple[str, ...]:
+        """Return every node, across all revisions, that has touched the world.
 
-        A Stage is listed once any of its calls was recorded. Python cannot see
-        the host, so it cannot know whether the edit landed; what it knows is that
-        the call ran against a live host. Re-running such a Stage is not the same
-        as running it the first time.
+        A node is listed once any of its calls was recorded. Python cannot see the
+        host, so it cannot know whether the edit landed; what it knows is that the
+        call ran against a live host. Re-running such a node is not the same as
+        running it the first time.
         """
 
         seen: list[str] = []
-        for revision_id, stages in self._side_effects_by_revision().items():
+        for revision_id, nodes in self._side_effects_by_revision().items():
             if revision_id is None:
                 continue
-            for stage_id in stages:
-                if stage_id not in seen:
-                    seen.append(stage_id)
+            for path in nodes:
+                if path not in seen:
+                    seen.append(path)
         return tuple(seen)
 
     def _side_effects_by_revision(self) -> dict[str | None, tuple[str, ...]]:
-        """Return the Stages that recorded calls, per revision id."""
+        """Return the nodes that recorded calls, per revision id."""
 
         result: dict[str | None, tuple[str, ...]] = {
-            self.current_revision_id: _stages_with_side_effects(self.workflow, self.events)
+            self.current_revision_id: _nodes_with_side_effects(self.workflow, self.events)
         }
         for entry in self.revisions:
-            result[entry.get("revision_id")] = _stages_with_side_effects(
+            result[entry.get("revision_id")] = _nodes_with_side_effects(
                 entry["workflow"], entry.get("events", [])
             )
         return result
-
 
     @property
     def current_revision_id(self) -> str | None:
@@ -291,7 +302,7 @@ class SessionState:
                 raise SessionStateError(f"state file revisions[{index}] is malformed")
         return cls(
             task=document["task"],
-            workflow=document.get("workflow", document.get("plan")),
+            workflow=document["workflow"],
             events=list(events),
             revisions=list(revisions),
         )
@@ -316,31 +327,37 @@ class SessionState:
         temporary.write_text(json.dumps(self.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
         temporary.replace(path)
 
-    def workflow_object(self) -> Workflow:
+    def workflow_object(self) -> WorkflowTree:
         """Return the stored Workflow as a framework contract."""
 
         return workflow_from_dict(self.workflow)
 
-    def event_objects(self) -> list[tuple[str, Any]]:
+    def event_objects(self) -> list[tuple[str, Any, str | None]]:
         """Return the event log as typed contracts, in submitted order.
 
-        @returns pairs of event type and its typed payload.
+        @returns triples of event type, typed payload, and the node path the event
+            belongs to (None for a raw call result, which is attributed through
+            its call id). The path is carried alongside rather than inside the
+            typed payload because the payload types are the Agent's submission
+            format and do not carry engine bookkeeping.
         @throws SessionStateError when an event payload cannot be read.
         """
 
-        typed: list[tuple[str, Any]] = []
+        typed: list[tuple[str, Any, str | None]] = []
         for index, event in enumerate(self.events):
             event_type = event["type"]
             payload = event["payload"]
             path = f"events[{index}].payload"
+            declared = payload.get("node_path")
+            owner = str(declared) if declared else None
             if event_type == EVENT_EXECUTION_RESULT:
-                typed.append((event_type, execution_result_from_dict(payload, path)))
+                typed.append((event_type, execution_result_from_dict(payload, path), owner))
             elif event_type == EVENT_EXECUTION_ITEM:
-                typed.append((event_type, execution_item_result_from_dict(payload, path)))
+                typed.append((event_type, execution_item_result_from_dict(payload, path), owner))
             elif event_type == EVENT_CHECK:
-                typed.append((event_type, check_result_from_dict(payload, path)))
-            elif event_type == EVENT_STAGE_CLOSED:
-                typed.append((event_type, str(payload["stage_id"])))
+                typed.append((event_type, check_result_from_dict(payload, path), owner))
+            elif event_type == EVENT_NODE_CLOSED:
+                typed.append((event_type, str(payload["node_path"]), owner))
             else:
                 raise SessionStateError(f"unknown event type at events[{index}]: {event_type!r}")
         return typed
@@ -353,7 +370,7 @@ def revision_id_of(workflow_document: dict[str, Any]) -> str | None:
     return workflow.revision_id if workflow is not None else None
 
 
-def _read_workflow(document: Any) -> Workflow | None:
+def _read_workflow(document: Any) -> WorkflowTree | None:
     """Read a Workflow document, or None when it cannot be read.
 
     Used only for reporting and comparison, never for validation: a state file
@@ -369,14 +386,14 @@ def _read_workflow(document: Any) -> Workflow | None:
         return None
 
 
-def _stages_with_side_effects(
+def _nodes_with_side_effects(
     workflow_document: dict[str, Any],
     events: list[dict[str, Any]],
 ) -> tuple[str, ...]:
-    """Return the Stages that recorded a call, in declaration order.
+    """Return the node paths that recorded a call, in declaration order.
 
-    A Stage is included once any call it declares appears in the event log. The
-    call ran against a live host, so the Stage may already have changed it.
+    A node is included once any call it declares appears in the event log. The
+    call ran against a live host, so the node may already have changed it.
     """
 
     workflow = _read_workflow(workflow_document)
@@ -391,7 +408,7 @@ def _stages_with_side_effects(
         and "call_id" in event["payload"]
     }
     return tuple(
-        stage.stage_id
-        for stage in workflow.stage_requests
-        if any(call.call_id in recorded for call in stage.calls)
+        path
+        for path, node in workflow.stages
+        if any(call.call_id in recorded for call in node.declared_calls)
     )

@@ -20,14 +20,19 @@ from ainative.model import CheckOperator, CheckStatus, StageKind, TaskRoute
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
 
-# Documents an Agent or maintainer reads. `artifacts/` is excluded: it holds
-# historical run records, which are allowed to describe an older repository.
+# Documents an Agent or maintainer reads. Generated and ignored trees are skipped
+# by rule rather than by name: a dot-directory (`.venv`, `.pytest_cache`,
+# `.ruff_cache`, `.git`) and `artifacts/`, which holds historical run records that
+# are allowed to describe an older repository. Naming them one at a time is how
+# `.pytest_cache/README.md` stayed in the set, which made the size of this suite
+# depend on whether it had been run before.
 def _docs() -> list[pathlib.Path]:
     return sorted(
         p for p in REPO_ROOT.rglob("*.md")
-        if "__pycache__" not in p.parts
-        and ".venv" not in p.parts
-        and "artifacts" not in p.parts
+        if not any(
+            part.startswith(".") or part in {"__pycache__", "artifacts"}
+            for part in p.relative_to(REPO_ROOT).parts
+        )
     )
 
 
@@ -175,18 +180,23 @@ def test_the_checklist_outcomes_are_stated_in_the_skill():
     assert not missing, f"SKILL.md omits checklist outcomes: {missing}"
 
 
-def test_the_stage_operators_are_stated_in_the_template():
-    """The Agent picks an operator, so the template must list them all."""
+def test_the_stage_operators_are_stated_in_the_schema():
+    """The Agent picks an operator, so the spec must list them all.
 
-    text = (REPO_ROOT / "templates/workflow-plan-template.md").read_text(encoding="utf-8")
-    missing = [op.value for op in CheckOperator if op.value not in text]
+    The operator vocabulary moved from the deleted notes template to the schema,
+    which is the definition of the data structure.
+    """
 
-    assert not missing, f"the template omits operators: {missing}"
+    text = (REPO_ROOT / "templates" / "workflow.schema.json").read_text(encoding="utf-8")
+    missing = [op.value for op in CheckOperator if f'"{op.value}"' not in text]
+
+    assert not missing, f"the schema omits operators: {missing}"
 
 
 def test_the_stage_kinds_and_routes_are_stated_where_they_are_chosen():
     skill = (REPO_ROOT / "SKILL.md").read_text(encoding="utf-8")
-    template = (REPO_ROOT / "templates/workflow-plan-template.md").read_text(encoding="utf-8")
+    schema = (REPO_ROOT / "templates" / "workflow.schema.json").read_text(encoding="utf-8")
 
     assert not [k.value for k in StageKind if k.value not in skill], "SKILL.md omits a Stage kind"
-    assert not [r.value for r in TaskRoute if r.value not in template], "the template omits a route"
+    assert not [r.value for r in TaskRoute if f'"{r.value}"' not in schema], (
+        "the schema omits a route")

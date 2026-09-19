@@ -17,7 +17,8 @@ D:\work\AI-Native\game-engine\AGENTS.md
     → one-call-at-a-time execution
     → python -m ainative.session open (hand the Agent-authored Workflow to Python)
     → python -m ainative.session record / item / check (submit what came back)
-    → python -m ainative.session stage (deterministic Stage verdict)
+    → python -m ainative.session stage (deterministic node verdict, named by path)
+    → python -m ainative.session supersede (replace the revision when the plan was wrong)
     → python -m ainative.session finish (aggregated TaskResult)
 ```
 
@@ -33,23 +34,30 @@ servers.
 ```text
 Agent Intent
     → Task Contract
-    → Agent composes each Stage from Stage kind, processing object, operation
-      type, current facts, and the user's requirements
-    → Agent authors the Workflow (Stages + both frozen checklists + calls)
+    → Agent composes each node from Stage kind (for a STAGE leaf), processing
+      object, operation type, current facts, and the user's requirements
+    → Agent authors the Workflow tree: STAGE leaves carry both frozen checklists
+      and their calls, WORKFLOW nodes group them and read a descendant's verdict
     → Agent calls one MCP tool at a time
     → ExecutionResult + Evidence
     → Agent submits the Workflow and the results to Python
-    → deterministic checklist evaluation
-    → StageResult
+    → deterministic checklist evaluation, bottom-up over the tree
+    → NodeResult per node / StageResult for the node closed / TaskResult
     → continue / retry / wait / compensate / re-plan
 ```
 
 The Agent decides what runs next. Python does not schedule, does not generate a
 Workflow, and does not choose the following call. What Python does own is the
-deterministic verdict: the Agent hands over its own Workflow and its own reported
-results, and Python evaluates the Stages against the frozen checklists and
-returns the StageResult — it never invents a checklist item, orders a Stage, or
-picks a call.
+deterministic verdict: the Agent hands over its own Workflow tree and its own
+reported results, and Python evaluates each node against its frozen checklists,
+bottom-up, and returns the StageResult for the node it was asked to close — it
+never invents a checklist item, orders a node, or picks a call.
+
+**A node's identity is its path** (`/step-1/validate-asset/`), not its
+`node_id`. A `node_id` is unique only among **siblings**, which is what lets two
+subtrees each declare a `mass`; the path is what says which one is meant. Every
+argument that names a node — `--stage` on `stage`, `item`, and `check` — takes a
+path.
 
 ## Host software is reached through MCP
 
@@ -78,11 +86,33 @@ Consequences:
 
 - `guidance/` documents supply macro lifecycle guidance and invariants, not one
   universal sequence. They are prompt assets the Agent reads, not a runtime.
-- Compose each Stage from Stage kind, processing object, operation type, current
-  facts, and user requirements.
-- Every required Stage freezes an execution checklist and an acceptance
-  checklist before execution.
-- A change Stage confirms the calls required for execution and acceptance before
+- Compose each node from Stage kind, processing object, operation type, current
+  facts, and user requirements. A STAGE leaf is where the work happens; a
+  WORKFLOW node is containment or a phase grouping and is not a separate type.
+- Every required STAGE freezes an execution checklist and an acceptance
+  checklist before execution, inside its `stage` body.
+- `node_id` is unique among **siblings** only. Give siblings distinct ids and let
+  the path disambiguate the rest.
+- `depends_on` names nodes that must complete first, each written **from the
+  declaring node**: `..` is its parent, so `../mass` is a sibling and
+  `../../site/ground` reaches into another branch. Relative, not absolute, because
+  a reusable subtree does not know where it will be placed and so could not name
+  its own siblings otherwise. A bare `mass` resolves to the declaring node's own
+  **child** — which it already waits for — and is refused with the spelling that
+  was meant. A cycle is refused, including one closed through the implicit
+  parent-child edge (a node waiting for its own ancestor).
+- ORDER comes only from `depends_on`. The order nodes are written in carries no
+  meaning, and two nodes with no dependency between them are unordered: the Agent,
+  which executes every call itself, may run them in any order or at the same time.
+  Nothing in this repository schedules, and nothing runs anything.
+- A composite (WORKFLOW) check reads exactly **one** descendant through
+  `source_node` — a relative path under the declaring node, never the node
+  itself — and its `expected` is that descendant's **verdict**: `pass`, `warn`,
+  `fail`, `unknown`, or `needs_human`. It is not a list of descendants and not a
+  task status. Compare it with `equals`: a call-oriented or numeric operator
+  applied to a verdict word can never pass. To assert several descendants,
+  declare one check each, or nest a composite whose own verdict rolls them up.
+- A change STAGE confirms the calls required for execution and acceptance before
   its first side effect.
 - Before selecting a host or MCP call, load docs\DEPENDENCIES.md and confirm the
   required Python, Blender, UE5, add-on/plugin, and Agent prerequisites.
@@ -90,14 +120,18 @@ Consequences:
   running MCP server, and the Agent client prerequisites.
 - During execution, do not silently substitute another MCP server, target, or
   Backend.
-- Call success proves only that the call completed. Stage completion comes from
-  structured checklist results and evidence.
-- Required checklist results use `pass`, `warn`, `fail`, `unknown`, or
-  `needs_human`.
+- Call success proves only that the call completed. A node's completion comes
+  from structured checklist results and evidence; a composite's verdict is earned
+  on its children's.
+- A **node** has a verdict: `pass`, `warn`, `fail`, `unknown`, or `needs_human`.
+  A **task** has a status: `succeeded`, `degraded`, `blocked`, `failed`, or
+  `needs_approval`. Keep the two vocabularies apart.
 - Required `fail`, `unknown`, and `needs_human` results cannot be treated as
   completion.
-- Local acceptance belongs to the current Stage. A separate validation Stage is
-  allowed for cross-Stage invariants.
+- An unresolved required node (`unknown` / `needs_human`) makes every ancestor
+  unknown, not failed: incomplete evidence is not the same as a failure.
+- Local acceptance belongs to the current STAGE. A separate validation node is
+  allowed for invariants that cross nodes.
 
 ## Acceptance boundary (do not blur)
 
@@ -107,8 +141,8 @@ This repository owns the first one and must not absorb the second.
 | | This repo: `StageAcceptanceEvaluator` | `AI-Native-Evals`: TestPlan |
 | --- | --- | --- |
 | Who authors the criteria | The Agent, inside its Workflow | The Task author (a human) |
-| When it runs | At a Stage boundary, during the run | After the run, over the workspace |
-| Question it answers | Did this Stage meet the Workflow's own frozen criteria? | Was the task actually completed? |
+| When it runs | At a node boundary, during the run | After the run, over the workspace |
+| Question it answers | Did this node meet the Workflow's own frozen criteria? | Was the task actually completed? |
 | Status vocabulary | `pass` / `warn` / `fail` / `unknown` / `needs_human` | `passed` / `failed` / `review` / `blocked` / `error` / `skipped` / `observed` |
 | May invoke Tools | No, by design | Yes (Judge Agents, host probes) |
 | Authority | Gates progress inside one run | The only verdict valid outside the run |
@@ -129,6 +163,10 @@ Rules:
   vocabularies explicitly mapped rather than assumed equal.
 
 ## Stage kinds
+
+A stage kind lives at `stageBody.stage_kind` of a STAGE leaf. It decides what must
+be frozen before the first side effect, so it is part of the leaf's definition,
+not a label.
 
 ```text
 change
@@ -153,7 +191,7 @@ D:\work\AI-Native\game-engine\
 ├── SKILL.md              Skill entry point
 ├── guidance\             reusable macro-lifecycle guidance
 ├── references\           host and MCP interface notes
-├── templates\            the Workflow template, its field notes, and the guidance template
+├── templates\            the Workflow schema and the guidance template
 ├── src\ainative\
 │   ├── session_api\      Skill loading, the Workflow opener, the session
 │   ├── cli\              the acceptance-loop CLI and its state file
@@ -197,42 +235,56 @@ confirms the host prerequisites itself.
 ## Acceptance loop
 
 One process-level CLI exists: `python -m ainative.session` takes the
-Agent-authored Workflow and returns a Stage verdict.
+Agent-authored Workflow tree and returns a node verdict.
 
 `python -m ainative.session` is how a Workflow and its reported results reach Python.
 The Agent authors the Workflow as JSON, executes every call itself, and reports each
 result back; Python validates the Workflow structure, stores the evidence in the
-`--state` file, and evaluates each Stage against its frozen checklists. Python
-still chooses nothing.
+`--state` file, and evaluates each node against its frozen checklists, bottom-up, so
+a composite's verdict is earned on its children's. Python still chooses nothing.
 
 ```text
 open       hand over --task and --workflow
 record     submit one executed call result (--result)
 item       submit one execution checklist item result (--result)
 check      submit one manual acceptance check result (--result)
-stage      evaluate and close one Stage (--stage)
+stage      evaluate and close one node, named by path (--stage)
 finish     aggregate the final TaskResult
 status     read the current state without changing it
 supersede  replace the Workflow revision, archiving the old one and its evidence
 ```
 
+`--stage` takes a node **path** (`/step-1/validate-asset/`), and the path may
+address a STAGE leaf or a WORKFLOW composite: closing a composite judges its whole
+subtree and reports the roll-up. `item` and `check` also accept `--stage`, to name
+the node when a bare item or check id is declared by more than one node — an
+ambiguous id is refused rather than resolved by guessing.
+
 Every command prints the same envelope — `command`, `ok`, `verdict`, `exit_code`,
 `detail`, `errors` — and exits 0 for a non-blocking result, 1 for a blocking or
 failing result, and 2 when the command itself could not run.
 
-`verdict` uses one vocabulary for every command: `succeeded`, `degraded`,
-`blocked`, `failed`, `needs_approval`. Stage and Task outcomes already speak
-those words; a checklist `pass` reports `succeeded` and a `warn` reports
-`degraded`, so a caller reads one field without knowing which command ran.
+`verdict` uses the **task** vocabulary for every command: `succeeded`, `degraded`,
+`blocked`, `failed`, `needs_approval`. Task outcomes already speak those words and
+a node verdict is mapped onto them; a checklist `pass` reports `succeeded` and a
+`warn` reports `degraded`, so a caller reads one field without knowing which
+command ran. A node's own verdict stays in the node vocabulary — `pass`, `warn`,
+`fail`, `unknown`, `needs_human` — and appears as the result's `status` only after
+that mapping.
 
-A call returning `succeeded` does not complete a Stage. A Stage completes only
+A call returning `succeeded` does not complete a node. A STAGE completes only
 when its frozen acceptance checks pass — an empty `preserved_relations` against a
 `truthy` check yields check `fail`, then stage `failed`, then verdict `failed`
-and exit 1.
+and exit 1. A WORKFLOW node completes when every required child completed **and**
+its own checks pass; an unresolved required descendant makes every ancestor
+`unknown`, which is not the same as `failed`.
 
-A Workflow revision is immutable. A Stage carries over to a replacement only when
-its definition is unchanged; a Stage that already ran a call may have changed the
-host, and re-reporting that call is refused without `--confirm-side-effects`.
+A Workflow revision is immutable. A node carries over to a replacement only when
+its **path and content fingerprint** are both unchanged — the fingerprint covers
+the node's goal, checklists and calls, and deliberately excludes `node_id`, so a
+changed subtree is re-run instead of inheriting a verdict that no longer applies.
+A node that already ran a call may have changed the host, and re-reporting that
+call is refused without `--confirm-side-effects`.
 
 ## Engineering rules
 
@@ -244,6 +296,8 @@ host, and re-reporting that call is refused without `--confirm-side-effects`.
 - Do not reintroduce Python Workflow generation or a whole-Workflow scheduler.
 - Do not reintroduce a Blender or UE5 executable path, an editor subprocess
   launch, or a host add-on implementation.
+- Do not reintroduce a flat `Workflow -> Step -> Stage` shape, a `StageRequest`,
+  or a globally unique `stage_id`: a node's identity is its path.
 - Do not infer Stage success from call success alone.
 - Keep simple checks in the deterministic Stage evaluator.
 - Freeze acceptance items before change-side effects. Do not delete an item
@@ -268,7 +322,7 @@ ruff check src\ainative tests integrity_gate.py
 Set-Location D:\work\AI-Native\game-engine
 python -m ainative.session --state s.json --task task.json --workflow workflow.json open
 python -m ainative.session --state s.json --result executed-call.json record
-python -m ainative.session --state s.json --stage stage.validate_asset stage
+python -m ainative.session --state s.json --stage /step-1/validate-asset/ stage
 python -m ainative.session --state s.json finish
 python -m ainative.session --state s.json status
 ```

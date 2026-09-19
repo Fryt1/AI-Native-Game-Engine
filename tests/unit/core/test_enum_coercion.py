@@ -19,7 +19,7 @@ import pytest
 
 import ainative.model as m
 
-MODULES = [m.artifacts, m.checklists, m.tools, m.workflow, m.results, m.task]
+MODULES = [m.artifacts, m.checklists, m.tools, m.tree, m.results, m.task]
 
 # A minimal valid constructor per class, so a string can be passed for one field.
 CTORS = {
@@ -30,10 +30,15 @@ CTORS = {
     "CheckResult": lambda **kw: m.CheckResult(check_id="k", **kw),
     "ToolCall": lambda **kw: m.ToolCall(call_id="c", target=m.CallTarget("o", "n"), **kw),
     "ExecutionResult": lambda **kw: m.ExecutionResult(call_id="c", **kw),
-    "StageResult": lambda **kw: m.StageResult(stage_id="s", step_id="p", **kw),
+    "StageResult": lambda **kw: m.StageResult(node_path="/s/", **kw),
     "TaskResult": lambda **kw: m.TaskResult(route="host_operation", **kw),
-    "StageRequest": lambda **kw: m.StageRequest(stage_id="s", purpose="p", **kw),
-    "Workflow": lambda **kw: m.Workflow(guidance="g", steps=(), **{"route": "host_operation", **kw}),
+    "StageBody": lambda **kw: m.StageBody(**kw),
+    "WorkflowNode": lambda **kw: m.WorkflowNode(node_id="n", purpose="p", **kw),
+    "WorkflowTree": lambda **kw: m.WorkflowTree(
+        workflow_id="w",
+        root=m.WorkflowNode(node_id="root", purpose="p", kind="workflow"),
+        **{"route": "host_operation", **kw},
+    ),
     "TaskContract": lambda **kw: m.TaskContract(
         task_id="t", objective="o", **{"route": "host_operation", **kw}
     ),
@@ -44,6 +49,7 @@ ENUM_VALUES = {
     "ArtifactKind": "unknown",
     "CheckStatus": "pass",
     "CheckOperator": "exists",
+    "NodeKind": "stage",
     "StageKind": "change",
     "TaskRoute": "host_operation",
     "TaskStatus": "succeeded",
@@ -63,8 +69,8 @@ def _enum_name(cls, field) -> str | None:
     name = getattr(resolved, "__name__", None)
     if name in ENUM_VALUES:
         return name
-    # fall back to the raw text for the `X | None` cases
-    text = str(field.type).split(".")[-1].strip("'\"")
+    # fall back to the raw text for the `X | None` cases, dropping the alternative
+    text = str(field.type).split(".")[-1].strip("'\"").split("|")[0].strip()
     return text if text in ENUM_VALUES else None
 
 
@@ -94,12 +100,13 @@ EXPECTED = {
     ("CheckResult", "status"),
     ("ExecutionItemResult", "status"),
     ("ExecutionResult", "status"),
-    ("StageRequest", "stage_kind"),
+    ("StageBody", "stage_kind"),
     ("StageResult", "status"),
     ("TaskContract", "route"),
     ("TaskResult", "status"),
-    ("Workflow", "route"),
-    ("Workflow", "status"),
+    ("WorkflowNode", "kind"),
+    ("WorkflowTree", "route"),
+    ("WorkflowTree", "status"),
 }
 
 

@@ -62,13 +62,14 @@ needs_human        → 等待决策
 | 变更 | 权威 owner | 同步更新 |
 |---|---|---|
 | 生命周期指引 | `guidance/*.md` | `guidance/index.md`、integrity gate、examples |
-| 计划/清单格式 | `src/ainative/model/` | integrity gate、tests |
+| 计划/清单格式 | `src/ainative/model/tree.py` | `templates/workflow.schema.json`、integrity gate、tests |
 | 调用契约（`ToolCall` / `CallTarget`） | `src/ainative/model/tools.py` | deserialize、contract tests |
 | 宿主接入说明 | `references/*.md` | README、`docs/DEPENDENCIES.md` |
 | Host/MCP dependency policy | `docs/DEPENDENCIES.md` | README、live handshake evidence |
 | Model acquisition policy | `docs/DEPENDENCIES.md`（Hugging Face 节） | CLI auth/download evidence、model revision/hash、license review |
-| Workflow 校验 | `src/ainative/reading/validate.py` | contract tests |
-| Stage 验收 | `src/ainative/acceptance/evaluator.py` | acceptance tests |
+| Workflow 形状 spec | `templates/workflow.schema.json` | `src/ainative/reading/schema.py`、`test_schema_agreement.py` |
+| Workflow 语义校验 | `src/ainative/reading/tree_validate.py` | contract tests、`test_schema_agreement.py` |
+| Node 验收 | `src/ainative/acceptance/evaluator.py`、`tree_evaluator.py` | acceptance tests |
 | Agent Session | `src/ainative/session_api/` | integration tests |
 | 稳定证据 | `artifacts/evidence/` | `docs/VALIDATION_REPORT.md` |
 

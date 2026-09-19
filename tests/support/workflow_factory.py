@@ -1,3 +1,15 @@
+"""Build the Workflow trees a test needs, without any host or MCP call.
+
+A Workflow **is** a tree, and a node is either a STAGE (leaf: calls and its frozen
+checklists) or a WORKFLOW (composite: children and the checks that read them).
+There is no flat ``Workflow -> Step -> Stage`` shape; a phase is just a WORKFLOW
+node used for grouping.
+
+Every helper here is a stand-in for what the **Agent** authors. Nothing in this
+module executes anything: :func:`submit_call_result` is the test stand-in for the
+Agent reporting what its own MCP call returned.
+"""
+
 from __future__ import annotations
 
 from typing import Any
@@ -8,14 +20,20 @@ from ainative.model import (
     CheckOperator,
     ExecutionChecklistItem,
     ExecutionResult,
+    NodeCheck,
+    NodeKind,
+    StageBody,
     StageKind,
-    StageRequest,
     TaskContract,
     TaskStatus,
     ToolCall,
-    Workflow,
-    WorkflowStep,
+    WorkflowNode,
+    WorkflowStatus,
+    WorkflowTree,
 )
+
+#: The synthetic composite the factory hangs a Workflow's top-level groups under.
+ROOT_ID = "workflow"
 
 
 def call(
@@ -51,7 +69,14 @@ def stage_spec(
     stage_kind: StageKind = StageKind.CHANGE,
     depends_on: tuple[str, ...] = (),
     required: bool = True,
-) -> StageRequest:
+    recovery: str | None = None,
+) -> WorkflowNode:
+    """Build one STAGE node: a leaf that declares calls and both checklists.
+
+    Its path -- not ``stage_id`` -- is what identifies it, so two subtrees may each
+    build a stage called ``mass`` without collision.
+    """
+
     execution_item = ExecutionChecklistItem(
         item_id=f"{stage_id}.executed",
         description=f"Required work for {purpose}",
@@ -69,45 +94,96 @@ def stage_spec(
         operator=CheckOperator.TOOL_SUCCEEDED if source_call_id else CheckOperator.MANUAL,
         evidence_required=bool(source_call_id),
     )
-    return StageRequest(
-        stage_id=stage_id,
-        purpose=purpose,
-        operation=operation,
-        calls=calls,
-        stage_kind=stage_kind,
-        execution_checklist=(execution_item,),
-        acceptance_checklist=(acceptance_check,),
-        depends_on=depends_on,
+    return WorkflowNode(
+        node_id=stage_id,
+        kind=NodeKind.STAGE,
+        purpose=f"{purpose} ({operation})" if operation else purpose,
         required=required,
+        depends_on=depends_on,
+        recovery=recovery,
+        stage=StageBody(
+            calls=calls,
+            execution_checklist=(execution_item,),
+            acceptance_checklist=(NodeCheck(acceptance_check),),
+            stage_kind=stage_kind,
+        ),
+    )
+
+
+def step(
+    step_id: str,
+    purpose: str,
+    stages: tuple[WorkflowNode, ...],
+    depends_on: tuple[str, ...] = (),
+    optional: bool = False,
+) -> WorkflowNode:
+    """Build one WORKFLOW node: a composite used to group and order leaves."""
+
+    return WorkflowNode(
+        node_id=step_id,
+        kind=NodeKind.WORKFLOW,
+        purpose=purpose,
+        required=not optional,
+        depends_on=depends_on,
+        children=tuple(stages),
     )
 
 
 def workflow_for(
     task: TaskContract,
-    steps: tuple[WorkflowStep, ...],
+    steps: tuple[WorkflowNode, ...],
     *,
     guidance: str | None = None,
     revision: int = 1,
     workflow_id: str | None = None,
-) -> Workflow:
-    workflow = Workflow(
-        guidance=guidance or task.guidance or "",
-        route=task.route,
-        steps=steps,
+    status: WorkflowStatus = WorkflowStatus.DRAFT,
+) -> WorkflowTree:
+    """Wrap top-level groups in a root composite and return the Workflow."""
+
+    return WorkflowTree(
         workflow_id=workflow_id or f"{task.task_id}:workflow",
+        root=WorkflowNode(
+            node_id=ROOT_ID,
+            kind=NodeKind.WORKFLOW,
+            purpose="the Workflow",
+            children=tuple(steps),
+        ),
+        route=task.route,
+        guidance=guidance if guidance is not None else (task.guidance or None),
         revision=revision,
+        status=status,
     )
-    return workflow
 
 
 def one_stage_workflow(
     task: TaskContract,
-    stage: StageRequest,
+    stage: WorkflowNode,
     *,
     step_id: str = "step-1",
     step_purpose: str = "Execute the Agent-selected Stage",
-) -> Workflow:
-    return workflow_for(task, (WorkflowStep(step_id, step_purpose, (stage,)),))
+) -> WorkflowTree:
+    return workflow_for(task, (step(step_id, step_purpose, (stage,)),))
+
+
+def stage_paths(workflow: WorkflowTree) -> tuple[str, ...]:
+    """Return every STAGE node's path, in tree order."""
+
+    return workflow.stage_paths
+
+
+def first_stage_path(workflow: WorkflowTree) -> str:
+    """Return the first leaf's path -- the usual subject of a single-stage test."""
+
+    paths = workflow.stage_paths
+    if not paths:
+        raise AssertionError("this Workflow declares no STAGE node")
+    return paths[0]
+
+
+def first_stage(workflow: WorkflowTree) -> WorkflowNode:
+    """Return the first leaf node."""
+
+    return next(node for _path, node in workflow.stages)
 
 
 def submit_call_result(
@@ -117,10 +193,6 @@ def submit_call_result(
     **evidence: Any,
 ) -> ExecutionResult:
     """Submit one declared call's result as the Agent would.
-
-    This is the test stand-in for the Agent reporting what its own MCP call
-    returned. It is deliberately not part of the product runtime: nothing here
-    executes anything.
 
     @param session: the open session.
     @param call: the declared call this result belongs to.

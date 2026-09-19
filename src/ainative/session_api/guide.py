@@ -15,8 +15,8 @@ from __future__ import annotations
 
 from ainative.acceptance.confirmation import confirmation_gate
 from ainative.model.task import TaskContract
-from ainative.model.workflow import Workflow, WorkflowStatus
-from ainative.reading import WorkflowIntegrityError, validate_workflow_structure
+from ainative.model.tree import WorkflowStatus, WorkflowTree
+from ainative.reading import TreeIntegrityError, validate_tree_structure
 
 from .errors import WorkflowError
 from .session import AcceptanceSession
@@ -32,7 +32,7 @@ _TERMINAL_WORKFLOW_STATUSES = frozenset({
 })
 
 
-def _reject_unexecutable_revision(workflow: Workflow) -> None:
+def _reject_unexecutable_revision(workflow: WorkflowTree) -> None:
     """Refuse to open a Workflow revision that is no longer executable.
 
     @param workflow: the Agent-authored Workflow.
@@ -55,24 +55,26 @@ class AcceptanceGuide:
     def load_skill(self, task: TaskContract) -> SkillSession:
         return self.skill.load(task)
 
-    def start(self, task: TaskContract, workflow: Workflow) -> AcceptanceSession:
+    def start(self, task: TaskContract, workflow: WorkflowTree) -> AcceptanceSession:
         """Open an Agent-authored Workflow for structured validation and recording.
 
         @param task: the Agent-authored task contract.
         @param workflow: the Agent-authored Workflow, already deserialized.
-        @returns a session ready to record evidence and evaluate Stages.
+        @returns a session ready to record evidence and evaluate nodes.
         @throws WorkflowError when the Workflow cannot be opened.
         """
 
         skill_session = self.load_skill(task)
         _reject_unexecutable_revision(workflow)
+        if workflow.route is None:
+            raise WorkflowError("workflow declares no route")
         if workflow.route is not task.route:
             raise WorkflowError(
                 f"workflow route {workflow.route.value} does not match task route {task.route.value}"
             )
         try:
-            validate_workflow_structure(workflow)
-        except WorkflowIntegrityError as exc:
+            validate_tree_structure(workflow)
+        except TreeIntegrityError as exc:
             raise WorkflowError(str(exc)) from exc
         return AcceptanceSession(
             skill=skill_session,

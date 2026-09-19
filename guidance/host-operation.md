@@ -31,8 +31,8 @@ resume pointer on failure
 
 ## Recommended lifecycle
 
-The following is a recommended shape, not a mandatory five-Step script. The
-Agent includes only the Steps and Stages required by the task:
+The following is a recommended shape, not a mandatory five-node script. The
+Agent includes only the nodes required by the task:
 
 ```text
 resolve context when the target is ambiguous

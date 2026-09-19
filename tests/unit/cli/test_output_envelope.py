@@ -170,14 +170,16 @@ def _workflow_doc():
         "guidance": "host-operation",
         "route": "host_operation",
         "workflow_id": "v:workflow",
-        "steps": [
-            {
-                "step_id": "s",
-                "purpose": "Move",
-                "stages": [
-                    {
-                        "stage_id": "stage.m",
-                        "purpose": "Move",
+        "root": {
+            "node_id": "s",
+            "kind": "workflow",
+            "purpose": "Move",
+            "children": [
+                {
+                    "node_id": "stage.m",
+                    "kind": "stage",
+                    "purpose": "Move",
+                    "stage": {
                         "stage_kind": "change",
                         "calls": [
                             {"call_id": "m1", "target": {"owner": "ue5", "name": "set_actor_transform"}}
@@ -190,14 +192,21 @@ def _workflow_doc():
                                 "check_id": "ok",
                                 "description": "ok",
                                 "operator": "tool_succeeded",
+                                "source_call_id": "m1",
                                 "call_ids": ["m1"],
                             }
                         ],
-                    }
-                ],
-            }
-        ],
+                    },
+                }
+            ],
+        },
     }
+
+
+def _stage_path() -> str:
+    from ainative.reading import workflow_from_dict
+
+    return workflow_from_dict(_workflow_doc()).stage_paths[0]
 
 
 @pytest.fixture
@@ -239,7 +248,7 @@ def test_every_command_prints_the_same_envelope(workspace):
             "target": {"owner": "ue5", "name": "set_actor_transform"}}), "record"]),
         (["--state", workspace["state"], "--result", _write(workspace["tmp"] / "i.json", {
             "item_id": "ran", "status": "pass"}), "item"]),
-        (["--state", workspace["state"], "--stage", "stage.m", "stage"]),
+        (["--state", workspace["state"], "--stage", _stage_path(), "stage"]),
         (["--state", workspace["state"], "finish"]),
         (["--state", workspace["state"], "status"]),
     ]

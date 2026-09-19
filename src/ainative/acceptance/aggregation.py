@@ -1,16 +1,19 @@
-"""Deterministic aggregation: Stage results in, one Task verdict out.
+"""Deterministic aggregation: node results in, one Task verdict out.
 
 Pure functions. They read no session state and mutate nothing, so the decision
 ladder can be read and tested on its own instead of being buried in the session's
 `finish()`.
+
+Nodes are named by **path**, not by a bare id: a ``node_id`` is unique only among
+siblings, so the path is what identifies one subtree's ``mass`` from another's.
 """
 
 from __future__ import annotations
 
 from ainative.model.results import TaskStatus
-from ainative.model.workflow import WorkflowStatus
+from ainative.model.tree import WorkflowStatus
 
-# Priority order for Stage outcomes. The first status present wins, so a single
+# Priority order for node outcomes. The first status present wins, so a single
 # needs_approval outranks any number of failures: a human decision blocks the task
 # harder than a retryable failure does.
 _STATUS_PRIORITY = (
@@ -23,16 +26,16 @@ _STATUS_PRIORITY = (
 def aggregate_task_status(
     *,
     gate_ready: bool,
-    stage_statuses: frozenset[TaskStatus],
-    required_stages: frozenset[str],
-    completed_stages: frozenset[str],
+    node_statuses: frozenset[TaskStatus],
+    required_paths: frozenset[str],
+    completed_paths: frozenset[str],
 ) -> tuple[TaskStatus, WorkflowStatus]:
-    """Decide the Task and Workflow status from the closed Stages.
+    """Decide the Task and Workflow status from the closed nodes.
 
     @param gate_ready: whether the entry gate let the run start.
-    @param stage_statuses: the outcome of every Stage closed so far.
-    @param required_stages: Stage ids the Workflow marked required.
-    @param completed_stages: Stage ids that reached succeeded or degraded.
+    @param node_statuses: the outcome of every node closed so far.
+    @param required_paths: paths of the nodes the Workflow marked required.
+    @param completed_paths: paths that reached succeeded or degraded.
     @returns the Task status and the matching Workflow status.
     """
 
@@ -40,34 +43,34 @@ def aggregate_task_status(
         return TaskStatus.BLOCKED, WorkflowStatus.SUSPENDED
 
     for status in _STATUS_PRIORITY:
-        if status in stage_statuses:
+        if status in node_statuses:
             return status, WorkflowStatus.SUSPENDED
 
-    if required_stages - completed_stages:
+    if required_paths - completed_paths:
         return TaskStatus.BLOCKED, WorkflowStatus.RUNNING
 
-    if TaskStatus.DEGRADED in stage_statuses:
+    if TaskStatus.DEGRADED in node_statuses:
         return TaskStatus.DEGRADED, WorkflowStatus.COMPLETED
 
     return TaskStatus.SUCCEEDED, WorkflowStatus.COMPLETED
 
 
-def outstanding_stages(
+def outstanding_nodes(
     *,
-    required_stages: frozenset[str],
-    completed_stages: frozenset[str],
+    required_paths: frozenset[str],
+    completed_paths: frozenset[str],
 ) -> tuple[str, ...]:
-    """Return the required Stage ids that have not been closed, in sorted order.
+    """Return the required node paths that have not been closed, in sorted order.
 
-    A blocked Task tells the Agent that something is missing. Naming the Stages is
+    A blocked Task tells the Agent that something is missing. Naming the paths is
     what lets it act without re-reading the Workflow it authored.
 
-    @param required_stages: Stage ids the Workflow marked required.
-    @param completed_stages: Stage ids that reached succeeded or degraded.
-    @returns the ids still outstanding.
+    @param required_paths: paths the Workflow marked required.
+    @param completed_paths: paths that reached succeeded or degraded.
+    @returns the paths still outstanding.
     """
 
-    return tuple(sorted(required_stages - completed_stages))
+    return tuple(sorted(required_paths - completed_paths))
 
 
 def next_action_for(status: TaskStatus, *, gate_ready: bool) -> str | None:

@@ -23,8 +23,9 @@ return or publish the result when requested
 validate the declared output and preserved relations
 ```
 
-These are phase goals, not fixed Tool Calls. A Step may contain multiple Stages,
-and optional phases may be omitted when their contract is already satisfied.
+These are phase goals, not fixed Tool Calls. A WORKFLOW node may contain multiple
+STAGE leaves, and optional phases may be omitted when their contract is already
+satisfied.
 
 ## Stage contract requirements
 

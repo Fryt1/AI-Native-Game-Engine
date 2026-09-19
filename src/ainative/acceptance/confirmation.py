@@ -13,7 +13,7 @@ requirement, which is independent of the route.
 from __future__ import annotations
 
 from ainative.model.task import TaskContract
-from ainative.model.workflow import GateResult
+from ainative.model.tree import GateResult
 
 
 def confirmation_gate(task: TaskContract) -> GateResult:

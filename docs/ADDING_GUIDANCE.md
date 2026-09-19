@@ -11,7 +11,7 @@
 ```
 
 一份可复用的 Workflow 指引就是一个 Markdown 文件，写在 `guidance/<name>.md`。
-它给 Agent 的是宏观生命周期与不变式，不是固定 Step 序列，也不含 Workflow 骨架。
+它给 Agent 的是宏观生命周期与不变式，不是固定的节点序列，也不含 Workflow 骨架。
 
 **本仓库没有“配方包”这个概念。** 不存在 `recipes/`，不存在每份指引自己的
 `WORKFLOW.md` / `tests/` / `verification/` 目录，也不存在按

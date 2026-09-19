@@ -19,8 +19,8 @@ publish when requested
 read back and validate the host result
 ```
 
-The Agent may omit optional phases or add additional validation Stages. The
-Workflow is not a fixed four-Step executor.
+The Agent may omit optional phases or add additional validation nodes. The
+Workflow is not a fixed four-node executor.
 
 ## Call roles
 

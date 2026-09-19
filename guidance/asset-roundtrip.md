@@ -33,7 +33,7 @@ resume pointer on failure
 
 ## Recommended lifecycle
 
-This is a macro lifecycle, not a fixed list of five Steps:
+This is a macro lifecycle, not a fixed list of five nodes:
 
 ```text
 identify source, edit, and target roles

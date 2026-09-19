@@ -78,10 +78,14 @@ class ExecutionResult:
 
 @dataclass(frozen=True, slots=True)
 class StageResult:
-    """Durable result for one Stage and all Tool Calls it attempted."""
+    """Durable result for one closed node and every Tool Call it attempted.
 
-    stage_id: str
-    step_id: str
+    ``node_path`` is the node's identity. A bare ``node_id`` would not do: ids are
+    unique only among siblings, so two subtrees may each declare a ``mass`` and
+    only the path says which one this is.
+    """
+
+    node_path: str
     status: TaskStatus
     execution_results: tuple[ExecutionResult, ...] = ()
     execution_item_results: tuple[ExecutionItemResult, ...] = ()
@@ -103,8 +107,7 @@ class StageResult:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "stage_id": self.stage_id,
-            "step_id": self.step_id,
+            "node_path": self.node_path,
             "status": self.status.value,
             "call_ids": list(self.call_ids),
             "execution_results": [result.to_dict() for result in self.execution_results],
@@ -131,9 +134,8 @@ class TaskResult:
     workflow_status: str | None = None
     supersedes_workflow_id: str | None = None
     provider_id: str | None = None
-    stages_completed: tuple[str, ...] = ()
-    steps_completed: tuple[str, ...] = ()
-    stage_results: tuple[StageResult, ...] = ()
+    nodes_completed: tuple[str, ...] = ()
+    node_results: tuple[StageResult, ...] = ()
     preserved_relations: frozenset[str] = field(default_factory=frozenset)
     lost_relations: frozenset[str] = field(default_factory=frozenset)
     artifacts: tuple[ArtifactRef, ...] = ()
@@ -167,9 +169,8 @@ class TaskResult:
             "workflow_status": self.workflow_status,
             "supersedes_workflow_id": self.supersedes_workflow_id,
             "provider_id": self.provider_id,
-            "stages_completed": list(self.stages_completed),
-            "steps_completed": list(self.steps_completed),
-            "stage_results": [stage.to_dict() for stage in self.stage_results],
+            "nodes_completed": list(self.nodes_completed),
+            "node_results": [node.to_dict() for node in self.node_results],
             "preserved_relations": sorted(self.preserved_relations),
             "lost_relations": sorted(self.lost_relations),
             "artifacts": [artifact.to_dict() for artifact in self.artifacts],

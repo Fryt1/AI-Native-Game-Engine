@@ -28,14 +28,18 @@ def _write(path, data):
 
 
 GOOD_STAGE = {
-    "stage_id": "s",
+    "node_id": "s",
+    "kind": "stage",
     "purpose": "p",
-    "stage_kind": "change",
-    "calls": [{"call_id": "c1", "target": {"owner": "ue5", "name": "do"}}],
-    "execution_checklist": [{"item_id": "i", "description": "d", "call_ids": ["c1"]}],
-    "acceptance_checklist": [
-        {"check_id": "k", "description": "d", "operator": "tool_succeeded", "call_ids": ["c1"]}
-    ],
+    "stage": {
+        "stage_kind": "change",
+        "calls": [{"call_id": "c1", "target": {"owner": "ue5", "name": "do"}}],
+        "execution_checklist": [{"item_id": "i", "description": "d", "call_ids": ["c1"]}],
+        "acceptance_checklist": [
+            {"check_id": "k", "description": "d", "operator": "tool_succeeded",
+             "source_call_id": "c1", "call_ids": ["c1"]}
+        ],
+    },
 }
 
 
@@ -45,7 +49,8 @@ def _workflow(**overrides):
         "guidance": "host-operation",
         "route": "host_operation",
         "revision": 1,
-        "steps": [{"step_id": "w", "purpose": "w", "stages": [GOOD_STAGE]}],
+        "root": {"node_id": "w", "kind": "workflow", "purpose": "w",
+                 "children": [GOOD_STAGE]},
     }
     doc.update(overrides)
     return doc
@@ -102,13 +107,13 @@ def test_an_unknown_guidance_name_reports_an_envelope(paths, capsys):
         ("task is empty", {}, _workflow()),
         ("workflow is a list", _task(), [1, 2]),
         ("workflow is empty", _task(), {}),
-        ("steps is a string", _task(), _workflow(steps="nope")),
+        ("root is a string", _task(), _workflow(root="nope")),
         ("workflow is not JSON", _task(), "{not json"),
         (
             "stage depends on itself",
             _task(),
-            _workflow(steps=[{"step_id": "w", "purpose": "w",
-                              "stages": [{**GOOD_STAGE, "depends_on": ["s"]}]}]),
+            _workflow(root={"node_id": "w", "kind": "workflow", "purpose": "w",
+                            "children": [{**GOOD_STAGE, "depends_on": ["s"]}]}),
         ),
     ],
 )

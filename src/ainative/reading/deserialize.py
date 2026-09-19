@@ -20,16 +20,18 @@ from ainative.model.checklists import (
     CheckStatus,
     ExecutionChecklistItem,
     ExecutionItemResult,
+    StageKind,
 )
 from ainative.model.results import ExecutionResult, TaskStatus
 from ainative.model.task import TaskContract, TaskRoute
 from ainative.model.tools import CallTarget, ToolCall
-from ainative.model.workflow import (
-    StageKind,
-    StageRequest,
-    Workflow,
+from ainative.model.tree import (
+    NodeCheck,
+    NodeKind,
+    StageBody,
+    WorkflowNode,
     WorkflowStatus,
-    WorkflowStep,
+    WorkflowTree,
 )
 
 
@@ -53,6 +55,26 @@ def _str_tuple(value: Any, path: str) -> tuple[str, ...]:
     return tuple(value)
 
 
+def _target(value: Any, path: str) -> CallTarget | None:
+    """Read a call target.
+
+    ``None`` is allowed: a guidance document names a call's role and leaves the
+    target for the caller to bind after confirming the live server, so a document
+    may legitimately carry no target yet.
+    """
+
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise WorkflowDeserializationError(f"{path}: expected an object or null")
+    owner = value.get("owner")
+    name = value.get("name")
+    if not owner or not name:
+        raise WorkflowDeserializationError(
+            f"{path}: a target needs both an owner and a name")
+    return CallTarget(owner=str(owner), name=str(name))
+
+
 def _enum(enum_type: Any, value: Any, path: str) -> Any:
     if not isinstance(value, str):
         raise WorkflowDeserializationError(f"{path}: expected a string")
@@ -65,26 +87,49 @@ def _enum(enum_type: Any, value: Any, path: str) -> Any:
         ) from exc
 
 
-def tool_call_from_dict(document: Any, path: str) -> ToolCall:
+def _optional_enum(enum_type: Any, value: Any, path: str) -> Any:
+    """Read an enum that the document may leave out entirely.
+
+    A missing value stays None so an incomplete document is reported by whichever
+    check owns that requirement, rather than being rejected here for a field the
+    schema -- not this reader -- decides is mandatory.
+    """
+
+    if value is None:
+        return None
+    return _enum(enum_type, value, path)
+
+
+def tool_call_from_dict(document: Any, path: str, *, target_required: bool = True) -> ToolCall:
     """Read one Tool call.
 
     @param document: the JSON object for one call.
     @param path: the JSON path, used in error messages.
+    @param target_required: when False, a call may carry ``"target": null``. A
+        guidance document names a call's ROLE and leaves the target for the caller
+        to bind after confirming the live server, so the tree form allows it while
+        an executed Workflow does not.
     @returns the call contract.
     """
 
     arguments = document.get("arguments", {})
     if not isinstance(arguments, dict):
         raise WorkflowDeserializationError(f"{path}.arguments: expected an object")
-    target = _require(document, "target", path)
-    if not isinstance(target, dict):
-        raise WorkflowDeserializationError(f"{path}.target: expected an object")
-    return ToolCall(
-        call_id=str(_require(document, "call_id", path)),
-        target=CallTarget(
+
+    if target_required:
+        target = _require(document, "target", path)
+        if not isinstance(target, dict):
+            raise WorkflowDeserializationError(f"{path}.target: expected an object")
+        resolved = CallTarget(
             owner=str(_require(target, "owner", f"{path}.target")),
             name=str(_require(target, "name", f"{path}.target")),
-        ),
+        )
+    else:
+        resolved = _target(document.get("target"), f"{path}.target")
+
+    return ToolCall(
+        call_id=str(_require(document, "call_id", path)),
+        target=resolved,
         arguments=arguments,
         depends_on=_str_tuple(document.get("depends_on"), f"{path}.depends_on"),
     )
@@ -118,59 +163,6 @@ def acceptance_check_from_dict(document: Any, path: str) -> AcceptanceCheck:
         tolerance=document.get("tolerance"),
         evidence_required=bool(document.get("evidence_required", True)),
         metadata=dict(document.get("metadata", {})),
-    )
-
-
-def stage_from_dict(document: Any, path: str) -> StageRequest:
-    """Read one Stage, including both frozen checklists."""
-
-    calls = _require(document, "calls", path) if "calls" in document else []
-    if not isinstance(calls, list):
-        raise WorkflowDeserializationError(f"{path}.calls: expected a list")
-    items = document.get("execution_checklist", [])
-    checks = document.get("acceptance_checklist", [])
-    if not isinstance(items, list):
-        raise WorkflowDeserializationError(f"{path}.execution_checklist: expected a list")
-    if not isinstance(checks, list):
-        raise WorkflowDeserializationError(f"{path}.acceptance_checklist: expected a list")
-    return StageRequest(
-        stage_id=str(_require(document, "stage_id", path)),
-        purpose=str(document.get("purpose", "")),
-        operation=str(document.get("operation", "")),
-        calls=tuple(
-            tool_call_from_dict(call, f"{path}.calls[{index}]")
-            for index, call in enumerate(calls)
-        ),
-        stage_kind=_enum(StageKind, document.get("stage_kind", StageKind.CHANGE.value), f"{path}.stage_kind"),
-        execution_checklist=tuple(
-            execution_item_from_dict(item, f"{path}.execution_checklist[{index}]")
-            for index, item in enumerate(items)
-        ),
-        acceptance_checklist=tuple(
-            acceptance_check_from_dict(check, f"{path}.acceptance_checklist[{index}]")
-            for index, check in enumerate(checks)
-        ),
-        depends_on=_str_tuple(document.get("depends_on"), f"{path}.depends_on"),
-        required=bool(document.get("required", True)),
-        recovery=document.get("recovery"),
-    )
-
-
-def step_from_dict(document: Any, path: str) -> WorkflowStep:
-    """Read one Step."""
-
-    stages = _require(document, "stages", path)
-    if not isinstance(stages, list):
-        raise WorkflowDeserializationError(f"{path}.stages: expected a list")
-    return WorkflowStep(
-        step_id=str(_require(document, "step_id", path)),
-        purpose=str(document.get("purpose", "")),
-        stages=tuple(
-            stage_from_dict(stage, f"{path}.stages[{index}]")
-            for index, stage in enumerate(stages)
-        ),
-        depends_on=_str_tuple(document.get("depends_on"), f"{path}.depends_on"),
-        optional=bool(document.get("optional", False)),
     )
 
 
@@ -290,45 +282,169 @@ def check_result_from_dict(document: Any, path: str) -> CheckResult:
     )
 
 
-def workflow_from_dict(document: Any) -> Workflow:
+# --------------------------------------------------------------------------- #
+# The Workflow
+# --------------------------------------------------------------------------- #
+
+
+def node_check_from_dict(document: Any, path: str) -> NodeCheck:
+    """Read one node check, including its descendant reference.
+
+    The schema declares ``source_node`` as a property of a node check, so that is
+    where a document puts it. ``AcceptanceCheck`` carries it in ``metadata``
+    instead, so this moves it across. Without the move a document written to the
+    spec would resolve no descendant, and the failure would be silent -- the check
+    would read a field that is not there rather than the node it named.
+    """
+
+    if not isinstance(document, dict):
+        raise WorkflowDeserializationError(f"{path}: expected an object")
+
+    metadata = dict(document.get("metadata") or {})
+    source_node = document.get("source_node")
+    if source_node:
+        if not isinstance(source_node, str):
+            raise WorkflowDeserializationError(f"{path}.source_node: expected a string")
+        metadata["source_node"] = source_node
+
+    payload = {key: value for key, value in document.items() if key != "source_node"}
+    payload["metadata"] = metadata
+    return NodeCheck(acceptance_check_from_dict(payload, path))
+
+
+def _stage_body(document: Any, path: str) -> StageBody:
+    """Read a STAGE node's body, reusing the flat readers for its lists."""
+
+    if not isinstance(document, dict):
+        raise WorkflowDeserializationError(f"{path}: expected an object")
+
+    calls_document = _require(document, "calls", path)
+    if not isinstance(calls_document, list):
+        raise WorkflowDeserializationError(f"{path}.calls: expected a list")
+
+    calls = tuple(
+        tool_call_from_dict(call, f"{path}.calls[{index}]", target_required=False)
+        for index, call in enumerate(calls_document)
+        if isinstance(call, dict)
+    )
+
+    items_document = _require(document, "execution_checklist", path)
+    if not isinstance(items_document, list):
+        raise WorkflowDeserializationError(f"{path}.execution_checklist: expected a list")
+    items = tuple(
+        ExecutionChecklistItem(
+            item_id=str(_require(item, "item_id", f"{path}.execution_checklist[{index}]")),
+            description=str(item.get("description", "")),
+            required=bool(item.get("required", True)),
+            call_ids=_str_tuple(item.get("call_ids"), f"{path}.execution_checklist[{index}]"),
+            metadata=dict(item.get("metadata") or {}),
+        )
+        for index, item in enumerate(items_document)
+        if isinstance(item, dict)
+    )
+
+    checks_document = document.get("acceptance_checklist") or []
+    if not isinstance(checks_document, list):
+        raise WorkflowDeserializationError(f"{path}.acceptance_checklist: expected a list")
+    checks = tuple(
+        node_check_from_dict(check, f"{path}.acceptance_checklist[{index}]")
+        for index, check in enumerate(checks_document)
+    )
+
+    return StageBody(
+        calls=calls,
+        execution_checklist=items,
+        acceptance_checklist=checks,
+        stage_kind=_enum(
+            StageKind,
+            document.get("stage_kind", StageKind.CHANGE.value),
+            f"{path}.stage_kind",
+        ),
+    )
+
+
+def node_from_dict(document: Any, path: str) -> WorkflowNode:
+    """Read one node of a Workflow tree.
+
+    The node is recursive: a STAGE carries a body, a WORKFLOW carries children.
+    ``kind`` decides which, and an unknown kind is rejected rather than guessed.
+    """
+
+    if not isinstance(document, dict):
+        raise WorkflowDeserializationError(f"{path}: expected an object")
+
+    node_id = str(_require(document, "node_id", path))
+    kind_document = _require(document, "kind", path)
+    try:
+        kind = NodeKind(kind_document)
+    except ValueError as exc:
+        raise WorkflowDeserializationError(
+            f"{path}.kind: {kind_document!r} is not one of "
+            f"{[member.value for member in NodeKind]}") from exc
+
+    children_document = document.get("children") or []
+    if not isinstance(children_document, list):
+        raise WorkflowDeserializationError(f"{path}.children: expected a list")
+
+    checks_document = document.get("acceptance_checklist") or []
+    if not isinstance(checks_document, list):
+        raise WorkflowDeserializationError(f"{path}.acceptance_checklist: expected a list")
+
+    node = WorkflowNode(
+        node_id=node_id,
+        kind=kind,
+        purpose=str(document.get("purpose", "")),
+        required=bool(document.get("required", True)),
+        depends_on=_str_tuple(document.get("depends_on"), f"{path}.depends_on"),
+        stage=_stage_body(document["stage"], f"{path}.stage")
+        if kind is NodeKind.STAGE and "stage" in document else None,
+        children=tuple(
+            node_from_dict(child, f"{path}.children[{index}]")
+            for index, child in enumerate(children_document)
+        ),
+        acceptance_checklist=tuple(
+            node_check_from_dict(check, f"{path}.acceptance_checklist[{index}]")
+            for index, check in enumerate(checks_document)
+        ),
+        guidance=document.get("guidance"),
+        recovery=document.get("recovery"),
+        metadata=dict(document.get("metadata") or {}),
+    )
+    return node
+
+
+def workflow_from_dict(document: Any) -> WorkflowTree:
     """Read an Agent-authored Workflow document.
+
+    The Workflow's shape is a tree: a node is a STAGE (leaf) or a WORKFLOW
+    (composite). There is no second, flat form to dispatch on.
 
     @param document: the Workflow JSON, either the Workflow itself or wrapped in
         ``{"workflow": {...}}``.
-    @returns the Workflow ready for validation and evaluation.
+    @returns the tree, ready for structural validation and evaluation.
     @throws WorkflowDeserializationError when a required field is missing or malformed.
     """
 
     if not isinstance(document, dict):
         raise WorkflowDeserializationError("workflow: expected an object")
-    workflow_document = document.get("workflow", document)
-    # The nested form is still accepted, so an older state file keeps loading.
+    body = document.get("workflow", document)
     path = "workflow.workflow" if "workflow" in document else "workflow"
-    if not isinstance(workflow_document, dict):
+    if not isinstance(body, dict):
         raise WorkflowDeserializationError(f"{path}: expected an object")
 
-    steps = _require(workflow_document, "steps", path)
-    if not isinstance(steps, list):
-        raise WorkflowDeserializationError(f"{path}.steps: expected a list")
-
-    workflow_id = workflow_document.get("workflow_id", "")
-    workflow = Workflow(
-        guidance=str(workflow_document.get("guidance", "")),
-        route=_enum(TaskRoute, _require(workflow_document, "route", path), f"{path}.route"),
-        steps=tuple(
-            step_from_dict(step, f"{path}.steps[{index}]")
-            for index, step in enumerate(steps)
-        ),
-        workflow_id=str(workflow_id),
-        revision=int(workflow_document.get("revision", 1)),
+    return WorkflowTree(
+        workflow_id=str(body.get("workflow_id", "")),
+        root=node_from_dict(_require(body, "root", path), f"{path}.root"),
+        route=_optional_enum(TaskRoute, body.get("route"), f"{path}.route"),
+        guidance=body.get("guidance"),
+        revision=int(body.get("revision", 1)),
         status=_enum(
             WorkflowStatus,
-            workflow_document.get("status", WorkflowStatus.DRAFT.value),
+            body.get("status", WorkflowStatus.DRAFT.value),
             f"{path}.status",
         ),
-        supersedes_workflow_id=workflow_document.get("supersedes_workflow_id"),
-        replacement_reason=workflow_document.get("replacement_reason"),
-        recovery_pointer=workflow_document.get("recovery_pointer"),
-        warnings=_str_tuple(workflow_document.get("warnings"), f"{path}.warnings"),
+        supersedes_workflow_id=body.get("supersedes_workflow_id"),
+        replacement_reason=body.get("replacement_reason"),
+        recovery_pointer=body.get("recovery_pointer"),
+        warnings=_str_tuple(body.get("warnings"), f"{path}.warnings"),
     )
-    return (workflow)

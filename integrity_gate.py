@@ -33,9 +33,8 @@ def check_package(package_root: Path) -> IntegrityReport:
         "references/tool-contract.md",
         "references/blender-call-surfaces.md",
         "references/ue5-call-surfaces.md",
-        "templates/workflow-template.md",
-        "templates/workflow-plan-template.md",
-        "templates/workflow-plan-template.json",
+        "templates/guidance-template.md",
+        "templates/workflow.schema.json",
     )
     missing = tuple(path for path in required if not (package_root / path).is_file())
     return IntegrityReport(ok=not missing, package_root=str(package_root), missing=missing, checked=required)

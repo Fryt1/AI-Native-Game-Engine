@@ -2,9 +2,9 @@
 
 The Agent executes every host call itself through its own MCP client. This
 command surface is where it opens a Workflow, reports what a call returned, asks
-Python to evaluate a Stage against the frozen checklists, and reads the
-aggregated result. Python never picks a call, never schedules a Stage, and never
-invents a checklist item.
+Python to evaluate a node against the frozen checklists, and reads the aggregated
+result. Python never picks a call, never schedules a node, and never invents a
+checklist item.
 
 Commands:
 
@@ -12,10 +12,15 @@ Commands:
     record     submit one executed call result as evidence
     item       submit one execution checklist item result
     check      submit one manual acceptance check result
-    stage      evaluate one Stage and close it
+    stage      evaluate one node and close it
     finish     aggregate the final TaskResult
     status     show current session state without changing it
     supersede  replace the Workflow revision, archiving the old one
+
+A node is named by **path** (``/buildings/tower_a/mass/``), never by a bare id: a
+``node_id`` is unique only among siblings, which is what lets two subtrees each
+declare a ``mass``. ``--stage`` takes that path and may address a STAGE or a
+composite.
 
 A Workflow revision is immutable. `open` refuses to overwrite a state that has
 recorded progress, because that would silently discard evidence; replacing a
@@ -46,19 +51,19 @@ from ainative.cli.state import (
     EVENT_CHECK,
     EVENT_EXECUTION_ITEM,
     EVENT_EXECUTION_RESULT,
-    EVENT_STAGE_CLOSED,
+    EVENT_NODE_CLOSED,
     SessionState,
     SessionStateError,
 )
 from ainative.model.results import TaskStatus
 from ainative.reading import (
+    TreeIntegrityError,
     WorkflowDeserializationError,
-    WorkflowIntegrityError,
     check_result_from_dict,
     execution_item_result_from_dict,
     execution_result_from_dict,
     task_from_dict,
-    validate_workflow_structure,
+    validate_tree_structure,
     workflow_from_dict,
 )
 from ainative.session_api import (
@@ -70,6 +75,36 @@ from ainative.session_api import (
 
 # A Stage that reached one of these is closed.
 CLOSED_STATUSES = frozenset({TaskStatus.SUCCEEDED, TaskStatus.DEGRADED})
+
+#: The code-defined spec: the shape a Workflow document must have.
+SPEC_PATH = Path(__file__).resolve().parents[3] / "templates" / "workflow.schema.json"
+
+
+def _spec_check(document: Any) -> None:
+    """Refuse a Workflow document that does not match the spec.
+
+    The spec is the definition of the data structure, so a document that violates
+    it is not a Workflow however well-formed its JSON. Without this the two
+    definitions drift silently: ``validate_tree_structure`` checks semantics the
+    spec cannot express, and nothing checked the shape the spec *does* express.
+
+    This fails closed when the spec itself cannot be read. A spec that is missing
+    is not permission to skip it.
+    """
+
+    from ainative.reading import schema as schema_module
+
+    try:
+        spec = schema_module.load_schema(SPEC_PATH)
+    except (OSError, ValueError) as exc:
+        raise SessionStateError(
+            f"the Workflow spec cannot be read at {SPEC_PATH}: {exc}") from exc
+    try:
+        schema_module.validate(document, spec)
+    except schema_module.SchemaError as exc:
+        # Named, because a bare JSON pointer does not say which document it came
+        # from, and this is the message a caller reads first.
+        raise SessionStateError(f"workflow does not match the spec: {exc}") from exc
 
 
 # A command may learn facts about its input before it can fail. `announce` records
@@ -96,22 +131,29 @@ def _load_json(path: str | None, what: str) -> Any:
         raise SessionStateError(f"{what} is not valid JSON: {exc}") from exc
 
 
-def _stage_of(workflow, declared_id: str, what: str) -> str:
-    """Find the Stage that declares one checklist item or check."""
+def _owning_node(session: AcceptanceSession, declared_id: str, what: str) -> str:
+    """Find the node that declares one checklist item or check.
 
-    for stage in workflow.stage_requests:
-        if any(item.item_id == declared_id for item in stage.execution_checklist):
-            return stage.stage_id
-        if any(check.check_id == declared_id for check in stage.acceptance_checklist):
-            return stage.stage_id
-    raise SessionStateError(f"{what} is not declared in the Workflow: {declared_id}")
+    A bare id is resolved only when exactly one node in the tree declares it. Two
+    subtrees may each declare ``built``, and judging one of them when the Agent
+    meant the other would be a silent wrong answer, so an ambiguous id is refused
+    and the caller must name the node path.
+    """
+
+    for finder in (session.workflow.path_of_item, session.workflow.path_of_check):
+        path = finder(declared_id)
+        if path is not None:
+            return path
+    raise SessionStateError(
+        f"{what} is not declared by exactly one node in the Workflow: {declared_id}; "
+        "name the node with --stage when the id is ambiguous")
 
 
 def replay(state: SessionState) -> AcceptanceSession:
     """Rebuild the session by replaying the Agent's evidence in submitted order.
 
     Replay must follow the original order, because a call may only be recorded
-    after the Stage it depends on has closed. Rebuilding from unordered sets would
+    after the node it depends on has closed. Rebuilding from unordered sets would
     re-trigger dependency failures the Agent already satisfied.
 
     @param state: the stored workflow and evidence.
@@ -122,15 +164,17 @@ def replay(state: SessionState) -> AcceptanceSession:
     workflow = state.workflow_object()
     task = task_from_dict(state.task, "state.task")
     session = AcceptanceGuide().start(task, workflow)
-    for event_type, payload in state.event_objects():
+    for event_type, payload, owner in state.event_objects():
         if event_type == EVENT_EXECUTION_RESULT:
-            session.record_execution_result(payload)
+            session.record_execution_result(payload, owner)
         elif event_type == EVENT_EXECUTION_ITEM:
-            session.record_execution_item(_stage_of(workflow, payload.item_id, "execution item"), payload)
+            session.record_execution_item(owner or _owning_node(session, payload.item_id,
+                                                                "execution item"), payload)
         elif event_type == EVENT_CHECK:
-            session.record_check_result(_stage_of(workflow, payload.check_id, "acceptance check"), payload)
-        elif event_type == EVENT_STAGE_CLOSED:
-            session.complete_stage(payload)
+            session.record_check_result(owner or _owning_node(session, payload.check_id,
+                                                             "acceptance check"), payload)
+        elif event_type == EVENT_NODE_CLOSED:
+            session.complete_node(payload)
     return session
 
 
@@ -151,12 +195,13 @@ def command_open(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
             )
 
     workflow_document = _load_json(args.workflow, "workflow")
+    _spec_check(workflow_document)
     state = SessionState(
         task=_load_json(args.task, "task"),
         workflow=workflow_document,
     )
     workflow = state.workflow_object()
-    validate_workflow_structure(workflow)
+    validate_tree_structure(workflow)
     session = AcceptanceGuide().start(task_from_dict(state.task, "task"), workflow)
     state.save(path)
 
@@ -168,9 +213,9 @@ def command_open(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
             "state": str(args.state),
             "ready": session.ready,
             "guidance": workflow.guidance,
-            "route": workflow.route.value,
+            "route": workflow.route.value if workflow.route else None,
             "revision_id": workflow.revision_id,
-            "stages": [stage.stage_id for stage in workflow.stage_requests],
+            "nodes": list(workflow.stage_paths),
             "blocked_reasons": list(session.gate.blocked_reasons),
         },
         errors=session.gate.blocked_reasons,
@@ -192,8 +237,9 @@ def command_supersede(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
     previous = state.workflow_object()
 
     workflow_document = _load_json(args.workflow, "workflow")
+    _spec_check(workflow_document)
     replacement = workflow_from_dict(workflow_document)
-    validate_workflow_structure(replacement)
+    validate_tree_structure(replacement)
 
     if state.has_progress and not replacement.supersedes_workflow_id:
         raise SessionStateError(
@@ -201,21 +247,21 @@ def command_supersede(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
             f"set supersedes_workflow_id to {previous.revision_id!r}"
         )
 
-    carried = state.carried_over_stages(workflow_document)
-    touched_before = set(state.side_effect_stages)
+    carried = state.carried_over_nodes(workflow_document)
+    touched_before = set(state.side_effect_nodes)
 
     reason = args.reason or "the Agent authored a replacement revision"
     carried = state.supersede(workflow_document, reason)
     session = AcceptanceGuide().start(task_from_dict(state.task, "task"), replacement)
     state.save(path)
 
-    # A Stage is at risk when its calls already ran against a live host and its
+    # A node is at risk when its calls already ran against a live host and its
     # definition changed, so the earlier proof no longer covers it and re-running
     # it would repeat a host change.
     at_risk = tuple(
-        stage.stage_id
-        for stage in replacement.stage_requests
-        if stage.stage_id not in carried and stage.stage_id in touched_before
+        path
+        for path in replacement.stage_paths
+        if path not in carried and path in touched_before
     )
 
     verdict = Verdict.SUCCEEDED if session.ready else Verdict.BLOCKED
@@ -230,14 +276,14 @@ def command_supersede(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
             "reason": reason,
             "carried_over": list(carried),
             "invalidated": [
-                stage.stage_id
-                for stage in replacement.stage_requests
-                if stage.stage_id not in carried
+                path
+                for path, _node in replacement.nodes
+                if path not in carried
             ],
             "side_effects_at_risk": list(at_risk),
             "archived_events": len(state.revisions[-1]["events"]) if state.revisions else 0,
             "revision_count": len(state.revisions),
-            "stages": [stage.stage_id for stage in replacement.stage_requests],
+            "nodes": list(replacement.stage_paths),
             "blocked_reasons": list(session.gate.blocked_reasons),
         },
         errors=session.gate.blocked_reasons,
@@ -258,29 +304,65 @@ def command_record(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
     """
 
     state = SessionState.load(Path(args.state))
-    result = execution_result_from_dict(_load_json(args.result, "result"), "result")
+    document = _load_json(args.result, "result")
+    result = execution_result_from_dict(document, "result")
+    announce("call_id", result.call_id)
+
+    # A call id is scoped to the STAGE that declares it, so two subtrees may each
+    # declare a "build". The node may be named here or in the submission; when it
+    # is neither, the id must be unique or the engine refuses rather than guessing.
+    declared = document.get("node_path") if isinstance(document, dict) else None
+    named = str(declared or args.stage) if (declared or args.stage) else None
+    try:
+        node_path = state.workflow_object().resolve_call_path(result.call_id, named)
+    except ValueError as exc:
+        raise SessionStateError(str(exc)) from exc
+    announce("node_path", node_path)
 
     if not args.confirm_side_effects:
+        # The repeat is a repeat of *this node's* call. The same id in a different
+        # node is a different host change, which is the whole point of scoping a
+        # call id to its STAGE.
         already_run = state.calls_already_run()
-        if result.call_id in already_run:
+        revision = already_run.get((node_path, result.call_id))
+        if revision is not None:
             raise SessionStateError(
-                f"call {result.call_id} has already run against a live host "
-                f"(revision {already_run[result.call_id]}); reporting a new result for it "
-                "could apply the same change twice. "
-                "Pass --confirm-side-effects to proceed, or author a replacement revision"
+                f"call {result.call_id} at {node_path} has already run against a live "
+                f"host (revision {revision}); reporting a new result for it could apply "
+                "the same change twice. Pass --confirm-side-effects to proceed, or "
+                "author a replacement revision"
             )
 
-    state.append(EVENT_EXECUTION_RESULT, result.to_dict())
+    body = result.to_dict()
+    body["node_path"] = node_path
+    state.append(EVENT_EXECUTION_RESULT, body)
     replay(state)
     state.save(Path(args.state))
 
     payload = envelope(
         "record",
         verdict=verdict_for_task_status(result.status),
-        detail={"call_id": result.call_id, "status": result.status.value},
+        detail={"call_id": result.call_id, "node_path": node_path,
+                "status": result.status.value},
         errors=result.errors,
     )
     return payload, payload["exit_code"]
+
+
+def _declaring_node(args: argparse.Namespace, session: AcceptanceSession,
+                    declared_id: str, what: str) -> str:
+    """Resolve which node an item or check submission belongs to.
+
+    The submission may name the node itself, or ``--stage`` may, and only then is a
+    bare id resolved by search -- and only when exactly one node declares it.
+    """
+
+    document = _load_json(args.result, "result")
+    declared = document.get("node_path") if isinstance(document, dict) else None
+    named = declared or getattr(args, "stage", None)
+    if named:
+        return str(named)
+    return _owning_node(session, declared_id, what)
 
 
 def command_item(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
@@ -296,19 +378,12 @@ def command_item(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
     announce("status", item.status.value)
 
     session = replay(state)
-    owning = next(
-        (
-            stage.stage_id
-            for stage in session.workflow.stage_requests
-            if any(entry.item_id == item.item_id for entry in stage.execution_checklist)
-        ),
-        None,
-    )
-    if owning is None:
-        raise SessionStateError(f"execution item is not declared in the Workflow: {item.item_id}")
-    announce("stage_id", owning)
+    owning = _declaring_node(args, session, item.item_id, "execution item")
+    announce("node_path", owning)
 
-    state.append(EVENT_EXECUTION_ITEM, item.to_dict())
+    body = item.to_dict()
+    body["node_path"] = owning
+    state.append(EVENT_EXECUTION_ITEM, body)
     replay(state)
     state.save(Path(args.state))
 
@@ -318,7 +393,7 @@ def command_item(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         detail={
             "item_id": item.item_id,
             "status": item.status.value,
-            "stage_id": owning,
+            "node_path": owning,
         },
         errors=(item.reason,) if item.reason else (),
     )
@@ -338,19 +413,12 @@ def command_check(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
     announce("status", check.status.value)
 
     session = replay(state)
-    owning = next(
-        (
-            stage.stage_id
-            for stage in session.workflow.stage_requests
-            if any(entry.check_id == check.check_id for entry in stage.acceptance_checklist)
-        ),
-        None,
-    )
-    if owning is None:
-        raise SessionStateError(f"acceptance check is not declared in the Workflow: {check.check_id}")
-    announce("stage_id", owning)
+    owning = _declaring_node(args, session, check.check_id, "acceptance check")
+    announce("node_path", owning)
 
-    state.append(EVENT_CHECK, check.to_dict())
+    body = check.to_dict()
+    body["node_path"] = owning
+    state.append(EVENT_CHECK, body)
     replay(state)
     state.save(Path(args.state))
 
@@ -360,7 +428,7 @@ def command_check(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         detail={
             "check_id": check.check_id,
             "status": check.status.value,
-            "stage_id": owning,
+            "node_path": owning,
         },
         errors=(check.reason,) if check.reason else (),
     )
@@ -368,24 +436,30 @@ def command_check(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
 
 
 def command_stage(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
-    """Evaluate one Stage against its frozen checklists and close it.
+    """Evaluate one node against its frozen checklists and close it.
 
-    Closing a Stage is idempotent: asking again returns the verdict already
-    recorded. The hazard of a repeated host change is guarded where the call is
-    reported, not here -- see `command_record`.
+    ``--stage`` names a node by **path**, because a ``node_id`` is unique only among
+    siblings and so cannot name one node on its own. The path may address a STAGE or
+    a composite: closing a composite judges its whole subtree and reports the
+    roll-up.
+
+    Closing a node is idempotent: asking again returns the verdict already recorded.
+    The hazard of a repeated host change is guarded where the call is reported, not
+    here -- see `command_record`.
     """
 
     state = SessionState.load(Path(args.state))
     session = replay(state)
 
-    closed_before = args.stage in state.closed_stages
-    result = session.complete_stage(args.stage)
+    path = args.stage
+    closed_before = path in state.closed_nodes
+    result = session.complete_node(path)
     if result.status in CLOSED_STATUSES and not closed_before:
-        state.append(EVENT_STAGE_CLOSED, {"stage_id": args.stage})
+        state.append(EVENT_NODE_CLOSED, {"node_path": path})
     state.save(Path(args.state))
 
     detail = result.to_dict()
-    detail["side_effects_recorded"] = session.has_side_effects(args.stage)
+    detail["side_effects_recorded"] = session.has_side_effects(path)
     payload = envelope(
         "stage",
         verdict=verdict_for_task_status(result.status),
@@ -422,7 +496,7 @@ def command_status(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
     state = SessionState.load(Path(args.state))
     session = replay(state)
     result = session.finish()
-    closed = set(session.completed_stage_ids)
+    closed = set(session.completed_node_paths)
 
     payload = envelope(
         "status",
@@ -433,11 +507,11 @@ def command_status(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
             "revision_id": session.workflow.revision_id,
             "revision_count": len(state.revisions),
             "completed_calls": list(session.completed_call_ids),
-            "completed_stages": list(session.completed_stage_ids),
-            "remaining_stages": [
-                stage.stage_id
-                for stage in session.workflow.stage_requests
-                if stage.required and stage.stage_id not in closed
+            "completed_nodes": list(session.completed_node_paths),
+            "remaining_nodes": [
+                path
+                for path in session.workflow.stage_paths
+                if path in session.workflow.required_paths and path not in closed
             ],
             "blocked_reasons": list(session.gate.blocked_reasons),
             "workflow": _workflow_summary(session, state),
@@ -448,49 +522,51 @@ def command_status(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
 
 
 def _workflow_summary(session: AcceptanceSession, state: SessionState) -> dict[str, Any]:
-    """Describe the bound Workflow: its identity, its Stages, and what each needs.
+    """Describe the bound Workflow: its identity, its nodes, and what each needs.
 
-    Enough for the Agent to act without opening the Workflow file again: which
-    Stage is closed, which calls it declared, and which checks must be proven.
+    Enough for the Agent to act without opening the Workflow file again: which node
+    is closed, which calls it declared, and which checks must be proven. Every node
+    is listed, not only the leaves, because a composite is closeable too and its
+    verdict is the one its parent reads.
     """
 
-    closed = set(session.completed_stage_ids)
-    touched = set(session.stages_with_side_effects)
+    closed = set(session.completed_node_paths)
+    touched = set(session.nodes_with_side_effects)
     return {
         "workflow_id": session.workflow.workflow_id,
         "revision": session.workflow.revision,
         "guidance": session.workflow.guidance,
-        "route": session.workflow.route.value,
+        "route": session.workflow.route.value if session.workflow.route else None,
         "supersedes_workflow_id": session.workflow.supersedes_workflow_id,
         "replaced": [
             entry.get("revision_id")
             for entry in state.revisions
         ],
-        "stages": [
+        "nodes": [
             {
-                "stage_id": stage.stage_id,
-                "step_id": step.step_id,
-                "stage_kind": stage.stage_kind.value,
-                "purpose": stage.purpose,
-                "required": stage.required,
-                "closed": stage.stage_id in closed,
-                "side_effects_recorded": stage.stage_id in touched,
+                "node_path": path,
+                "node_id": node.node_id,
+                "kind": node.kind.value,
+                "purpose": node.purpose,
+                "required": node.required,
+                "closed": path in closed,
+                "side_effects_recorded": path in touched,
                 "calls": [
                     {"call_id": call.call_id, "target": call.target.to_dict()}
-                    for call in stage.calls
+                    for call in node.declared_calls
                 ],
                 "execution_checklist": [
                     {"item_id": item.item_id, "required": item.required}
-                    for item in stage.execution_checklist
+                    for item in (node.stage.execution_checklist if node.stage else ())
                 ],
                 "acceptance_checklist": [
-                    {"check_id": check.check_id, "operator": check.operator.value,
-                     "required": check.required}
-                    for check in stage.acceptance_checklist
+                    {"check_id": wrapper.check_id,
+                     "operator": wrapper.check.operator.value,
+                     "required": wrapper.check.required}
+                    for wrapper in node.declared_checks
                 ],
             }
-            for step in session.workflow.steps
-            for stage in step.stages
+            for path, node in session.workflow.nodes
         ],
     }
 
@@ -516,7 +592,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--task", help="task JSON (required by 'open')")
     parser.add_argument("--workflow", help="Workflow JSON (required by 'open' and 'supersede')")
     parser.add_argument("--result", help="result JSON (required by record/item/check)")
-    parser.add_argument("--stage", help="stage id (required by 'stage')")
+    parser.add_argument(
+        "--stage",
+        help="node PATH (required by 'stage'; optional for item/check, to name the "
+             "node when a bare item or check id is declared more than once)",
+    )
     parser.add_argument("--reason", help="why the previous revision was abandoned (used by 'supersede')")
     parser.add_argument(
         "--confirm-side-effects",
@@ -543,7 +623,7 @@ def main(argv: list[str] | None = None) -> int:
         SessionStateError,
         SkillIntegrityError,
         WorkflowDeserializationError,
-        WorkflowIntegrityError,
+        TreeIntegrityError,
         WorkflowError,
     ) as exc:
         payload, code = unusable(args.command, str(exc), context=_CONTEXT)

@@ -2,11 +2,12 @@
 
 Two facts drive this behaviour:
 
-    A Stage carries over only when its *definition* is unchanged. Same stage_id
-    is not enough: if the goal, the checklist, or the calls changed, the earlier
-    verdict says nothing about the new Stage.
+    A node carries over only when its *definition* is unchanged. Same node_id is
+    not enough: if the goal, the checklist, or the calls changed -- or the node
+    moved to a different path -- the earlier verdict says nothing about the new
+    node.
 
-    A Stage that recorded a call has already run against a live host. Python
+    A node that recorded a call has already run against a live host. Python
     cannot see or undo that, so re-running it is refused until the Agent says it
     means to.
 
@@ -21,7 +22,9 @@ import pytest
 
 from ainative.cli import commands as session_cli
 from ainative.cli.output import EXIT_BLOCKING, EXIT_OK, EXIT_UNUSABLE
-from ainative.model.workflow import StageRequest, Workflow
+from ainative.model.tree import NodeKind, WorkflowNode, WorkflowTree, node_fingerprint
+from ainative.reading.deserialize import workflow_from_dict
+from tests.support.workflow_factory import first_stage
 
 ENVELOPE_KEYS = ["command", "ok", "verdict", "exit_code", "detail", "errors"]
 
@@ -29,19 +32,18 @@ ENVELOPE_KEYS = ["command", "ok", "verdict", "exit_code", "detail", "errors"]
 # --- the fingerprint -----------------------------------------------------------
 
 
-def _stage(**overrides):
-    base = {
-        "stage_id": "stage.a",
-        "purpose": "Do the thing",
+def _stage(node_id="stage.a", purpose="Do the thing", **body_overrides):
+    body = {
         "stage_kind": "change",
         "calls": [{"call_id": "c1", "target": {"owner": "ue5", "name": "do_thing"}}],
         "execution_checklist": [{"item_id": "i1", "description": "ran", "call_ids": ["c1"]}],
         "acceptance_checklist": [
-            {"check_id": "k1", "description": "ok", "operator": "tool_succeeded", "call_ids": ["c1"]}
+            {"check_id": "k1", "description": "ok", "operator": "tool_succeeded",
+             "source_call_id": "c1", "call_ids": ["c1"]}
         ],
     }
-    base.update(overrides)
-    return base
+    body.update(body_overrides)
+    return {"node_id": node_id, "kind": "stage", "purpose": purpose, "stage": body}
 
 
 def _stage_with_spare_call(**overrides):
@@ -62,7 +64,7 @@ def _stage_with_spare_call(**overrides):
         ],
         acceptance_checklist=[
             {"check_id": "k1", "description": "ok", "operator": "tool_succeeded",
-             "call_ids": ["c1", "c2"]}
+             "source_call_id": "c1", "call_ids": ["c1", "c2"]}
         ],
         **overrides,
     )
@@ -74,18 +76,24 @@ def _workflow(stages, revision=1, supersedes=None):
         "guidance": "host-operation",
         "route": "host_operation",
         "revision": revision,
-        "steps": [{"step_id": "work", "purpose": "work", "stages": stages}],
+        "root": {"node_id": "work", "kind": "workflow", "purpose": "work",
+                 "children": stages},
     }
     if supersedes:
         doc["supersedes_workflow_id"] = supersedes
     return doc
 
 
-def _fingerprint(stage_dict):
-    from ainative.reading.deserialize import workflow_from_dict
+def _paths(stages) -> dict[str, str]:
+    """Map each stage's node_id to the path that now identifies it."""
 
+    workflow = workflow_from_dict(_workflow(stages))
+    return {node.node_id: path for path, node in workflow.stages}
+
+
+def _fingerprint(stage_dict):
     workflow = workflow_from_dict(_workflow([stage_dict]))
-    return workflow.stage_requests[0].fingerprint
+    return node_fingerprint(first_stage(workflow))
 
 
 def test_an_identical_stage_has_the_same_fingerprint():
@@ -95,7 +103,7 @@ def test_an_identical_stage_has_the_same_fingerprint():
 def test_stage_id_is_not_part_of_the_fingerprint():
     """Renaming a Stage does not change what it does, so it is still the same work."""
 
-    assert _fingerprint(_stage()) == _fingerprint(_stage(stage_id="stage.renamed"))
+    assert _fingerprint(_stage()) == _fingerprint(_stage(node_id="stage.renamed"))
 
 
 @pytest.mark.parametrize(
@@ -153,8 +161,8 @@ def workspace(tmp_path, capsys):
         code = session_cli.main(["--state", state, "--result", result, *extra, "record"])
         return code, json.loads(capsys.readouterr().out)
 
-    def stage(stage_id, *extra):
-        code = session_cli.main(["--state", state, "--stage", stage_id, *extra, "stage"])
+    def stage(node_path, *extra):
+        code = session_cli.main(["--state", state, "--stage", node_path, *extra, "stage"])
         return code, json.loads(capsys.readouterr().out)
 
     return {
@@ -165,41 +173,47 @@ def workspace(tmp_path, capsys):
 
 STAGES = [
     _stage(),
-    _stage(stage_id="stage.b", calls=[{"call_id": "b1", "target": {"owner": "ue5", "name": "do_b"}}],
+    _stage(node_id="stage.b", calls=[{"call_id": "b1", "target": {"owner": "ue5", "name": "do_b"}}],
            execution_checklist=[{"item_id": "ib", "description": "ran", "call_ids": ["b1"]}],
            acceptance_checklist=[{"check_id": "kb", "description": "ok",
-                                  "operator": "tool_succeeded", "call_ids": ["b1"]}]),
+                                  "operator": "tool_succeeded", "source_call_id": "b1",
+                                  "call_ids": ["b1"]}]),
 ]
 
 
 def test_adding_a_stage_keeps_the_finished_one_closed(workspace):
     """The common case: the Agent discovers one more step is needed."""
 
+    added = _stage(node_id="stage.c",
+                   calls=[{"call_id": "z1", "target": {"owner": "ue5", "name": "do_c"}}],
+                   execution_checklist=[{"item_id": "iz", "description": "ran", "call_ids": ["z1"]}],
+                   acceptance_checklist=[{"check_id": "kz", "description": "ok",
+                                          "operator": "tool_succeeded", "source_call_id": "z1",
+                                          "call_ids": ["z1"]}])
+    paths = _paths([*STAGES, added])
+
     workspace["open"](STAGES, revision=1)
     workspace["record"]("c1", "do_thing")
-    workspace["stage"]("stage.a")
+    workspace["stage"](paths["stage.a"])
 
-    code, payload = workspace["supersede"](
-        [*STAGES, _stage(stage_id="stage.c",
-                         calls=[{"call_id": "z1", "target": {"owner": "ue5", "name": "do_c"}}],
-                         execution_checklist=[{"item_id": "iz", "description": "ran", "call_ids": ["z1"]}],
-                         acceptance_checklist=[{"check_id": "kz", "description": "ok",
-                                                "operator": "tool_succeeded", "call_ids": ["z1"]}])],
-        revision=2, supersedes="t:workflow:r1",
-    )
+    code, payload = workspace["supersede"]([*STAGES, added], revision=2,
+                                           supersedes="t:workflow:r1")
+    replacement = workflow_from_dict(_workflow([*STAGES, added]))
 
     assert code == EXIT_OK
-    assert payload["detail"]["carried_over"] == ["stage.a", "stage.b"]
-    assert payload["detail"]["invalidated"] == ["stage.c"]
+    assert payload["detail"]["carried_over"] == [paths["stage.a"], paths["stage.b"]]
+    # The added stage is invalidated, and so is every composite whose fingerprint
+    # the new child changed -- the root included.
+    assert payload["detail"]["invalidated"] == [*replacement.composite_paths, paths["stage.c"]]
     assert payload["detail"]["side_effects_at_risk"] == []
 
     # The finished Stage carried its evidence over, so asking again is idempotent.
-    code, status = workspace["stage"]("stage.a")
+    code, status = workspace["stage"](paths["stage.a"])
     assert code == EXIT_OK
     assert status["verdict"] == "succeeded"
 
     # The new Stage has run nothing, so it cannot close yet.
-    code, status = workspace["stage"]("stage.c")
+    code, status = workspace["stage"](paths["stage.c"])
     assert code == EXIT_BLOCKING
     assert status["verdict"] == "blocked"
 
@@ -207,35 +221,40 @@ def test_adding_a_stage_keeps_the_finished_one_closed(workspace):
 def test_a_half_done_stage_keeps_its_recorded_call(workspace):
     """A Stage whose calls ran but which was never closed can still be closed."""
 
+    paths = _paths(STAGES)
+
     workspace["open"](STAGES, revision=1)
     workspace["record"]("b1", "do_b")
 
     workspace["supersede"](STAGES, revision=2, supersedes="t:workflow:r1")
 
-    code, payload = workspace["stage"]("stage.b")
+    code, payload = workspace["stage"](paths["stage.b"])
     assert code == EXIT_OK
     assert payload["verdict"] == "succeeded"
 
 
 def test_changing_a_checklist_invalidates_that_stage(workspace):
-    workspace["open"](STAGES, revision=1)
-    workspace["record"]("b1", "do_b")
-
     tightened = _stage(
-        stage_id="stage.b",
+        node_id="stage.b",
         calls=[{"call_id": "b1", "target": {"owner": "ue5", "name": "do_b"}}],
         execution_checklist=[{"item_id": "ib", "description": "ran", "call_ids": ["b1"]}],
         acceptance_checklist=[
-            {"check_id": "kb", "description": "ok", "operator": "tool_succeeded", "call_ids": ["b1"]},
+            {"check_id": "kb", "description": "ok", "operator": "tool_succeeded",
+             "source_call_id": "b1", "call_ids": ["b1"]},
             {"check_id": "extra", "description": "new proof", "operator": "truthy",
              "source_call_id": "b1", "actual_path": ["preserved_relations"], "call_ids": ["b1"]},
         ],
     )
+    paths = _paths([tightened])
+
+    workspace["open"](STAGES, revision=1)
+    workspace["record"]("b1", "do_b")
+
     _, payload = workspace["supersede"]([tightened], revision=2, supersedes="t:workflow:r1")
 
     assert payload["detail"]["carried_over"] == []
-    assert "stage.b" in payload["detail"]["invalidated"]
-    assert payload["detail"]["side_effects_at_risk"] == ["stage.b"]
+    assert paths["stage.b"] in payload["detail"]["invalidated"]
+    assert payload["detail"]["side_effects_at_risk"] == [paths["stage.b"]]
 
 
 def test_re_reporting_a_call_that_already_ran_is_refused(workspace):
@@ -265,16 +284,19 @@ def test_the_refusal_can_be_overridden_explicitly(workspace):
 def test_a_replaced_stage_refuses_its_call_again(workspace, tmp_path, capsys):
     """Even after the revision that ran the call is archived, the call is remembered."""
 
-    workspace["open"](STAGES, revision=1)
-    workspace["record"]("c1", "do_thing")
-    workspace["stage"]("stage.a")
-
     # Change the goal, so the Stage is invalidated rather than carried over.
     changed = _stage(purpose="A different goal")
-    code, payload = workspace["supersede"]([changed], revision=2, supersedes="t:workflow:r1")
+    paths = _paths([changed])
 
-    assert payload["detail"]["invalidated"] == ["stage.a"]
-    assert payload["detail"]["side_effects_at_risk"] == ["stage.a"]
+    workspace["open"](STAGES, revision=1)
+    workspace["record"]("c1", "do_thing")
+    workspace["stage"](_paths(STAGES)["stage.a"])
+
+    code, payload = workspace["supersede"]([changed], revision=2, supersedes="t:workflow:r1")
+    replacement = workflow_from_dict(_workflow([changed]))
+
+    assert payload["detail"]["invalidated"] == [*replacement.composite_paths, paths["stage.a"]]
+    assert payload["detail"]["side_effects_at_risk"] == [paths["stage.a"]]
 
     code, payload = workspace["record"]("c1", "do_thing")
 
@@ -288,7 +310,7 @@ def test_evaluating_a_stage_after_its_own_calls_is_not_refused(workspace):
     workspace["open"](STAGES, revision=1)
     workspace["record"]("c1", "do_thing")
 
-    code, payload = workspace["stage"]("stage.a")
+    code, payload = workspace["stage"](_paths(STAGES)["stage.a"])
 
     assert code == EXIT_OK
     assert payload["verdict"] == "succeeded"
@@ -327,16 +349,19 @@ def test_open_refuses_to_overwrite_a_state_with_progress(workspace, tmp_path):
 def test_the_archived_revision_keeps_its_evidence(workspace):
     """The audit trail must survive: what was attempted, and why it was dropped."""
 
-    workspace["open"](STAGES, revision=1)
-    workspace["record"]("b1", "do_b")
-
     tightened = _stage(
-        stage_id="stage.b",
+        node_id="stage.b",
         calls=[{"call_id": "b1", "target": {"owner": "ue5", "name": "do_b"}}],
         execution_checklist=[{"item_id": "ib", "description": "changed", "call_ids": ["b1"]}],
         acceptance_checklist=[
-            {"check_id": "kb", "description": "ok", "operator": "tool_succeeded", "call_ids": ["b1"]}],
+            {"check_id": "kb", "description": "ok", "operator": "tool_succeeded",
+             "source_call_id": "b1", "call_ids": ["b1"]}],
     )
+    paths = _paths([tightened])
+
+    workspace["open"](STAGES, revision=1)
+    workspace["record"]("b1", "do_b")
+
     workspace["supersede"]([tightened], revision=2, supersedes="t:workflow:r1", reason="changed ib")
 
     stored = json.loads(pathlib.Path(workspace["state"]).read_text(encoding="utf-8"))
@@ -346,12 +371,20 @@ def test_the_archived_revision_keeps_its_evidence(workspace):
     assert archived["revision_id"] == "t:workflow:r1"
     assert archived["reason"] == "changed ib"
     assert len(archived["events"]) == 1
-    assert archived["side_effect_stages"] == ["stage.b"]
+    assert archived["side_effect_nodes"] == [paths["stage.b"]]
 
 
 def test_a_workflow_with_no_stages_round_trips():
     """The model accepts an empty Workflow; the fingerprint logic must not assume otherwise."""
 
-    workflow = Workflow(guidance="g", route="host_operation", steps=())
-    assert workflow.stage_requests == ()
-    assert isinstance(StageRequest(stage_id="s", purpose="p"), StageRequest)
+    workflow = WorkflowTree(
+        workflow_id="t:workflow",
+        guidance="g",
+        route="host_operation",
+        root=WorkflowNode(node_id="workflow", kind=NodeKind.WORKFLOW, purpose="the Workflow"),
+    )
+
+    assert workflow.stages == ()
+    rebuilt = workflow_from_dict(workflow.to_dict())
+    assert rebuilt.stages == ()
+    assert rebuilt.root.node_id == workflow.root.node_id
