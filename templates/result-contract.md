@@ -1,5 +1,14 @@
 # Call, Checklist, and Result Contract
 
+This is the other half of `workflow.schema.json`. That file defines the Workflow a
+document must be; this one defines what the Agent submits against it. A Workflow and
+its results are one contract, so they live side by side.
+
+Result documents have no JSON Schema of their own -- the spec describes the Workflow,
+not the results reported against it. This file is therefore the only place the
+submitted shapes are written down, and the sections below are normative for the
+values `record`, `item`, and `check` accept.
+
 ## No registry, no binding
 
 There is no Toolset Registry, no execution binding, and no provider list. A Workflow
@@ -46,7 +55,7 @@ acceptance checklist
 Checklist composition does not bind Tools. The final Workflow references the
 exact calls the Agent selected.
 
-## ExecutionResult
+## ExecutionResult — what `record` submits
 
 An ExecutionResult records call-level facts:
 
@@ -69,9 +78,9 @@ the Workflow, and the `target` must agree with that declaration.
 Call `succeeded` means the invocation completed without a blocking call-level
 error. It does not automatically mean a semantic acceptance item passed.
 
-## ExecutionItemResult and CheckResult
+## ExecutionItemResult and CheckResult — what `item` and `check` submit
 
-Both use:
+`item` submits an `item_id`; `check` submits a `check_id`. Both use:
 
 ```text
 pass
@@ -95,6 +104,9 @@ them and the item or check is downgraded to `unknown`, which blocks the node; no
 that the submission itself still reports success, so the failure surfaces on the
 next command rather than this one. A result submitted with `record` does not need
 them: the engine builds `execution-result:<call_id>` itself.
+
+`item` and `check` accept a bare id only when exactly one node declares it; pass
+`--stage` to name the node when it is ambiguous.
 
 Simple deterministic checks support:
 

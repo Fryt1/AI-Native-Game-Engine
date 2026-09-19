@@ -178,7 +178,7 @@ The Agent composes every Stage itself from Stage kind, processing object, operat
 ```text
 SKILL.md          the composition rule and the execution discipline
 guidance/         reusable macro lifecycle guidance
-references/       host and MCP interface notes
+templates/        the Workflow schema and the result contract
 ```
 
 There is no per-object or per-operation knowledge base and no recipe package in this repository. The Agent supplies the domain competence for the object and the operation; the repository supplies the contract, the guidance, and the deterministic acceptance engine.
@@ -188,7 +188,7 @@ There is no per-object or per-operation knowledge base and no recipe package in 
 - `AGENTS.md` — repository-wide Agent rules
 - `SKILL.md` — Skill contract
 - `guidance/` — reusable macro lifecycle guidance
-- `references/` — notes on how hosts are reached
+- `templates/` — the Workflow schema, the result contract, and the guidance template
 - `docs/ARCHITECTURE.md` — architecture and data flow
 - `docs/ADDING_GUIDANCE.md` — step-by-step guide to add a reusable lifecycle
 - `docs/MAINTENANCE.md` — maintenance and extension rules

@@ -37,10 +37,13 @@ composite's verdict is earned on its children's. It does not decide what runs ne
 
 1. Read this `SKILL.md`.
 2. Run the integrity gate: `python integrity_gate.py --json`.
-3. Read `guidance/` and pick the document matching the task's lifecycle.
-4. Read `references/` for host and MCP interfaces.
+3. Read `templates/` — `workflow.schema.json` is the Workflow's shape, and
+   `result-contract.md` is the shape of what you submit against it.
+4. Read `guidance/` and pick the document matching the task's lifecycle.
 5. Load `docs/DEPENDENCIES.md` for the host or MCP server involved and confirm
-   its prerequisites before selecting any call.
+   its prerequisites before selecting any call. There is no interface reference to
+   read: what a host's MCP server can do is decided by the running server, so
+   confirm it through your own MCP client.
 
 This package ships no per-object or per-operation knowledge base. The working
 order below is the composition rule, and the Agent supplies the domain

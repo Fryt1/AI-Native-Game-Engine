@@ -11,9 +11,9 @@ this file. Nothing in this repository names a machine-specific location.
 AGENTS.md
     → SKILL.md
     → Skill integrity gate
-    → templates/ when authoring a Workflow or a guidance document
+    → templates/ for the Workflow schema and the result contract when authoring
+      a Workflow or a guidance document
     → guidance/ for the matching lifecycle
-    → references/ for host/MCP interfaces
     → docs/DEPENDENCIES.md (when a host or MCP call is involved)
     → docs/DEPENDENCIES.md section for the specific host/MCP (Blender/UE5/ComfyUI/HF)
     → exact MCP call feasibility
@@ -24,6 +24,10 @@ AGENTS.md
     → python -m ainative.session supersede (replace the revision when the plan was wrong)
     → python -m ainative.session finish (aggregated TaskResult)
 ```
+
+There is no host-interface reference to read. What a host's MCP server can do is
+decided by the running server, so this repository cannot state it: confirm it
+through the Agent's own MCP client before selecting a call.
 
 The runtime source root is the directory containing this file. Do not infer a
 second project root from the current shell directory.
@@ -198,8 +202,8 @@ This repository **is** the Skill. The guidance below is what an Agent reads;
 ├── AGENTS.md             this file
 ├── SKILL.md              Skill entry point
 ├── guidance/             reusable macro-lifecycle guidance
-├── references/           host and MCP interface notes
-├── templates/            the Workflow schema and the guidance template
+├── templates/            the Workflow schema, the result contract, and the
+│                         guidance template
 ├── src/ainative/
 │   ├── session_api/      Skill loading, the Workflow opener, the session
 │   ├── cli/              the acceptance-loop CLI and its state file
@@ -217,8 +221,10 @@ This repository **is** the Skill. The guidance below is what an Agent reads;
 - `src/ainative/cli/` owns the acceptance-loop CLI and its durable state.
 - `src/ainative/model/`, `reading/`, and `acceptance/` own the data shapes,
   Workflow validation, and the deterministic verdict.
-- `guidance/` and `references/` own what the Agent reads. They are prompt assets,
+- `guidance/` owns what the Agent reads about a lifecycle. It is a prompt asset,
   not a runtime.
+- `templates/` owns the shapes: the Workflow spec the engine validates, the result
+  contract the Agent submits against, and how to write a guidance document.
 - `integrity_gate.py` owns the required-file list every prompt asset must appear
   in.
 

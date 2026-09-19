@@ -35,7 +35,7 @@
 
 | 层 | 位置 | 拥有什么 | 不做什么 |
 |---|---|---|---|
-| Skill 文档 | 仓库根：`SKILL.md`、`guidance/`、`references/` | 生命周期指引、宿主接入说明 | 不是运行时 |
+| Skill 文档 | 仓库根：`SKILL.md`、`guidance/`、`templates/` | 生命周期指引、形状契约 | 不是运行时 |
 | 模型层 | `model/` | 数据结构（纯 dataclass） | 无行为 |
 | 读取层 | `reading/` | 读 JSON；按 `templates/workflow.schema.json` 检查文档的形状与格式（`schema.py`），再检查 schema 表达不了的语义（`tree_validate.py`） | 不生成计划、不排序、不解析调用目标 |
 | 验收层 | `acceptance/` | 按清单确定性判定、整棵树自底向上汇总、确认门 | 不调用任何 Tool |
@@ -168,7 +168,7 @@ TaskResult                          最终汇总
 
 ```
 ① Agent 读文档
-   AGENTS.md → SKILL.md → 完整性门 → guidance/ → references/
+   AGENTS.md → SKILL.md → 完整性门 → templates/ → guidance/
    （需要宿主时读 docs/DEPENDENCIES.md）
 
 ② Agent 写 TaskContract（JSON）
@@ -417,8 +417,7 @@ game-engine/
 ├── AGENTS.md                仓库级 Agent 规则
 ├── SKILL.md                 Skill 入口
 ├── guidance/                生命周期指引（单文档或目录两种形态）
-├── references/              宿主接入说明（3 份）
-├── templates/               Workflow schema + 指引模板
+├── templates/               Workflow schema + 结果契约 + 指引模板
 ├── src/ainative/
 │   ├── session_api/         Skill 加载 + Workflow 开启 + 验收会话
 │   ├── cli/                 验收循环 CLI / state

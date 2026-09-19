@@ -39,7 +39,7 @@ Task Contract
 
 ```text
 guidance/*.md            仅当一条宏观生命周期的执行/验收行为不同
-references/*.md          说明宿主如何接入（本仓库不含可执行 Toolset）
+templates/*.md           形状与写法：Workflow schema、结果契约、指引模板
 ```
 
 不要为每个 host/object/operation 组合维护单独文档。Agent 按 `SKILL.md` 的组合
@@ -64,7 +64,7 @@ needs_human        → 等待决策
 | 生命周期指引 | `guidance/*.md` | `guidance/index.md`、integrity gate、examples |
 | 计划/清单格式 | `src/ainative/model/tree.py` | `templates/workflow.schema.json`、integrity gate、tests |
 | 调用契约（`ToolCall` / `CallTarget`） | `src/ainative/model/tools.py` | deserialize、contract tests |
-| 宿主接入说明 | `references/*.md` | README、`docs/DEPENDENCIES.md` |
+| 提交结果的形状 | `templates/result-contract.md` | `docs/cli.md`、deserialize、contract tests |
 | Host/MCP dependency policy | `docs/DEPENDENCIES.md` | README、live handshake evidence |
 | Model acquisition policy | `docs/DEPENDENCIES.md`（Hugging Face 节） | CLI auth/download evidence、model revision/hash、license review |
 | Workflow 形状 spec | `templates/workflow.schema.json` | `src/ainative/reading/schema.py`、`test_schema_agreement.py` |
@@ -94,6 +94,23 @@ ruff check src/ainative tests
 ```
 
 只给维护者看的清单不进运行时加载。
+
+**然后按它定义的是什么决定去向**——四问只筛掉重复，落点看这张表：
+
+| 它定义的是 | 放哪 | 判据 |
+|---|---|---|
+| 引擎校验的形状 | `templates/` | `open` 真的读它。spec 与它校验的数据是一对 |
+| Agent 提交上来的形状 | `templates/` | 契约的另一半，同上。结果文档目前没有 schema，但归这里 |
+| 某类任务怎么干 | `guidance/` | 领域流程，换掉引擎照样成立 |
+| 上面两种怎么写 | `templates/` | 模板就是"写的规则" |
+| 引擎内部机制 | `docs/` | 只有维护者读 |
+| 宿主前置条件与版本 | `docs/DEPENDENCIES.md` | 唯一一份 Agent 与维护者共读的 |
+| 仓库级规矩 | `AGENTS.md` | 第一份，永远 |
+| 跑过的证据 | `docs/VALIDATION_REPORT.md`、`artifacts/` | 历史，不是规则 |
+
+**没有落点的情况要警惕。** 一份文档如果落不进任何一格，通常说明它要定义的事实**不在本仓库**——例如"某个宿主能调哪些调用"，答案由运行中的 MCP Server 决定。此时正确做法是从运行时加载顺序里删掉它，而不是为它新建一个目录。
+
+`references/` 就是这样消失的：它装的两类事实，一类（提交结果的形状）归 `templates/`，另一类（宿主能调什么）不在本仓库。
 
 ## 目录维护规则
 

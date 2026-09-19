@@ -165,7 +165,7 @@ PATH_PATTERN = re.compile(r"`([A-Za-z0-9_][A-Za-z0-9_./\\-]*\.(?:py|md|json|toml
 
 #: A markdown link target: `[label](target)`. Backticked paths were checked and
 #: link targets were not, which is backwards -- a link is what a reader clicks, and
-#: both `references/` files pointed two directory levels too high because of it.
+#: both files in the since-deleted `references/` tree pointed two levels too high.
 LINK_PATTERN = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
 
 
@@ -177,8 +177,8 @@ def test_every_markdown_link_resolves(doc):
     reader's browser resolves it. An absolute URL, a bare anchor, and a `mailto:`
     are not filesystem paths and are skipped. A relative target that climbs out of
     the repository is NOT skipped: that is exactly what a link with one `..` too
-    many looks like, and skipping it is what let both `references/` links point two
-    levels too high unnoticed.
+    many looks like, and skipping it is what let two links in the since-deleted
+    `references/` tree point two levels too high unnoticed.
     """
 
     unresolved = []
@@ -207,10 +207,11 @@ def test_every_referenced_path_exists(doc):
     `src/ainative/model/tools.py` to `model/tools.py` on purpose.
 
     A path with `..` in it used to be skipped outright, which meant the relative
-    links were the only ones never checked -- and both `references/` link targets
-    were wrong by two directory levels for as long as that exemption existed. A
-    relative link is resolved against the document's own directory and must land
-    on something; only one that climbs out of the repository is skipped.
+    links were the only ones never checked -- and every link in the since-deleted
+    `references/` tree was wrong by two directory levels for as long as that
+    exemption existed. A relative link is resolved against the document's own
+    directory and must land on something; only one that climbs out of the
+    repository is skipped.
     """
 
     text = doc.read_text(encoding="utf-8")
@@ -279,6 +280,49 @@ def test_the_stage_kinds_and_routes_are_stated_where_they_are_chosen():
     assert not [k.value for k in StageKind if k.value not in skill], "SKILL.md omits a Stage kind"
     assert not [r.value for r in TaskRoute if f'"{r.value}"' not in schema], (
         "the schema omits a route")
+
+
+def test_every_top_level_directory_is_one_of_the_owned_categories():
+    """A directory is a claim about who reads a file, so the set is closed.
+
+    `references/` held two files for a long time and justified neither: what a
+    host's MCP server can do is decided by the running server, so no document here
+    can state it, and the submitted-result shapes belonged beside the Workflow
+    schema. Both facts had a home; the directory did not. Adding a third was easier
+    than asking, which is exactly why this test exists -- `docs/MAINTENANCE.md`
+    says a document that fits no row means the fact is not this repository's, not
+    that a directory is missing.
+    """
+
+    allowed = {"docs", "guidance", "src", "templates", "tests", "artifacts"}
+
+    present = {
+        path.name for path in REPO_ROOT.iterdir()
+        if path.is_dir()
+        and not path.name.startswith(".")
+        and path.name not in {"__pycache__", "node_modules"}
+    }
+
+    assert present <= allowed, (
+        f"unowned top-level directories: {sorted(present - allowed)}. Each one is a "
+        "claim that some fact needs its own home; check docs/MAINTENANCE.md first")
+
+
+def test_the_documented_ownership_matches_the_tree():
+    """AGENTS.md draws the tree, so it must draw the one that exists.
+
+    The directory listing is prose, and prose drifts: this is what let the tree in
+    `AGENTS.md` keep naming a directory after it was deleted.
+    """
+
+    agents = (REPO_ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    start = agents.index("```text\n<repository root>/")
+    drawing = agents[start:agents.index("```", start + 10)]
+
+    for name in ("guidance/", "templates/", "src/ainative/", "tests/", "docs/", "artifacts/"):
+        assert name in drawing, f"AGENTS.md draws no {name}"
+
+    assert "references/" not in drawing, "AGENTS.md still draws a directory that is gone"
 
 
 def test_the_readme_agent_api_example_still_runs():
