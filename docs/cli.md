@@ -10,8 +10,8 @@ Python，由 Python 按节点冻结的 checklist 给出确定性判定。
 ## 运行
 
 ```powershell
-# 方式一：源码在 PYTHONPATH 上
-$env:PYTHONPATH='D:\work\AI-Native\game-engine\src'
+# 方式一：源码在 PYTHONPATH 上（路径按你自己放仓库的位置写）
+$env:PYTHONPATH='<repository root>/src'
 python -m ainative.session --help
 
 # 方式二：安装后使用 console script

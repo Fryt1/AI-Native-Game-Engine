@@ -17,7 +17,7 @@ passed
 python -m compileall -q src tests
 passed
 
-ruff check src\ainative tests
+ruff check src/ainative tests
 passed
 
 python integrity_gate.py --json
@@ -108,11 +108,11 @@ transport。
 
 ### ComfyUI MCP live transport
 
-2026-09-06 在本机 ComfyUI 发行版环境中验证了完整的 ComfyUI MCP 链路：
+2026-09-06 在本机一份 ComfyUI 发行版环境中验证了完整的 ComfyUI MCP 链路。
+发行版装在哪个盘、哪个目录与本报告无关，故不记录；下面只留可复现的版本号：
 
 ```text
-ComfyUI root: D:\work\Comfyui\ComfyUI-aki-v3.2
-ComfyUI workspace: D:\work\Comfyui\ComfyUI-aki-v3.2\ComfyUI
+ComfyUI distribution: a-ki-v3.2
 ComfyUI core: v0.30.2
 comfy-cli: 1.18.0
 comfy-mcp: 0.10.0

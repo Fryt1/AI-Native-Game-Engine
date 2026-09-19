@@ -4,15 +4,18 @@ This file is the repository-level entry point.
 
 ## Required loading order
 
+Every path below is relative to the repository root — the directory containing
+this file. Nothing in this repository names a machine-specific location.
+
 ```text
-D:\work\AI-Native\game-engine\AGENTS.md
-    → D:\work\AI-Native\game-engine\SKILL.md
+AGENTS.md
+    → SKILL.md
     → Skill integrity gate
     → templates/ when authoring a Workflow or a guidance document
-    → guidance\ for the matching lifecycle
-    → references\ for host/MCP interfaces
-    → docs\DEPENDENCIES.md (when a host or MCP call is involved)
-    → docs\DEPENDENCIES.md section for the specific host/MCP (Blender/UE5/ComfyUI/HF)
+    → guidance/ for the matching lifecycle
+    → references/ for host/MCP interfaces
+    → docs/DEPENDENCIES.md (when a host or MCP call is involved)
+    → docs/DEPENDENCIES.md section for the specific host/MCP (Blender/UE5/ComfyUI/HF)
     → exact MCP call feasibility
     → one-call-at-a-time execution
     → python -m ainative.session open (hand the Agent-authored Workflow to Python)
@@ -114,7 +117,7 @@ Consequences:
   declare one check each, or nest a composite whose own verdict rolls them up.
 - A change STAGE confirms the calls required for execution and acceptance before
   its first side effect.
-- Before selecting a host or MCP call, load docs\DEPENDENCIES.md and confirm the
+- Before selecting a host or MCP call, load docs/DEPENDENCIES.md and confirm the
   required Python, Blender, UE5, add-on/plugin, and Agent prerequisites.
 - Before selecting a Blender or UE5 MCP call, confirm the host version, the
   running MCP server, and the Agent client prerequisites.
@@ -191,36 +194,33 @@ This repository **is** the Skill. The guidance below is what an Agent reads;
 `src/` is the only executable part.
 
 ```text
-D:\work\AI-Native\game-engine\
+<repository root>/
 ├── AGENTS.md             this file
 ├── SKILL.md              Skill entry point
-├── guidance\             reusable macro-lifecycle guidance
-├── references\           host and MCP interface notes
-├── templates\            the Workflow schema and the guidance template
-├── src\ainative\
-│   ├── session_api\      Skill loading, the Workflow opener, the session
-│   ├── cli\              the acceptance-loop CLI and its state file
-│   ├── model\            pure data structures
-│   ├── reading\          JSON reading and Workflow validation
-│   └── acceptance\       Stage verdict, aggregation, confirmation gate
-├── tests\                unit/integration tests + a sample Task Contract
-├── docs\                 cross-cutting architecture and maintenance docs
-└── artifacts\            evidence and scratch output
+├── guidance/             reusable macro-lifecycle guidance
+├── references/           host and MCP interface notes
+├── templates/            the Workflow schema and the guidance template
+├── src/ainative/
+│   ├── session_api/      Skill loading, the Workflow opener, the session
+│   ├── cli/              the acceptance-loop CLI and its state file
+│   ├── model/            pure data structures
+│   ├── reading/          JSON reading and Workflow validation
+│   └── acceptance/       node verdict, aggregation, confirmation gate
+├── tests/                unit/integration tests + a sample Task Contract
+├── docs/                 cross-cutting architecture and maintenance docs
+└── artifacts/            evidence and scratch output
 ```
 
 ### Code ownership
 
-- `D:\work\AI-Native\game-engine\src\ainative\session_api\` owns the Agent-facing
-  session API.
-- `D:\work\AI-Native\game-engine\src\ainative\cli\` owns the acceptance-loop CLI
-  and its durable state.
-- `D:\work\AI-Native\game-engine\src\ainative\model\`, `reading\`, and
-  `acceptance\` own the data shapes, Workflow validation, and the deterministic
-  verdict.
-- `D:\work\AI-Native\game-engine\guidance\` and `references\` own what the
-  Agent reads. They are prompt assets, not a runtime.
-- `D:\work\AI-Native\game-engine\integrity_gate.py` owns the required-file
-  list every prompt asset must appear in.
+- `src/ainative/session_api/` owns the Agent-facing session API.
+- `src/ainative/cli/` owns the acceptance-loop CLI and its durable state.
+- `src/ainative/model/`, `reading/`, and `acceptance/` own the data shapes,
+  Workflow validation, and the deterministic verdict.
+- `guidance/` and `references/` own what the Agent reads. They are prompt assets,
+  not a runtime.
+- `integrity_gate.py` owns the required-file list every prompt asset must appear
+  in.
 
 ## Call execution
 
@@ -233,8 +233,8 @@ call contract carries the target; the Agent's own MCP client resolves and runs
 it. Host capabilities — Blender, UE5, ComfyUI — are the Agent's MCP servers'
 business, and this repository ships no executable Toolset of its own.
 
-Host dependencies are declared in `docs\DEPENDENCIES.md`. There is no per-package
-recipe directory: the Agent reads `guidance\` for the matching lifecycle and
+Host dependencies are declared in `docs/DEPENDENCIES.md`. There is no per-package
+recipe directory: the Agent reads `guidance/` for the matching lifecycle and
 confirms the host prerequisites itself.
 
 ## Acceptance loop
@@ -313,18 +313,18 @@ call is refused without `--confirm-side-effects`.
 
 ## Verification commands
 
+Run these from the repository root:
+
 ```powershell
-Set-Location D:\work\AI-Native\game-engine
 python -m pytest -q
 python integrity_gate.py --json
 python -m compileall -q src tests
-ruff check src\ainative tests integrity_gate.py
+ruff check src/ainative tests integrity_gate.py
 ```
 
 ### Acceptance-loop example
 
 ```powershell
-Set-Location D:\work\AI-Native\game-engine
 python -m ainative.session --state s.json --task task.json --workflow workflow.json open
 python -m ainative.session --state s.json --result executed-call.json record
 python -m ainative.session --state s.json --stage /step-1/validate-asset/ stage

@@ -38,6 +38,38 @@ def _docs() -> list[pathlib.Path]:
 
 DOCS = _docs()
 
+#: A bare drive letter followed by a separator: `C:\...` or `C:/...`. A document
+#: carrying one names the machine it was written on, and reads as broken to anyone
+#: else. The lookbehind is what keeps a URL scheme out: in `https://` the `s` sits
+#: after a letter, so it is not a drive letter, while `D:\` at the start of a word
+#: is.
+ABSOLUTE_PATH = re.compile(r"(?<![A-Za-z0-9])[A-Za-z]:[\\/]")
+
+
+@pytest.mark.parametrize("doc", DOCS, ids=lambda p: p.as_posix())
+def test_no_doc_names_a_machine_specific_location(doc):
+    """Every path in a document must be relative to the repository root.
+
+    A machine-specific path is worse than a broken one: it looks authoritative, so
+    a reader assumes it is the answer rather than a leftover. `AGENTS.md` carried a
+    dozen of them -- the loading order, the directory tree, the ownership list, and
+    both example blocks all began with one machine's checkout -- and every one of
+    them was wrong for everybody else.
+
+    Paths inside a fenced block are checked too. That is where the examples live,
+    and an example is the thing a reader copies.
+    """
+
+    offenders = [
+        (number, line.strip())
+        for number, line in enumerate(doc.read_text(encoding="utf-8").splitlines(), 1)
+        if ABSOLUTE_PATH.search(line)
+    ]
+
+    assert not offenders, (
+        f"{doc.relative_to(REPO_ROOT).as_posix()} names a machine-specific path; "
+        f"write it relative to the repository root instead: {offenders}")
+
 # Docs that enumerate the command surface, so they must name every command.
 COMMAND_LISTING_DOCS = [
     REPO_ROOT / "AGENTS.md",
@@ -200,3 +232,53 @@ def test_the_stage_kinds_and_routes_are_stated_where_they_are_chosen():
     assert not [k.value for k in StageKind if k.value not in skill], "SKILL.md omits a Stage kind"
     assert not [r.value for r in TaskRoute if f'"{r.value}"' not in schema], (
         "the schema omits a route")
+
+
+def test_the_readme_agent_api_example_still_runs():
+    """A code example is the most rottable statement a document can make.
+
+    Nothing type-checks it, no test imports it, and renaming a method leaves it
+    looking authoritative while it no longer runs. README's Agent-facing section
+    names four calls and two attributes; this is the one place they meet the real
+    signatures. It asserts the API the README advertises, not the README's prose --
+    the prose is checked by the tests above.
+    """
+
+    from ainative.model import (
+        CallTarget,
+        ExecutionResult,
+        TaskContract,
+        TaskRoute,
+        TaskStatus,
+    )
+    from ainative.session_api import AcceptanceGuide
+    from tests.support.workflow_factory import call, stage_spec, step, workflow_for
+
+    task = TaskContract(task_id="readme", objective="run the README example",
+                        route=TaskRoute.HOST_OPERATION)
+    workflow = workflow_for(task, (
+        step("step-1", "a phase", (
+            stage_spec("validate-asset", "validate", "check",
+                       (call("ue5", "set_actor_transform", "a1"),)),)),))
+
+    guide = AcceptanceGuide()
+    session = guide.start(task, workflow)
+
+    execution_result = ExecutionResult(
+        call_id="a1", status=TaskStatus.SUCCEEDED,
+        target=CallTarget(owner="ue5", name="set_actor_transform"),
+        outputs={"done": True},
+    )
+    session.record_execution_result(execution_result)
+
+    node_result = session.complete_node("/step-1/validate-asset/")
+    assert node_result.node_path == "/step-1/validate-asset/", (
+        "README says a StageResult carries the node_path it closed")
+
+    assert session.finish().status is TaskStatus.SUCCEEDED
+
+    view = execution_result.evidence_view()
+    for key in ("status", "target", "preserved_relations", "lost_relations",
+                "artifact_count", "artifacts", "warnings", "errors"):
+        assert key in view, f"README names {key} as first-class evidence"
+    assert "done" in view, "README says a check can also address any key in outputs"

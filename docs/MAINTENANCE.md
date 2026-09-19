@@ -79,7 +79,7 @@ needs_human        → 等待决策
 python -m pytest -q
 python integrity_gate.py --json
 python -m compileall -q src tests
-ruff check src\ainative tests
+ruff check src/ainative tests
 ```
 
 ## 新增文档规则
