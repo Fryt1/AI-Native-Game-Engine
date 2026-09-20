@@ -109,6 +109,42 @@ def test_the_archive_records_where_it_came_from(archive: pathlib.Path, entries: 
     assert "source:" in text and "revision:" in text
 
 
+def test_the_install_hint_names_a_role_not_this_machines_home(tmp_path: pathlib.Path):
+    """The hint is read by whoever RECEIVES the archive, on their machine.
+
+    It used to print `Path.home()/.agents/skills` -- this machine's home directory,
+    in an instruction for someone else. It also named the user root, while
+    `install_skill.py` had since been changed to default to the project root, so the
+    two scripts disagreed about where a skill belongs.
+
+    The destination is now `<skill root>`, with the two roots a harness scans named
+    by role rather than by path.
+    """
+
+    import contextlib
+    import io
+
+    packer = _module(PACKER, "pack_skill")
+    output = io.StringIO()
+    with contextlib.redirect_stdout(output):
+        packer.pack(tmp_path / "skill.zip")
+
+    printed = output.getvalue()
+
+    # The archive's own path is printed on the same line, and pytest's tmp_path sits
+    # under the home directory -- so check the extractall ARGUMENT, which is the
+    # destination and the one that travels.
+    destinations = [line for line in printed.splitlines() if "extractall" in line]
+    assert destinations, "the hint no longer shows how to extract the archive"
+    destination = destinations[0].split(".extractall(")[-1]
+
+    assert str(pathlib.Path.home()) not in destination, (
+        "the install destination names this machine's home directory; the archive "
+        "travels")
+    assert "<skill root>" in destination
+    assert ".agents/skills" in printed, "the hint no longer names a root a harness scans"
+
+
 def test_verify_accepts_a_good_archive(archive: pathlib.Path):
     """`--verify` is what a recipient runs before trusting the file."""
 

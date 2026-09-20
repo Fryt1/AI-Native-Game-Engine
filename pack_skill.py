@@ -75,9 +75,18 @@ def pack(output: Path | None = None) -> Path:
     print(f"  {output}")
     print(f"  {len(files)} files, {size} bytes")
     print(f"  sha256 {hashlib.sha256(output.read_bytes()).hexdigest()[:16]}")
-    print("\n  install with:")
+    print()
+    # The archive's single top-level directory is already the `<name>/` discovery
+    # expects, so extracting into any skill root is the whole install. Destinations
+    # are named by ROLE rather than by a path: this machine's home directory in an
+    # instruction meant for someone else is both wrong and unhelpful.
+    print("  A recipient extracts it into a skill root and is done:")
     print(f"    python -c \"import zipfile;zipfile.ZipFile(r'{output}')"
-          f".extractall(r'{Path.home() / '.agents' / 'skills'}')\"")
+          f".extractall(r'<skill root>')\"")
+    print()
+    print("  <skill root> is a directory a harness scans:")
+    print("    <project>/.agents/skills   for sessions working in that project")
+    print("    ~/.agents/skills           for every session on the machine")
     return output
 
 
