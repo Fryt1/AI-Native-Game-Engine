@@ -1,6 +1,6 @@
 ---
 name: ai-native-game-engine
-description: Agent-driven Stage composition, MCP call execution, evidence, and acceptance across hosts and external tools.
+description: Use when an agent must drive Blender, UE5, or ComfyUI through MCP and prove what happened — composing a Workflow tree of stages, running one call at a time, and submitting structured evidence for a deterministic verdict per node. Use when acceptance must be checked rather than asserted, when a host operation must stay auditable, when a multi-stage job needs a gate so a failed step cannot be reported as done, or when deciding whether a host call is feasible before committing to a plan.
 ---
 
 # AI Native Game Engine Skill
@@ -36,14 +36,22 @@ composite's verdict is earned on its children's. It does not decide what runs ne
 ## Loading order
 
 1. Read this `SKILL.md`.
-2. Run the integrity gate: `python integrity_gate.py --json`.
-3. Read `templates/` — `workflow.schema.json` is the Workflow's shape, and
+2. Make the engine runnable: `python -m pip install -e .` from this skill's base
+   directory. The engine ships inside this skill, so there is nothing to fetch --
+   but it is a Python package, and the commands below need it importable. Confirm
+   with `python -m ainative.session --help`.
+3. Run the integrity gate: `python integrity_gate.py --json`.
+4. Read `templates/` — `workflow.schema.json` is the Workflow's shape, and
    `result-contract.md` is the shape of what you submit against it.
-4. Read `guidance/` and pick the document matching the task's lifecycle.
-5. Load `docs/DEPENDENCIES.md` for the host or MCP server involved and confirm
+5. Read `guidance/` and pick the document matching the task's lifecycle.
+6. Load `docs/DEPENDENCIES.md` for the host or MCP server involved and confirm
    its prerequisites before selecting any call. There is no interface reference to
    read: what a host's MCP server can do is decided by the running server, so
    confirm it through your own MCP client.
+
+Every path above is relative to this skill's base directory, which the loader
+reports as `Base directory for this skill: <path>`. Resolve them there; do not
+infer the location from the working directory.
 
 This package ships no per-object or per-operation knowledge base. The working
 order below is the composition rule, and the Agent supplies the domain
