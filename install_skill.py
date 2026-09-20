@@ -136,7 +136,18 @@ def install(destination: Path) -> int:
     size = sum(p.stat().st_size for p in files)
     print(f"installed {skill_name()} -> {target}")
     print(f"  {len(files)} files, {size} bytes")
-    print(f"  the engine installs from there with: pip install -e \"{target}\"")
+    print()
+    # The engine is a Python package and `-e` points an install at one source tree.
+    # Installing the COPY would repoint a working checkout at a snapshot: edits in
+    # the repository would then have no effect on what runs, which is the opposite
+    # of what a developer wants and is invisible until something behaves oddly.
+    print("  If you are working in this checkout, the engine is already installed")
+    print("  from it: `pip install -e .` at the repository root. This copy needs")
+    print("  no install, and installing it would point the engine at this snapshot.")
+    print()
+    print("  A machine that has only the skill has no repository to install from,")
+    print("  so it installs the engine from the copy:")
+    print(f"    pip install -e \"{target}\"")
     return 0
 
 

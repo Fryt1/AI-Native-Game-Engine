@@ -36,10 +36,14 @@ composite's verdict is earned on its children's. It does not decide what runs ne
 ## Loading order
 
 1. Read this `SKILL.md`.
-2. Make the engine runnable: `python -m pip install -e .` from this skill's base
-   directory. The engine ships inside this skill, so there is nothing to fetch --
-   but it is a Python package, and the commands below need it importable. Confirm
-   with `python -m ainative.session --help`.
+2. Confirm the engine is runnable: `python -m ainative.session --help`. The engine
+   ships inside this skill, so there is nothing to fetch. If the command is missing,
+   this skill is installed on a machine that has never installed the engine, and it
+   is a Python package: `python -m pip install -e .` from this skill's base
+   directory. Do NOT run that when the engine already works — an editable install
+   points at one source tree, so reinstalling it from this copy would aim a working
+   checkout's engine at a snapshot, and later edits in the checkout would stop
+   taking effect.
 3. Run the integrity gate: `python integrity_gate.py --json`.
 4. Read `templates/` — `workflow.schema.json` is the Workflow's shape, and
    `result-contract.md` is the shape of what you submit against it.

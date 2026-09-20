@@ -45,10 +45,20 @@ Two scripts, one per direction:
 # From a checkout onto this machine
 python install_skill.py
 #   installed ai-native-game-engine -> <skill root>/ai-native-game-engine
-#   the engine installs from there with: pip install -e "<that path>"
 
 # Confirm the install still matches the checkout
 python install_skill.py --check
+```
+
+**Do not then install the engine from the copy.** An editable install points at one
+source tree, and reinstalling it from a copy aims your working checkout's engine at a
+snapshot — after which edits in the checkout stop taking effect. If the engine
+already answers `python -m ainative.session --help`, it is installed and needs
+nothing. A machine that has only the skill has no repository to install from, and
+that is the one case where the copy is the source:
+
+```powershell
+pip install -e "<skill root>/ai-native-game-engine"
 ```
 
 ```powershell

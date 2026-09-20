@@ -18,9 +18,12 @@ excluded and what must be present for the engine to run.
 
 from __future__ import annotations
 
+import contextlib
 import importlib.util
+import io
 import pathlib
 import re
+import tempfile
 
 import pytest
 
@@ -168,6 +171,30 @@ def test_the_skill_name_is_read_from_the_frontmatter():
 
     assert text.startswith("---\n")
     assert f"name: {module.skill_name()}" in text[: text.index("\n---", 4)]
+
+
+def test_the_installer_warns_against_installing_the_engine_from_the_copy():
+    """Installing the copy repoints a working checkout's engine at a snapshot.
+
+    An editable install names ONE source tree. Running `pip install -e` against the
+    installed copy therefore stops the checkout's `src/` from being what executes --
+    silently, because every command still works. The symptom is that edits stop
+    taking effect, which reads as a caching bug rather than an install mistake.
+
+    The installer printed exactly that command as advice before this was caught. The
+    warning is the fix, so it is pinned here.
+    """
+
+    output = io.StringIO()
+    with contextlib.redirect_stdout(output):
+        module = _installer()
+        module.install(pathlib.Path(tempfile.mkdtemp()))
+
+    printed = output.getvalue()
+    assert "already installed" in printed, (
+        "the installer no longer says a checkout needs no install of the copy")
+    assert "would point the engine at this snapshot" in printed, (
+        "the installer no longer says why installing the copy is wrong")
 
 
 @pytest.mark.parametrize("name", ["src", "guidance", "templates", "docs"])
