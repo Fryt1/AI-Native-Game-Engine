@@ -171,4 +171,3 @@ CLI auth: not configured (`hf auth whoami` reports Not logged in)
 
 HF MCP 可以用于 Hub 资源搜索和模型研究；本地 gated 模型下载仍需要在用户自己的终端
 完成 `hf auth login`，再用 `hf download` 写入 ComfyUI 的模型目录。Token 不进入项目。
-详细契约见 `docs/DEPENDENCIES.md`（Hugging Face 节）。

@@ -132,7 +132,7 @@ def verify(archive: Path) -> int:
         # engine; a pack missing any of them is not usable on its own.
         for required in ("pyproject.toml", "src/ainative/__init__.py",
                          "templates/workflow.schema.json",
-                         "docs/cli.md", "docs/DEPENDENCIES.md", "integrity_gate.py"):
+                         "docs/cli.md", "integrity_gate.py"):
             if not (unpacked / required).exists():
                 problems.append(f"{required} is missing")
 

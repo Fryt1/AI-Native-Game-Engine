@@ -93,18 +93,15 @@ Both scripts take their file list from one place, so what is packed is what is i
 
 ### Dependencies
 
-Runtime dependencies are external and version-baselined. See [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md) for the full Python, Blender, UE5, ComfyUI, Hugging Face, and MCP dependency contract, including version baselines, install/verification steps, failure triage, and security boundaries for each host/MCP integration.
-
-Supported baselines:
+The only dependency this project installs is its own Python package:
 
 ```text
 Python          3.11+
-Blender MCP     5.1.0+  (5.2.1 LTS validated; add-on listens on localhost:9876)
-UE5 MCP         5.8.0+  (5.8.2 validated)
-comfy-cli       1.14.0+ (1.18.0 validated; default target http://127.0.0.1:8188)
 ```
 
-Hugging Face is the model-discovery and model-acquisition side of the ComfyUI pipeline: use the Hugging Face MCP Server for Hub search, and the local `hf` CLI to authenticate and download model files into ComfyUI model directories.
+Blender, UE5, ComfyUI, and their MCP servers are installed and configured by whoever runs them. **This repository states no version baseline or install path for any of them.** A prerequisite stated here would be one an Agent follows on faith, and this repository cannot verify it -- it holds no host executable path and launches no editor. Confirm the running server through your own MCP client before selecting a call.
+
+What a host needs is the host's own to document.
 
 ```text
 Hugging Face MCP → find/check model, license, revision, and files
@@ -225,7 +222,7 @@ Call
 Author a Workflow against `templates/workflow.schema.json`, which defines the data
 structure: every node kind, every field, every operator.
 
-A call like `{"call_id": "m1", "target": {"owner": "ue5", "name": "set_actor_transform"}}` is a first-class entry in the Workflow's call graph. There is no execution binding, no provider list, and no per-run provider check: the Workflow is validated structurally, and the Agent's own MCP client resolves and runs every call. This repository owns no transfer Tool — moving an asset between hosts means the Agent calls the source host's MCP export, performs its own file operation, and calls the target host's MCP import. Host dependencies are declared in `docs/DEPENDENCIES.md`.
+A call like `{"call_id": "m1", "target": {"owner": "ue5", "name": "set_actor_transform"}}` is a first-class entry in the Workflow's call graph. There is no execution binding, no provider list, and no per-run provider check: the Workflow is validated structurally, and the Agent's own MCP client resolves and runs every call. This repository owns no transfer Tool — moving an asset between hosts means the Agent calls the source host's MCP export, performs its own file operation, and calls the target host's MCP import. Host prerequisites belong to the host.
 
 ### Stage composition
 
@@ -248,14 +245,14 @@ SKILL.md                         AGENTS.md            instructions for editing t
 src/ainative/     the engine     README.md            the repository's front page
 templates/                       docs/ARCHITECTURE.md how the engine is built
 docs/cli.md       the commands   docs/MAINTENANCE.md  placement tables for maintainers
-docs/DEPENDENCIES.md             docs/VALIDATION_REPORT.md
+docs/cli.md                      docs/VALIDATION_REPORT.md
 integrity_gate.py                tests/  .github/  artifacts/  .venv/
 pyproject.toml                   *.egg-info/          pip's build output
 install_skill.py  pack_skill.py
 LICENSE
 ```
 
-`docs/` is a file list, not a directory: `docs/cli.md` and `docs/DEPENDENCIES.md` are the two the loading order reaches. The exclusions are declared in `install_skill.py` as `DEVELOPMENT_ONLY`, with a reason each, and tests check that no top-level document is decided by omission.
+`docs/` is a file list, not a directory: `docs/cli.md` is the one the loading order reaches. The exclusions are declared in `install_skill.py` as `DEVELOPMENT_ONLY`, with a reason each, and tests check that no top-level document is decided by omission.
 
 ### Documentation map
 
@@ -266,7 +263,6 @@ LICENSE
 - `docs/MAINTENANCE.md` — maintenance and extension rules (development; not installed)
 - `docs/VALIDATION_REPORT.md` — current verification evidence (development; not installed)
 - `docs/cli.md` — `python -m ainative.session` usage
-- `docs/DEPENDENCIES.md` — dependency contract overview
 - `install_skill.py` — install this project into a skill root, or check it
 - `pack_skill.py` — pack the skill into a distributable archive, or verify one
 

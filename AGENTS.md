@@ -13,8 +13,6 @@ AGENTS.md
     → Skill integrity gate
     → templates/ for the Workflow schema and the result contract when authoring
       a Workflow
-    → docs/DEPENDENCIES.md (when a host or MCP call is involved)
-    → docs/DEPENDENCIES.md section for the specific host/MCP (Blender/UE5/ComfyUI/HF)
     → exact MCP call feasibility
     → one-call-at-a-time execution
     → python -m ainative.session open (hand the Agent-authored Workflow to Python)
@@ -118,8 +116,6 @@ Consequences:
   declare one check each, or nest a composite whose own verdict rolls them up.
 - A change STAGE confirms the calls required for execution and acceptance before
   its first side effect.
-- Before selecting a host or MCP call, load docs/DEPENDENCIES.md and confirm the
-  required Python, Blender, UE5, add-on/plugin, and Agent prerequisites.
 - Before selecting a Blender or UE5 MCP call, confirm the host version, the
   running MCP server, and the Agent client prerequisites.
 - During execution, do not silently substitute another MCP server, target, or
@@ -234,8 +230,9 @@ call contract carries the target; the Agent's own MCP client resolves and runs
 it. Host capabilities — Blender, UE5, ComfyUI — are the Agent's MCP servers'
 business, and this repository ships no executable Toolset of its own.
 
-Host dependencies are declared in `docs/DEPENDENCIES.md`. The Agent confirms the
-host prerequisites itself.
+Host prerequisites are the host's own to document. Nothing here states a version
+baseline or an install path for Blender, UE5, or ComfyUI; confirm the running
+server through the Agent's own MCP client before selecting a call.
 
 ## Acceptance loop
 

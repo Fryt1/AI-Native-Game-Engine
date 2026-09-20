@@ -171,7 +171,6 @@ TaskResult                          最终汇总
 ```
 ① Agent 读文档
    AGENTS.md → SKILL.md → 完整性门 → templates/
-   （需要宿主时读 docs/DEPENDENCIES.md）
 
 ② Agent 写 TaskContract（JSON）
 

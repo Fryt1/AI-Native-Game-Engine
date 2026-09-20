@@ -32,7 +32,6 @@ Task Contract
 
 - 需要新的宿主能力时，加在宿主侧的 MCP Server 里，不加在这里。
 - 本仓库留下的是没有宿主依赖的部分：跨宿主传输的文件协议、校验、验收引擎。
-- 依赖版本与前置条件写在 `docs/DEPENDENCIES.md`；
   Agent 用自己的 MCP client 确认目标 MCP Server 正在运行。
 
 ## 指引维护
@@ -63,8 +62,6 @@ needs_human        → 等待决策
 | 计划/清单格式 | `src/ainative/model/tree.py` | `templates/workflow.schema.json`、integrity gate、tests |
 | 调用契约（`ToolCall` / `CallTarget`） | `src/ainative/model/tools.py` | deserialize、contract tests |
 | 提交结果的形状 | `templates/result-contract.md` | `docs/cli.md`、deserialize、contract tests |
-| Host/MCP dependency policy | `docs/DEPENDENCIES.md` | README、live handshake evidence |
-| Model acquisition policy | `docs/DEPENDENCIES.md`（Hugging Face 节） | CLI auth/download evidence、model revision/hash、license review |
 | Workflow 形状 spec | `templates/workflow.schema.json` | `src/ainative/reading/schema.py`、`test_schema_agreement.py` |
 | Workflow 语义校验 | `src/ainative/reading/tree_validate.py` | contract tests、`test_schema_agreement.py` |
 | Node 验收 | `src/ainative/acceptance/evaluator.py`、`tree_evaluator.py` | acceptance tests |
@@ -101,7 +98,6 @@ ruff check src/ainative tests
 | Agent 提交上来的形状 | `templates/` | 契约的另一半，同上。结果文档目前没有 schema，但归这里 |
 | 上面两种怎么写 | `templates/` | 模板就是"写的规则" |
 | 引擎内部机制 | `docs/` | 只有维护者读 |
-| 宿主前置条件与版本 | `docs/DEPENDENCIES.md` | 唯一一份 Agent 与维护者共读的 |
 | 仓库级规矩 | `AGENTS.md` | 第一份，永远 |
 | 跑过的证据 | `docs/VALIDATION_REPORT.md`、`artifacts/` | 历史，不是规则 |
 
@@ -117,12 +113,12 @@ ruff check src/ainative tests
 
 新增一份顶层文档时，必须二选一：进 `BUNDLE_FILES`，或进 `DEVELOPMENT_ONLY`。两个测试分别把守两个方向：漏选会被 `test_every_top_level_document_is_bundled_or_declared_development_only` 拦下，多装会被 `test_every_bundled_document_is_one_the_body_reaches` 拦下——后者防的是把 ARCHITECTURE.md 之类发给只使用引擎的人。
 
-`docs/` 在包里是**文件清单而不是目录**：加载顺序只到 `cli.md` 和 `DEPENDENCIES.md` 两份，写成目录会把其余三份一起拖进去。
+`docs/` 在包里是**文件清单而不是目录**：加载顺序只到 `cli.md` 一份，写成目录会把其余几份一起拖进去。
 
 ## 目录维护规则
 
 - 调用契约变更：更新 `model/tools.py` + deserialize + fixtures。
-- 宿主 MCP 行为变更：更新 `docs/DEPENDENCIES.md` 对应小节（本仓库不拥有 MCP
+- 宿主 MCP 行为变更：本仓库不拥有 MCP
   Client，也不代 Agent 做前置检查）。
 - 计划语义变更：更新契约 + 架构文档（`docs/ARCHITECTURE.md`）+ fixtures。
 - 新增/删除提示资产：同步 `docs/` 各文件中的目录树，以及 `integrity_gate.py`

@@ -49,18 +49,6 @@ def _carried() -> set[str]:
 #: whose full path appears elsewhere, not as something to open.
 PATH_PATTERN = re.compile(r"`((?:[a-z_]+/)+[a-z_.-]+\.(?:md|json|py))`")
 
-#: Paths a bundled document names while addressing a MAINTAINER rather than the
-#: Agent reading the skill. Each is listed with the reason it is not shipped.
-#:
-#: It names a file under `tests/`, which belongs to the source rather than the
-#: product. The sentence describes how this repository is maintained, so it is
-#: addressed to whoever edits it, not to whoever runs the skill.
-MAINTAINER_ONLY_REFERENCES = {
-    # DEPENDENCIES.md says the repository ships no host fixture and points at the
-    # sample Task Contract under tests/ to show what it ships instead.
-    "tests/support/task-cross-host.json",
-}
-
 
 def _bundled_texts() -> dict[str, str]:
     """Return the installed documents, keyed by POSIX path inside the bundle."""
@@ -82,7 +70,7 @@ def test_the_bundle_carries_every_file_it_names():
     unresolved: list[str] = []
     for name, text in bundled.items():
         for referenced in sorted(set(PATH_PATTERN.findall(text))):
-            if referenced in carried or referenced in MAINTAINER_ONLY_REFERENCES:
+            if referenced in carried:
                 continue
             # A path a document names may deliberately live outside the skill. Flag
             # it only when the file IS in the repository, which means the bundle
@@ -93,15 +81,6 @@ def test_the_bundle_carries_every_file_it_names():
     assert not unresolved, (
         "the installed skill would send an Agent to a path it does not contain: "
         f"{unresolved}")
-
-
-def test_every_maintainer_only_reference_is_still_real():
-    """The exception list must not outlive the references it excuses."""
-
-    for referenced in MAINTAINER_ONLY_REFERENCES:
-        assert (REPO_ROOT / referenced).exists(), (
-            f"{referenced} is excused as a maintainer reference but no longer exists; "
-            "remove it from MAINTAINER_ONLY_REFERENCES")
 
 
 def test_the_bundle_carries_the_engine():
@@ -127,7 +106,6 @@ def test_the_bundle_carries_the_instructions_and_their_resources():
         "templates/workflow.schema.json",
         "templates/result-contract.md",
         "docs/cli.md",
-        "docs/DEPENDENCIES.md",
         "integrity_gate.py",
         "install_skill.py",
     ):
@@ -231,7 +209,7 @@ def test_every_bundled_document_is_one_the_body_reaches():
         name for name in carried if name.startswith("docs/"))
     skill = (REPO_ROOT / "SKILL.md").read_text(encoding="utf-8")
 
-    assert bundled_docs == ["docs/DEPENDENCIES.md", "docs/cli.md"], (
+    assert bundled_docs == ["docs/cli.md"], (
         f"the bundle carries documents the body may not reach: {bundled_docs}")
     for name in bundled_docs:
         assert name in skill, f"SKILL.md never points at {name}"

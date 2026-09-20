@@ -47,10 +47,10 @@ composite's verdict is earned on its children's. It does not decide what runs ne
 3. Run the integrity gate: `python integrity_gate.py --json`.
 4. Read `templates/` — `workflow.schema.json` is the Workflow's shape, and
    `result-contract.md` is the shape of what you submit against it.
-5. Load `docs/DEPENDENCIES.md` for the host or MCP server involved and confirm
-   its prerequisites before selecting any call. There is no interface reference to
-   read: what a host's MCP server can do is decided by the running server, so
-   confirm it through your own MCP client.
+5. Confirm the host yourself. There is no interface reference to read and no
+   dependency document to load: what a host's MCP server can do, and what it
+   requires, is decided by the running server. Establish it through your own MCP
+   client before selecting a call.
 
 Every path above is relative to this skill's base directory, which the loader
 reports as `Base directory for this skill: <path>`. Resolve them there; do not

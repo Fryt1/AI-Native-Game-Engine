@@ -43,7 +43,6 @@ BUNDLE_FILES = (
     "SKILL.md",
     "integrity_gate.py",
     "docs/cli.md",
-    "docs/DEPENDENCIES.md",
     # The engine must be installable from the copy on a machine with no checkout.
     "pyproject.toml",
     # Both directions of distribution, so a recipient can reinstall or repack.
