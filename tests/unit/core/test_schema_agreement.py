@@ -225,17 +225,16 @@ def test_the_schema_accepts_every_well_formed_shape_the_engine_builds(schema):
 
     document = {
         "workflow_id": "probe",
-        "guidance": "procedural-city",
         "revision": 1,
-        "warnings": ["a warning carried from the guidance invariants"],
+        "warnings": ["a warning carried from the node invariants"],
         "root": {
             "node_id": "city", "kind": "workflow", "purpose": "the city",
-            "required": True, "guidance": "procedural-city",
+            "required": True,
             "metadata": {"seed": 7},
             "children": [
                 {
                     "node_id": "buildings", "kind": "workflow",
-                    "purpose": "buildings", "guidance": "procedural-building",
+                    "purpose": "buildings",
                     "children": [
                         {
                             "node_id": "wing", "kind": "workflow", "purpose": "wing",

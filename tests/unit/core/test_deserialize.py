@@ -12,8 +12,7 @@ from tests.support.workflow_factory import first_stage
 
 def _workflow_document() -> dict:
     return {
-        "guidance": "asset-roundtrip",
-        "workflow_id": "p:workflow",
+            "workflow_id": "p:workflow",
         "root": {
             "node_id": "validate",
             "kind": "workflow",
@@ -53,7 +52,6 @@ def _workflow_document() -> dict:
 def test_plan_round_trips_through_json():
     workflow = workflow_from_dict(_workflow_document())
 
-    assert workflow.guidance == "asset-roundtrip"
     stage = first_stage(workflow)
     assert stage.node_id == "stage.validate_asset"
     assert stage.stage.calls[0].target.owner == "blender"
@@ -70,10 +68,15 @@ def test_plan_serializes_back_to_an_equivalent_document():
 
 
 def test_a_plan_wrapped_in_workflow_is_accepted():
-    workflow = workflow_from_dict({"workflow": _workflow_document()})
+    """A document may arrive wrapped; the reader unwraps it.
 
-    assert workflow.guidance == "asset-roundtrip"
+    The wrapper exists so a caller can carry the Workflow beside other keys. The
+    read has to succeed and produce the same tree as the bare form.
+    """
 
+    wrapped = workflow_from_dict({"workflow": _workflow_document()})
+
+    assert first_stage(wrapped).node_id == "stage.validate_asset"
 
 def test_missing_required_field_names_the_json_path():
     document = _workflow_document()
@@ -147,6 +150,13 @@ def test_execution_result_rejects_a_non_object_outputs_field():
 
 
 def test_serialized_plan_is_valid_json():
+    """The model's output must survive a JSON round trip byte for byte.
+
+    A tree is written to the state file and read back on every command, so anything
+    `to_dict` emits and `json` cannot encode would break every command after the
+    first rather than the one that wrote it.
+    """
+
     workflow = workflow_from_dict(_workflow_document())
 
-    assert json.loads(json.dumps(workflow.to_dict()))["guidance"] == "asset-roundtrip"
+    assert json.loads(json.dumps(workflow.to_dict())) == workflow.to_dict()

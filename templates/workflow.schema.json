@@ -9,10 +9,6 @@
   "additionalProperties": false,
   "properties": {
     "workflow_id": {"type": "string", "minLength": 1},
-    "guidance": {
-      "type": "string",
-      "description": "Provenance only. Which guidance document the author followed."
-    },
     "revision": {"type": "integer", "minimum": 1},
     "status": {
       "enum": ["draft", "running", "suspended", "completed", "failed", "invalid", "superseded"],
@@ -65,7 +61,6 @@
           "items": {"$ref": "#/$defs/dependencyRef"},
           "description": "Nodes that must complete before this stage runs, each written from this node. A dependency MAY cross branches -- '../../site/street-trees' declared under '/buildings/...' is legal, and is why this is a walked reference and not a sibling id. An ancestor's dependency already gates this stage, so repeat it here only when the ordering is genuinely local. This is the ONLY source of order: written order means nothing, and two nodes with no dependency between them may run in any order or at the same time. A cycle is refused, including one formed with the implicit rule that a composite waits for its own children."
         },
-        "guidance": {"type": "string"},
         "recovery": {"type": "string"},
         "metadata": {"type": "object"},
         "stage": {"$ref": "#/$defs/stageBody"}
@@ -86,7 +81,6 @@
           "items": {"$ref": "#/$defs/dependencyRef"},
           "description": "Nodes that must complete before this composite runs, each written from this node. See the stage branch: a dependency may cross branches, a cycle is refused, and this is the only source of order. A composite's dependency gates its WHOLE subtree -- no descendant may run until it is satisfied -- so a leaf does NOT repeat its ancestors' references. Declare the ordering once, at the level where it is true."
         },
-        "guidance": {"type": "string"},
         "recovery": {"type": "string"},
         "metadata": {"type": "object"},
         "children": {

@@ -220,7 +220,6 @@ class WorkflowNode:
     stage: StageBody | None = None            # kind == STAGE
     children: tuple[WorkflowNode, ...] = ()  # kind == WORKFLOW
     acceptance_checklist: tuple[NodeCheck, ...] = ()  # kind == WORKFLOW
-    guidance: str | None = None               # provenance, not identity
     recovery: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -265,8 +264,6 @@ class WorkflowNode:
             "required": self.required,
             "depends_on": list(self.depends_on),
         }
-        if self.guidance:
-            out["guidance"] = self.guidance
         if self.recovery:
             out["recovery"] = self.recovery
         if self.metadata:
@@ -288,7 +285,6 @@ class WorkflowTree:
 
     workflow_id: str
     root: WorkflowNode
-    guidance: str | None = None
     revision: int = 1
     status: WorkflowStatus = WorkflowStatus.DRAFT
     supersedes_workflow_id: str | None = None
@@ -302,7 +298,7 @@ class WorkflowTree:
 
     @property
     def revision_id(self) -> str:
-        base = self.workflow_id or self.guidance or "workflow"
+        base = self.workflow_id or "workflow"
         return f"{base}:r{self.revision}"
 
     @property
@@ -531,8 +527,6 @@ class WorkflowTree:
             "status": self.status.value,
             "warnings": list(self.warnings),
         }
-        if self.guidance:
-            out["guidance"] = self.guidance
         for name in ("supersedes_workflow_id", "recovery_pointer"):
             value = getattr(self, name)
             if value is not None:

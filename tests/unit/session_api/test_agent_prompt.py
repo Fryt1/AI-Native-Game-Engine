@@ -24,25 +24,37 @@ def blender_task(task_id: str = "agent-task") -> TaskContract:
     )
 
 
-def test_loading_a_skill_selects_guidance_without_executing_anything():
+def test_loading_a_skill_executes_nothing():
+    """Loading verifies the package; it never runs a call.
+
+    The property that survived the guidance removal, and the one worth keeping: the
+    engine reads files and checks a list, and touches nothing else.
+    """
+
     task = blender_task("prompt-1")
 
     session = AcceptanceGuide().load_skill(task)
 
-    assert session.guidance is None
+    assert session.skill_id == "ai-native-game-engine"
+    assert session.package_root.is_dir()
 
 
-def test_the_agent_may_request_the_native_blender_variant_explicitly():
-    """The framework does not infer this from host_context; the Agent asks for it."""
+def test_choosing_a_lifecycle_is_not_a_task_field():
+    """Which lifecycle applies is the Agent's judgement, recorded nowhere here.
+
+    The task and the Workflow no longer carry a guidance name: the skill catalog is
+    what tells a model which lifecycles exist, and a second inventory inside the
+    engine could only disagree with it.
+    """
 
     task = TaskContract(
         task_id="prompt-2",
         objective="在当前 Scene 里交互修改模型",
         target_context={"app": "blender"},
-        guidance="native-blender-operation",
     )
 
-    assert AcceptanceGuide().load_skill(task).guidance == "native-blender-operation"
+    assert not hasattr(task, "guidance")
+    assert "guidance" not in task.to_dict()
 
 
 def test_the_agent_declares_a_blender_mcp_call_and_reports_its_result():

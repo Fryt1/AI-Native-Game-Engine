@@ -84,7 +84,12 @@ def _open_with(capsys, paths, *, task=None, workflow=None):
 
 
 def test_an_unknown_guidance_name_reports_an_envelope(paths, capsys):
-    """This exact case used to print a traceback."""
+    """A task that names a lifecycle is ordinary prose now, not an error.
+
+    `guidance` was removed from the task contract, so a document carrying it holds an
+    unknown property. What matters is that it still produces a standard envelope
+    rather than a traceback: this exact shape used to print one.
+    """
 
     bad = _write(paths["tmp"] / "bad-task.json", _task(guidance="no-such-document"))
 
@@ -93,13 +98,13 @@ def test_an_unknown_guidance_name_reports_an_envelope(paths, capsys):
     assert code == EXIT_UNUSABLE
     assert list(payload) == ENVELOPE_KEYS
     assert payload["command"] == "open"
-    assert "named guidance does not exist" in payload["errors"][0]
+    assert payload["errors"], "a refused open must say why"
 
 
 @pytest.mark.parametrize(
     ("label", "task_doc", "workflow_doc"),
     [
-        ("unknown guidance", _task(guidance="nope"), _workflow()),
+        ("a task naming a removed field", _task(guidance="nope"), _workflow()),
         ("invalid workflow status", _task(), _workflow(status="NOT_A_STATUS")),
         ("task is a list", [1, 2, 3], _workflow()),
         ("task is empty", {}, _workflow()),

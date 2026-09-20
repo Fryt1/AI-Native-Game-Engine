@@ -112,7 +112,6 @@ def building(alias: str, *, openings_field: str = "openings") -> WorkflowNode:
         node_id=alias,
         kind=NodeKind.WORKFLOW,
         purpose="a building",
-        guidance="procedural-building",
         children=(
             leaf("mass", operator=CheckOperator.WITHIN_TOLERANCE, field="min_z",
                  expected=0.0, tolerance=0.02),
@@ -134,7 +133,6 @@ def city(*, openings_field: str = "openings") -> WorkflowNode:
         node_id="city",
         kind=NodeKind.WORKFLOW,
         purpose="the whole city",
-        guidance="procedural-city",
         children=(
             building("tower_a", openings_field=openings_field),
             building("tower_b", openings_field=openings_field),
@@ -149,8 +147,7 @@ def city(*, openings_field: str = "openings") -> WorkflowNode:
 
 def tree(root: WorkflowNode | None = None) -> WorkflowTree:
     return WorkflowTree(workflow_id="procedural-city", root=root or city(),
-                        guidance="procedural-city")
-
+                )
 
 def results_for(root: WorkflowNode) -> dict[tuple[str, str], ExecutionResult]:
     """Reported results where every call succeeds and every value passes.

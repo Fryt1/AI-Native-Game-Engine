@@ -199,7 +199,6 @@ def task_from_dict(raw: Any, path: str = "task") -> TaskContract:
         asset_type=str(raw.get("asset_type", "unknown")),
         direction=str(raw.get("direction", "none")),
         preserve_relations=frozenset(raw.get("preserve_relations", [])),
-        guidance=raw.get("guidance"),
         source_context=dict(raw.get("source_context", {})),
         target_context=dict(raw.get("target_context", {})),
         confirmation_required=bool(raw.get("confirmation_required", False)),
@@ -408,7 +407,6 @@ def node_from_dict(document: Any, path: str) -> WorkflowNode:
             node_check_from_dict(check, f"{path}.acceptance_checklist[{index}]")
             for index, check in enumerate(checks_document)
         ),
-        guidance=document.get("guidance"),
         recovery=document.get("recovery"),
         metadata=dict(document.get("metadata") or {}),
     )
@@ -437,7 +435,6 @@ def workflow_from_dict(document: Any) -> WorkflowTree:
     return WorkflowTree(
         workflow_id=str(body.get("workflow_id", "")),
         root=node_from_dict(_require(body, "root", path), f"{path}.root"),
-        guidance=body.get("guidance"),
         revision=int(body.get("revision", 1)),
         status=_enum(
             WorkflowStatus,

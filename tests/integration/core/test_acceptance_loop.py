@@ -17,7 +17,6 @@ TASK = {
 }
 
 PLAN = {
-    "guidance": "asset-roundtrip",
     "workflow_id": "loop-1:workflow",
     "root": {
         "node_id": "validate",
@@ -103,7 +102,6 @@ def test_open_reports_ready_and_the_stage_list(workspace, capsys):
     payload = _open(workspace, capsys)
 
     assert payload["detail"]["ready"] is True
-    assert payload["detail"]["guidance"] == "asset-roundtrip"
     assert payload["detail"]["nodes"] == [_stage_path()]
 
 
@@ -207,7 +205,6 @@ def test_state_persists_across_invocations(workspace, capsys):
     stored = json.loads(Path(workspace["state"]).read_text(encoding="utf-8"))
 
     assert stored["version"] == 1
-    assert stored["workflow"]["guidance"] == "asset-roundtrip"
     assert [event["type"] for event in stored["events"]] == ["execution_result"]
 
 
@@ -237,7 +234,6 @@ def test_missing_state_file_is_reported_not_crashed(tmp_path, capsys):
 
 
 DEPENDENT_PLAN = {
-    "guidance": "asset-roundtrip",
     "workflow_id": "dep:workflow",
     "root": {
         "node_id": "work",
@@ -352,7 +348,6 @@ def test_ordered_replay_completes_every_dependent_stage(tmp_path, capsys):
 
 
 AMBIGUOUS_PLAN = {
-    "guidance": "asset-roundtrip",
     "workflow_id": "ambiguous:workflow",
     "root": {
         "node_id": "work",

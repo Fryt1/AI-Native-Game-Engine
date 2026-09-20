@@ -73,8 +73,7 @@ def _stage_with_spare_call(**overrides):
 def _workflow(stages, revision=1, supersedes=None):
     doc = {
         "workflow_id": "t:workflow",
-        "guidance": "host-operation",
-        "revision": revision,
+            "revision": revision,
         "root": {"node_id": "work", "kind": "workflow", "purpose": "work",
                  "children": stages},
     }
@@ -137,7 +136,7 @@ def _write(path, data):
 def workspace(tmp_path, capsys):
     state = str(tmp_path / "state.json")
     task = _write(tmp_path / "task.json", {
-        "task_id": "t", "objective": "o", "guidance": "host-operation",
+        "task_id": "t", "objective": "o",
     })
 
     def open_with(stages, revision=1, supersedes=None):
@@ -378,7 +377,6 @@ def test_a_workflow_with_no_stages_round_trips():
 
     workflow = WorkflowTree(
         workflow_id="t:workflow",
-        guidance="g",
         root=WorkflowNode(node_id="workflow", kind=NodeKind.WORKFLOW, purpose="the Workflow"),
     )
 

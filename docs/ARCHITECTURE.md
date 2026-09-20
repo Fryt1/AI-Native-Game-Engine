@@ -59,13 +59,12 @@ TaskContract                        这次任务"是什么"
 ├── task_id / objective
 ├── asset_type / direction
 ├── preserve_relations              必须存活的关系
-├── guidance                        Agent 想读哪份指引（可选，自由字符串）
 ├── source_context / target_context  从哪里到哪里
 ├── confirmation_required            是否需要先确认意图
 └── metadata
 
 WorkflowTree                        一个任务 = 一棵工作流修订
-├── workflow_id / guidance
+├── workflow_id
 ├── root                            WorkflowNode：整棵树的根，路径为 "/"
 ├── revision / status
 ├── supersedes_workflow_id
@@ -76,7 +75,7 @@ WorkflowNode                        一个节点：叶，或复合
 ├── kind                            stage | workflow
 ├── purpose / required
 ├── depends_on[]                    从本节点出发写的节点引用（'../mass' 是兄弟）
-├── guidance / recovery / metadata
+├── recovery / metadata
 ├── kind == stage   → stage        StageBody
 └── kind == workflow
     ├── children[]                  WorkflowNode

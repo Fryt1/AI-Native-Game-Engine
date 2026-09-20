@@ -146,7 +146,7 @@ $ … --stage /work/review/ stage
 ```json
 {
   "workflow": {
-    "workflow_id": "t:workflow", "revision": 2, "guidance": "host-operation",
+    "workflow_id": "t:workflow", "revision": 2,
     "replaced": ["t:workflow:r1"],
     "nodes": [
       {

@@ -236,7 +236,6 @@ class AcceptanceSession:
 
         return TaskResult(
             status=result.status,
-            guidance=self.workflow.guidance,
             workflow_id=self.workflow.workflow_id,
             workflow_revision=self.workflow.revision,
             details=dict(result.outputs),
@@ -504,7 +503,6 @@ class AcceptanceSession:
         details["outstanding_nodes"] = list(outstanding)
         return TaskResult(
             status=status,
-            guidance=self.workflow.guidance,
             workflow_id=self.workflow.workflow_id,
             workflow_revision=self.workflow.revision,
             workflow_revision_id=self.workflow.revision_id,

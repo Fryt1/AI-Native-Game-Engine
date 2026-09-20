@@ -1,10 +1,10 @@
-"""Open an Agent-authored Workflow: verify the Skill, then admit the Workflow.
+﻿"""Open an Agent-authored Workflow: verify the Skill, then admit the Workflow.
 
 This is the entry point of the acceptance loop. It checks everything that can be
 checked before a single call runs, so a Stage never starts against a Workflow
 that cannot be judged:
 
-    the Skill package is intact and the named guidance resolves
+    the Skill package is intact
     the Workflow revision is still executable
     the Workflow is structurally valid
     the entry gate passes
@@ -46,7 +46,7 @@ def _reject_unexecutable_revision(workflow: WorkflowTree) -> None:
 
 
 class AcceptanceGuide:
-    """Loads Skill guidance and opens a validation-only AcceptanceSession."""
+    """Verifies the Skill and opens a validation-only AcceptanceSession."""
 
     def __init__(self, skill: AINativeSkill | None = None) -> None:
         self.skill = skill or AINativeSkill()

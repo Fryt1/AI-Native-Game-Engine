@@ -55,8 +55,7 @@ def _stage(stage_id, call_id, tool, *, manual_check=False):
 def _workflow(stages):
     return {
         "workflow_id": "t:workflow",
-        "guidance": "host-operation",
-        "revision": 1,
+            "revision": 1,
         "root": {"node_id": "work", "kind": "workflow", "purpose": "work",
                  "children": stages},
     }
@@ -77,7 +76,7 @@ def _stage_paths() -> dict[str, str]:
 def workspace(tmp_path, capsys):
     state = str(tmp_path / "state.json")
     task = _write(tmp_path / "task.json", {
-        "task_id": "t", "objective": "o", "guidance": "host-operation",
+        "task_id": "t", "objective": "o",
     })
     workflow = _write(tmp_path / "wf.json", WORKFLOW)
 
@@ -214,7 +213,6 @@ def test_status_describes_the_bound_workflow(workspace):
 
     assert summary["workflow_id"] == "t:workflow"
     assert summary["revision"] == 1
-    assert summary["guidance"] == "host-operation"
     assert [s["node_id"] for s in _stages(summary)] == ["a", "b"]
 
 

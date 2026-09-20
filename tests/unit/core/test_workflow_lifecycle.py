@@ -108,7 +108,6 @@ def test_agent_execution_records_plan_revision_after_selected_calls_finish():
 def test_invalid_stage_dependency_is_rejected_before_execution():
     workflow = WorkflowTree(
         workflow_id="invalid-dependency:workflow",
-        guidance="host-operation",
         root=WorkflowNode(
             node_id="workflow",
             kind=NodeKind.WORKFLOW,

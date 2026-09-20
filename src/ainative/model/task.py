@@ -18,7 +18,6 @@ class TaskContract:
     asset_type: str = "unknown"
     direction: str = "none"
     preserve_relations: frozenset[str] = field(default_factory=frozenset)
-    guidance: str | None = None
     source_context: dict[str, Any] = field(default_factory=dict)
     target_context: dict[str, Any] = field(default_factory=dict)
     confirmation_required: bool = False
@@ -31,7 +30,6 @@ class TaskContract:
             "asset_type": self.asset_type,
             "direction": self.direction,
             "preserve_relations": sorted(self.preserve_relations),
-            "guidance": self.guidance,
             "source_context": self.source_context,
             "target_context": self.target_context,
             "confirmation_required": self.confirmation_required,

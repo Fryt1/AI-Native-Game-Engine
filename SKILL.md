@@ -47,7 +47,9 @@ composite's verdict is earned on its children's. It does not decide what runs ne
 3. Run the integrity gate: `python integrity_gate.py --json`.
 4. Read `templates/` — `workflow.schema.json` is the Workflow's shape, and
    `result-contract.md` is the shape of what you submit against it.
-5. Read `guidance/` and pick the document matching the task's lifecycle.
+5. Read `guidance/` and pick the document matching the task's lifecycle. This is
+   your judgement: the engine does not record which one you chose, and does not
+   check that it exists.
 6. Load `docs/DEPENDENCIES.md` for the host or MCP server involved and confirm
    its prerequisites before selecting any call. There is no interface reference to
    read: what a host's MCP server can do is decided by the running server, so

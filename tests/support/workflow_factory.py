@@ -133,7 +133,6 @@ def workflow_for(
     task: TaskContract,
     steps: tuple[WorkflowNode, ...],
     *,
-    guidance: str | None = None,
     revision: int = 1,
     workflow_id: str | None = None,
     status: WorkflowStatus = WorkflowStatus.DRAFT,
@@ -148,7 +147,6 @@ def workflow_for(
             purpose="the Workflow",
             children=tuple(steps),
         ),
-        guidance=guidance if guidance is not None else (task.guidance or None),
         revision=revision,
         status=status,
     )
