@@ -1,19 +1,22 @@
-"""The shipped spec must stay loadable, and must still state what an author needs.
+"""The shipped spec and template must stay loadable, and must agree.
 
-`templates/workflow.schema.json` is the definition of the Workflow data structure.
-It replaces the JSON and Markdown templates that used to sit beside it: a template
-and a schema describe the same thing, and two descriptions of one thing drift. The
-schema is the one an Agent or an AI can be checked against, so it is the one kept.
+`templates/workflow.schema.json` is the definition of the Workflow data structure:
+what is allowed, what is required, and what each field means.
 
-These tests assert the schema still carries the vocabulary an author must know --
-every operator -- because a value missing from the spec is a value the author
-cannot discover.
+`templates/workflow-template.json` is the skeleton an author fills in. It was deleted
+once on the reasoning that a template and a schema describe the same thing and two
+descriptions drift. They do not describe the same thing -- a schema states constraints
+and a template shows the minimal shape that satisfies them, which for a 264-line spec
+with dense prose is not something an author can read off. What the two CAN do is
+disagree, so the tests below check the template against the schema rather than trusting
+either alone.
 """
 
 from __future__ import annotations
 
 import json
 import pathlib
+import re
 
 import pytest
 
@@ -21,6 +24,7 @@ from ainative.model.checklists import CheckStatus
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
 SCHEMA_PATH = REPO_ROOT / "templates" / "workflow.schema.json"
+TEMPLATE_PATH = REPO_ROOT / "templates" / "workflow-template.json"
 SKILL = REPO_ROOT / "SKILL.md"
 
 OPERATORS = [
@@ -37,6 +41,11 @@ def schema_text() -> str:
 @pytest.fixture(scope="module")
 def schema(schema_text: str) -> dict:
     return json.loads(schema_text)
+
+
+@pytest.fixture(scope="module")
+def template_text() -> str:
+    return TEMPLATE_PATH.read_text(encoding="utf-8")
 
 
 def test_the_schema_is_loadable_and_is_json_schema(schema: dict):
@@ -227,3 +236,184 @@ RULES = [
 def test_skill_md_states_every_stability_rule(rule: str):
     text = SKILL.read_text(encoding="utf-8")
     assert rule in text, f"stability rule missing from SKILL.md: {rule!r}"
+
+
+# --------------------------------------------------------------------------- #
+# The template
+# --------------------------------------------------------------------------- #
+#
+# The template's job is to be COPIED. Two ways that goes wrong, and neither is
+# visible from the template alone:
+#
+#   1. it shows a field the spec forbids, or omits one it requires -- every author
+#      who copies it inherits the error
+#   2. its shape is not actually openable once filled in
+#
+# So the tests here check it against the spec, and one fills it in and runs the
+# engine. The second is the one that matters: `nodeCheck` has no `call_ids`, and the
+# first draft of this template had one, which the spec check caught.
+
+
+def _placeholders(text: str) -> list[str]:
+    return re.findall(r"<([^<>]+)>", text)
+
+
+def test_the_template_is_json(template_text: str):
+    json.loads(template_text)
+
+
+def _every_property(schema: dict) -> set[str]:
+    """Every property name the spec declares, at any depth.
+
+    Walking only each `$defs` entry's top-level `properties` misses the ones nested
+    inside a `oneOf` branch -- `target.owner` and `target.name` live there -- and the
+    check then reports the template as wrong when it is not.
+    """
+
+    found: set[str] = set()
+
+    def walk(node: object) -> None:
+        if isinstance(node, dict):
+            properties = node.get("properties")
+            if isinstance(properties, dict):
+                found.update(properties)
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+
+    walk(schema)
+    return found
+
+
+def test_every_property_the_template_shows_exists_in_the_spec(
+        schema: dict, template_text: str):
+    """A property the spec does not define is rejected by `open`.
+
+    Checked by name against every property the spec declares at any depth: the
+    branches differ in what is REQUIRED, not in what they allow, except for the
+    composite/leaf split that test_the_template_shows_both_node_kinds covers.
+    """
+
+    allowed = _every_property(schema)
+    shown = set(re.findall(r'"([a-z_]+)":', template_text))
+    unknown = sorted(shown - allowed)
+    assert not unknown, (
+        f"the template shows properties the spec does not define: {unknown}. "
+        "An author copying this produces a document `open` refuses")
+
+
+def test_the_template_shows_both_node_kinds(schema: dict, template_text: str):
+    """A leaf and a composite, because they carry different fields.
+
+    The composite branch has no `stage` and may carry `acceptance_checklist`; the leaf
+    has the opposite. A template showing only one teaches half the structure.
+    """
+
+    assert '"kind": "workflow"' in template_text
+    assert '"kind": "stage"' in template_text
+    assert '"children"' in template_text
+    assert '"stage"' in template_text
+
+
+def test_the_template_shows_every_required_field_of_a_stage(schema: dict, template_text: str):
+    """`calls`, `execution_checklist`, and `acceptance_checklist` are all required.
+
+    A template that omits one produces a document that is not a stage at all.
+    """
+
+    for required in schema["$defs"]["stageBody"]["required"]:
+        assert f'"{required}"' in template_text, (
+            f"the template omits {required}, which the spec requires of every stage")
+
+
+def test_the_template_shows_both_kinds_of_execution_item(template_text: str):
+    """An item derived from calls, and one only a person can settle.
+
+    `call_ids: []` is how a human judgement enters the record -- the spec says so --
+    and an author who never sees the empty form will not know it is legal.
+    """
+
+    assert '"call_ids": ["<call-id>"]' in template_text
+    assert '"call_ids": []' in template_text
+
+
+def test_the_template_shows_both_kinds_of_acceptance_check(template_text: str):
+    """A deterministic check reading a call, and a manual one awaiting a person."""
+
+    assert '"operator": "equals"' in template_text
+    assert '"operator": "manual"' in template_text
+    assert '"source_call_id"' in template_text
+    assert '"source_node"' in template_text
+
+
+def test_the_template_uses_only_real_operators(schema: dict, template_text: str):
+    """An operator the spec does not define cannot pass any check."""
+
+    operators = set(schema["$defs"]["operator"]["enum"])
+    operators |= set(schema["$defs"]["nodeCheck"]["properties"]["operator"]["enum"])
+
+    shown = set(re.findall(r'"operator":\s*"([a-z_]+)"', template_text))
+    assert shown <= operators, f"the template shows unknown operators: {shown - operators}"
+
+
+def test_the_template_carries_no_removed_field(schema_text: str, template_text: str):
+    """The template must not resurrect the flat model either."""
+
+    for name in ("steps", "stages", "route", "toolset_id", "server_id", "plan_id"):
+        assert f'"{name}"' not in template_text, (
+            f"the template still shows {name}, which no longer exists")
+
+
+def test_the_template_names_every_placeholder_it_expects_filled(template_text: str):
+    """Placeholders are the template's whole content.
+
+    A bare value with no placeholder reads as a default to keep, which is how a
+    placeholder-shaped field survives into a real document.
+    """
+
+    placeholders = _placeholders(template_text)
+    assert len(placeholders) >= 10, (
+        "the template has too few placeholders to be a skeleton an author fills in")
+    # Every id-bearing field must be a placeholder rather than an example value.
+    for field in ("node_id", "purpose", "call_id", "item_id", "check_id",
+                  "workflow_id", "stage_kind"):
+        assert re.search(rf'"{field}":\s*"<', template_text), (
+            f"{field} carries a literal value instead of a placeholder")
+
+
+def test_the_body_points_at_the_template(template_text: str):
+    """A template the body never names is one no author opens.
+
+    This is the failure the template shipped with: it was added to `templates/` and
+    SKILL.md went on describing only the schema, so an Agent reading the loading
+    order would copy nothing and hand-write a document instead. The template was
+    correct and unused.
+    """
+
+    skill = SKILL.read_text(encoding="utf-8")
+
+    assert "workflow-template.json" in skill, (
+        "SKILL.md never names the template, so nothing tells an author to copy it")
+
+
+def test_the_body_states_the_refusals_that_make_a_conversion_work(template_text: str):
+    """The conversion rules an author needs, each one a way to get it wrong.
+
+    A procedure written for a human is prose; this engine judges a document. The
+    rules below are the join between the two, and each prevents a specific defect:
+    a standard with no value behind it, a transcribed sequence treated as order, and
+    domain knowledge restated as a checklist item.
+    """
+
+    del template_text
+    skill = SKILL.read_text(encoding="utf-8")
+
+    for rule in (
+        "A sentence is not a check",
+        "Their step is not your order",
+        "Their knowledge stays theirs",
+    ):
+        assert rule in skill, f"the conversion rules omit: {rule!r}"
+

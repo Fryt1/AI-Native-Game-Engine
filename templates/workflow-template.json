@@ -1,0 +1,73 @@
+{
+  "workflow_id": "<task-id>:workflow",
+  "root": {
+    "node_id": "<root-id>",
+    "kind": "workflow",
+    "purpose": "<what the whole task accomplishes>",
+    "children": [
+      {
+        "node_id": "<phase-id>",
+        "kind": "workflow",
+        "purpose": "<what this phase accomplishes>",
+        "depends_on": [],
+        "children": [
+          {
+            "node_id": "<stage-id>",
+            "kind": "stage",
+            "purpose": "<what this stage accomplishes>",
+            "depends_on": [],
+            "stage": {
+              "stage_kind": "<change|investigation|planning>",
+              "calls": [
+                {
+                  "call_id": "<call-id>",
+                  "target": {"owner": "<mcp-server>", "name": "<tool>"},
+                  "arguments": {},
+                  "depends_on": []
+                }
+              ],
+              "execution_checklist": [
+                {
+                  "item_id": "<item-id>",
+                  "description": "<what must be handled>",
+                  "call_ids": ["<call-id>"]
+                },
+                {
+                  "item_id": "<judged-item-id>",
+                  "description": "<what only a person can confirm>",
+                  "call_ids": []
+                }
+              ],
+              "acceptance_checklist": [
+                {
+                  "check_id": "<check-id>",
+                  "description": "<what must be proven, in terms of a value>",
+                  "operator": "equals",
+                  "source_call_id": "<call-id>",
+                  "actual_path": ["<output>", "<field>"],
+                  "expected": "<value>",
+                  "call_ids": ["<call-id>"]
+                },
+                {
+                  "check_id": "<manual-check-id>",
+                  "description": "<what awaits a human verdict>",
+                  "operator": "manual",
+                  "call_ids": []
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "acceptance_checklist": [
+      {
+        "check_id": "<rollup-check-id>",
+        "description": "<which descendant proves this composite>",
+        "operator": "equals",
+        "source_node": "<phase-id>/<stage-id>",
+        "expected": "pass"
+      }
+    ]
+  }
+}

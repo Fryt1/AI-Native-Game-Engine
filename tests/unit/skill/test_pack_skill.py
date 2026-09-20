@@ -84,6 +84,7 @@ def test_the_archive_carries_the_engine_and_the_instructions(entries: set[str]):
 
     for required in ("SKILL.md", "pyproject.toml", "src/ainative/__init__.py",
                      "templates/workflow.schema.json",
+                     "templates/workflow-template.json",
                      "docs/cli.md", "integrity_gate.py"):
         assert f"{name}/{required}" in entries, f"the archive omits {required}"
 

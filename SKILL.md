@@ -45,8 +45,14 @@ composite's verdict is earned on its children's. It does not decide what runs ne
    checkout's engine at a snapshot, and later edits in the checkout would stop
    taking effect.
 3. Run the integrity gate: `python integrity_gate.py --json`.
-4. Read `templates/` — `workflow.schema.json` is the Workflow's shape, and
-   `result-contract.md` is the shape of what you submit against it.
+4. Read `templates/` — three files, and they do different jobs:
+   - `workflow-template.json` is the skeleton you fill in. Copy its shape, replace
+     every `<...>` with a real value, and add or remove nodes as the task needs.
+     It is a legal document already: filled in, it passes `open` unchanged.
+   - `workflow.schema.json` is the spec the engine judges that document against.
+     Read it when you need to know what a field means or what else is allowed —
+     not as something to copy, because it is not itself a Workflow.
+   - `result-contract.md` is the shape of what you submit back.
 5. Confirm the host yourself. There is no interface reference to read and no
    dependency document to load: what a host's MCP server can do, and what it
    requires, is decided by the running server. Establish it through your own MCP
@@ -175,6 +181,45 @@ document; do not ask for the check to be relaxed.
 
 7. Continue, retry, wait for evidence or a human decision, compensate, or
    author a replacement Workflow according to the node result.
+
+## When the source is another skill
+
+A task often arrives as someone else's skill: a procedure written for a human or a
+model to follow. That skill is prose. This one is a document the engine judges, so
+the prose has to be converted, and the conversion is where it can go wrong.
+
+Load both skills. Each arrives in its own `<skill_content>` block with its own base
+directory, so resolve each one's paths against its own block.
+
+What converts, and what does not:
+
+```text
+a step in their procedure        → a STAGE leaf, or a WORKFLOW node if it groups
+a tool they invoke               → a call: target {owner, name}, arguments
+"do X before Y"                  → depends_on: ["<the node Y>"], from the declaring node
+a thing they say to check        → an acceptance check, IF it names a value
+a thing only a person can settle → manual, and say who decides
+what they leave unsaid           → an investigation stage, or needs_human
+their stated versions or paths   → nothing: confirm the running server yourself
+```
+
+Three rules decide whether the conversion worked:
+
+- **A sentence is not a check.** "The mesh looks correct" cannot pass or fail;
+  `count_equals` on a vertex count can. When their standard has no value behind it,
+  write a call that produces one, or mark the check `manual` and let a person judge.
+  A check you cannot evaluate is a check you will pass by accident.
+- **Their step is not your order.** Their prose reads top to bottom; yours is
+  ordered by `depends_on` alone, which may cross branches and may be empty. Write
+  the dependencies that are real rather than transcribing their sequence.
+- **Their knowledge stays theirs.** This skill states no per-object or per-operation
+  knowledge. Where their skill knows how a thing is done, that knowledge goes into
+  the `description` fields and the call arguments — not into a checklist item that
+  only restates it.
+
+Copy `templates/workflow-template.json`, fill it in, and let `open` judge the result.
+It validates the structure before any call runs, so a conversion that does not hold
+together is refused there rather than discovered halfway through execution.
 
 ## Core model
 

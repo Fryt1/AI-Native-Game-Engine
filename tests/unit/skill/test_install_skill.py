@@ -104,6 +104,7 @@ def test_the_bundle_carries_the_instructions_and_their_resources():
     for required in (
         "SKILL.md",
         "templates/workflow.schema.json",
+        "templates/workflow-template.json",
         "templates/result-contract.md",
         "docs/cli.md",
         "integrity_gate.py",
