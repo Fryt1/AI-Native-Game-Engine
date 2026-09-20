@@ -35,6 +35,43 @@ python -m pip install -e .[dev]
 
 The project is not published on PyPI and has no third-party runtime dependencies; `dev` extras add pytest and ruff.
 
+### Install as a skill
+
+The project **is** a skill: `SKILL.md` carries the frontmatter a harness discovers, and everything else in the repository is what that skill needs. An agent finds it only when it sits under a scanned skill root — `~/.agents/skills/`, `~/.dsh/skills/`, or the same path inside a project. Sitting in a checkout is not enough; discovery reads one level deep, `<root>/<name>/SKILL.md`, so a repository anywhere else is invisible.
+
+Two scripts, one per direction:
+
+```powershell
+# From a checkout onto this machine
+python install_skill.py
+#   installed ai-native-game-engine -> <skill root>/ai-native-game-engine
+#   the engine installs from there with: pip install -e "<that path>"
+
+# Confirm the install still matches the checkout
+python install_skill.py --check
+```
+
+```powershell
+# Into one file, to hand to someone else
+python pack_skill.py
+#   packed ai-native-game-engine at a1b2c3d
+#   dist/ai-native-game-engine-a1b2c3d.zip
+
+# Confirm an archive is usable before trusting it
+python pack_skill.py --verify dist/ai-native-game-engine-a1b2c3d.zip
+#   ai-native-game-engine-a1b2c3d.zip: 63 files, a usable skill
+```
+
+`--check` and `--verify` exist because both failures are otherwise invisible. An installed copy drifts silently and then serves stale instructions; an archive missing the engine loads, appears in the catalog, and fails only when an agent runs the command its body names.
+
+The archive unpacks into a skill root directly — its single top-level directory is already the `<name>/` discovery expects:
+
+```powershell
+python -c "import zipfile; zipfile.ZipFile('dist/ai-native-game-engine-a1b2c3d.zip').extractall('<skill root>')"
+```
+
+Both scripts take their file list from one place, so what is packed is what is installed. `tests/` and build output are excluded: they belong to the source rather than the skill.
+
 ### Dependencies
 
 Runtime dependencies are external and version-baselined. See [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md) for the full Python, Blender, UE5, ComfyUI, Hugging Face, and MCP dependency contract, including version baselines, install/verification steps, failure triage, and security boundaries for each host/MCP integration.
@@ -186,15 +223,17 @@ There is no per-object or per-operation knowledge base and no recipe package in 
 ### Documentation map
 
 - `AGENTS.md` — repository-wide Agent rules
-- `SKILL.md` — Skill contract
+- `SKILL.md` — the skill's body: when to use it, and the working order
 - `guidance/` — reusable macro lifecycle guidance
-- `templates/` — the Workflow schema, the result contract, and the guidance template
+- `templates/` — the Workflow schema and the result contract
 - `docs/ARCHITECTURE.md` — architecture and data flow
 - `docs/ADDING_GUIDANCE.md` — step-by-step guide to add a reusable lifecycle
 - `docs/MAINTENANCE.md` — maintenance and extension rules
 - `docs/VALIDATION_REPORT.md` — current verification evidence
 - `docs/cli.md` — `python -m ainative.session` usage
 - `docs/DEPENDENCIES.md` — dependency contract overview
+- `install_skill.py` — install this project into a skill root, or check it
+- `pack_skill.py` — pack the skill into a distributable archive, or verify one
 
 ## Security
 

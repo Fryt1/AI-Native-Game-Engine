@@ -355,6 +355,24 @@ def test_the_data_structure_section_draws_every_model_class_it_should():
         "this list names something the model no longer defines")
 
 
+def test_the_readme_documents_both_scripts():
+    """A tool nobody is told about is a tool nobody runs.
+
+    `install_skill.py` and `pack_skill.py` are the two steps between a checkout and
+    something an agent can find. The README is where a person setting this up looks,
+    so both commands have to be there with the flags that matter.
+    """
+
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+
+    for command in ("python install_skill.py", "python install_skill.py --check",
+                    "python pack_skill.py", "python pack_skill.py --verify"):
+        assert command in readme, f"README.md never shows `{command}`"
+
+    for path in ("install_skill.py", "pack_skill.py"):
+        assert (REPO_ROOT / path).is_file(), f"README.md names a missing script: {path}"
+
+
 def test_the_readme_agent_api_example_still_runs():
     """A code example is the most rottable statement a document can make.
 

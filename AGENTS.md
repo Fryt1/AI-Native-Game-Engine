@@ -202,8 +202,9 @@ This repository **is** the Skill. The guidance below is what an Agent reads;
 ├── AGENTS.md             this file
 ├── SKILL.md              Skill entry point
 ├── guidance/             reusable macro-lifecycle guidance
-├── templates/            the Workflow schema, the result contract, and the
-│                         guidance template
+├── templates/            the Workflow schema and the result contract
+├── install_skill.py      install this project into a skill root, or check it
+├── pack_skill.py         pack the skill into an archive, or verify one
 ├── src/ainative/
 │   ├── session_api/      Skill loading, the Workflow opener, the session
 │   ├── cli/              the acceptance-loop CLI and its state file
