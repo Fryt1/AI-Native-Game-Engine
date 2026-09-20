@@ -16,7 +16,7 @@ UE5、Blender、ComfyUI、MCP Server 和 Agent MCP Client 是外部运行时依�
 ```text
 本仓库
   ├─ Python runtime（结构校验 + 验收会话）
-  ├─ Skill 提示资产（SKILL.md + guidance/ + templates/）
+  ├─ Skill 提示资产（SKILL.md + templates/ + docs/）
   └─ acceptance engine
 
 外部宿主/工具

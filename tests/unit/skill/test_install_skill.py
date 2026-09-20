@@ -52,16 +52,13 @@ PATH_PATTERN = re.compile(r"`((?:[a-z_]+/)+[a-z_.-]+\.(?:md|json|py))`")
 #: Paths a bundled document names while addressing a MAINTAINER rather than the
 #: Agent reading the skill. Each is listed with the reason it is not shipped.
 #:
-#: Both name files under `tests/`, which belongs to the source rather than the
-#: product. The sentence in each case describes how this repository is maintained,
-#: so it is addressed to whoever edits it, not to whoever runs the skill.
+#: It names a file under `tests/`, which belongs to the source rather than the
+#: product. The sentence describes how this repository is maintained, so it is
+#: addressed to whoever edits it, not to whoever runs the skill.
 MAINTAINER_ONLY_REFERENCES = {
     # DEPENDENCIES.md says the repository ships no host fixture and points at the
     # sample Task Contract under tests/ to show what it ships instead.
     "tests/support/task-cross-host.json",
-    # ADDING_GUIDANCE.md tells a maintainer which test enforces the registration
-    # step it just described.
-    "tests/unit/skill/test_guidance_inventory.py",
 }
 
 
@@ -131,7 +128,6 @@ def test_the_bundle_carries_the_instructions_and_their_resources():
         "templates/result-contract.md",
         "docs/cli.md",
         "docs/DEPENDENCIES.md",
-        "guidance/index.md",
         "integrity_gate.py",
         "install_skill.py",
     ):
@@ -269,6 +265,6 @@ def test_the_installer_warns_against_installing_the_engine_from_the_copy():
         "the installer no longer says why installing the copy is wrong")
 
 
-@pytest.mark.parametrize("name", ["src", "guidance", "templates", "docs"])
+@pytest.mark.parametrize("name", ["src", "templates", "docs"])
 def test_the_bundled_directories_exist(name: str):
     assert (REPO_ROOT / name).is_dir(), f"the installer names a missing directory: {name}"

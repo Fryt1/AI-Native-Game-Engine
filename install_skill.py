@@ -29,7 +29,7 @@ REPO_ROOT = Path(__file__).resolve().parent
 SKILL_MD = REPO_ROOT / "SKILL.md"
 
 #: Copied into the skill root. Directories are walked recursively.
-BUNDLE_DIRS = ("src", "guidance", "templates", "docs")
+BUNDLE_DIRS = ("src", "templates", "docs")
 
 #: Copied from the repository root. Everything the engine or its instructions need
 #: at run time; `pyproject.toml` is here so the installed copy can be pip-installed

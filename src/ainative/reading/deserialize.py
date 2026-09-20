@@ -58,7 +58,7 @@ def _str_tuple(value: Any, path: str) -> tuple[str, ...]:
 def _target(value: Any, path: str) -> CallTarget | None:
     """Read a call target.
 
-    ``None`` is allowed: a guidance document names a call's role and leaves the
+    ``None`` is allowed: a declaration names a call's role and leaves the
     target for the caller to bind after confirming the live server, so a document
     may legitimately carry no target yet.
     """
@@ -106,7 +106,7 @@ def tool_call_from_dict(document: Any, path: str, *, target_required: bool = Tru
     @param document: the JSON object for one call.
     @param path: the JSON path, used in error messages.
     @param target_required: when False, a call may carry ``"target": null``. A
-        guidance document names a call's ROLE and leaves the target for the caller
+        declaration names a call's ROLE and leaves the target for the caller
         to bind after confirming the live server, so the tree form allows it while
         an executed Workflow does not.
     @returns the call contract.

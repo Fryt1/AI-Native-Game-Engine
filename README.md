@@ -147,7 +147,7 @@ There is no host-editor configuration: Blender and UE5 are reached through their
 
 ### Agent-facing API
 
-The Agent supplies a `TaskContract`, loads Workflow guidance, authors a `WorkflowTree`, and opens a validation session:
+The Agent supplies a `TaskContract`, authors a `WorkflowTree`, and opens a validation session:
 
 ```python
 from ainative.session_api import AcceptanceGuide
@@ -173,7 +173,7 @@ The same loop is available process-level as `python -m ainative.session`, which 
 
 ### Adding a reusable workflow
 
-See [docs/ADDING_GUIDANCE.md](docs/ADDING_GUIDANCE.md) for the step-by-step guide to adding a reusable lifecycle under `guidance/`. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the architecture walkthrough.
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the architecture walkthrough.
 
 ## Architecture
 
@@ -194,7 +194,7 @@ Agent intent
     → continue / retry / wait / compensate / re-plan
 ```
 
-Guidance documents lock macro invariants, not a universal sequence of nodes. The Agent chooses the concrete tree, checklist items, and exact calls for the current task.
+The Agent chooses the concrete tree, checklist items, and exact calls for the current task.
 
 ### Stage closure
 
@@ -233,7 +233,6 @@ The Agent composes every Stage itself from Stage kind, processing object, operat
 
 ```text
 SKILL.md          the composition rule and the execution discipline
-guidance/         reusable macro lifecycle guidance
 templates/        the Workflow schema and the result contract
 ```
 
@@ -243,10 +242,8 @@ There is no per-object or per-operation knowledge base and no recipe package in 
 
 - `AGENTS.md` — repository-wide Agent rules
 - `SKILL.md` — the skill's body: when to use it, and the working order
-- `guidance/` — reusable macro lifecycle guidance
 - `templates/` — the Workflow schema and the result contract
 - `docs/ARCHITECTURE.md` — architecture and data flow
-- `docs/ADDING_GUIDANCE.md` — step-by-step guide to add a reusable lifecycle
 - `docs/MAINTENANCE.md` — maintenance and extension rules
 - `docs/VALIDATION_REPORT.md` — current verification evidence
 - `docs/cli.md` — `python -m ainative.session` usage

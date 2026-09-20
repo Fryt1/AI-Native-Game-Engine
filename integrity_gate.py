@@ -23,14 +23,6 @@ class IntegrityReport:
 def check_package(package_root: Path) -> IntegrityReport:
     required = (
         "SKILL.md",
-        "guidance/index.md",
-        "guidance/asset-edit.md",
-        "guidance/host-operation.md",
-        "guidance/asset-roundtrip.md",
-        "guidance/native-blender-operation.md",
-        "guidance/provider-artifact-apply.md",
-        "guidance/failure-recovery.md",
-        "guidance/procedural-scene/README.md",
         "templates/workflow.schema.json",
         "templates/result-contract.md",
     )

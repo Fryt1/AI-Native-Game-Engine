@@ -291,7 +291,7 @@ def test_every_top_level_directory_is_one_of_the_owned_categories():
     that a directory is missing.
     """
 
-    allowed = {"docs", "guidance", "src", "templates", "tests", "artifacts"}
+    allowed = {"docs", "src", "templates", "tests", "artifacts"}
 
     present = {
         path.name for path in REPO_ROOT.iterdir()
@@ -319,7 +319,7 @@ def test_the_documented_ownership_matches_the_tree():
     start = agents.index("```text\n<repository root>/")
     drawing = agents[start:agents.index("```", start + 10)]
 
-    for name in ("guidance/", "templates/", "src/ainative/", "tests/", "docs/", "artifacts/"):
+    for name in ("templates/", "src/ainative/", "tests/", "docs/", "artifacts/"):
         assert name in drawing, f"AGENTS.md draws no {name}"
 
     assert "references/" not in drawing, "AGENTS.md still draws a directory that is gone"

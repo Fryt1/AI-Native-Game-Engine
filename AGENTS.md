@@ -12,8 +12,7 @@ AGENTS.md
     → SKILL.md
     → Skill integrity gate
     → templates/ for the Workflow schema and the result contract when authoring
-      a Workflow or a guidance document
-    → guidance/ for the matching lifecycle
+      a Workflow
     → docs/DEPENDENCIES.md (when a host or MCP call is involved)
     → docs/DEPENDENCIES.md section for the specific host/MCP (Blender/UE5/ComfyUI/HF)
     → exact MCP call feasibility
@@ -91,8 +90,6 @@ Consequences:
 
 ## Planning rules
 
-- `guidance/` documents supply macro lifecycle guidance and invariants, not one
-  universal sequence. They are prompt assets the Agent reads, not a runtime.
 - Compose each node from Stage kind, processing object, operation type, current
   facts, and user requirements. A STAGE leaf is where the work happens; a
   WORKFLOW node is containment or a phase grouping and is not a separate type.
@@ -201,7 +198,6 @@ This repository **is** the Skill. The guidance below is what an Agent reads;
 <repository root>/
 ├── AGENTS.md             this file
 ├── SKILL.md              Skill entry point
-├── guidance/             reusable macro-lifecycle guidance
 ├── templates/            the Workflow schema and the result contract
 ├── install_skill.py      install this project into a skill root, or check it
 ├── pack_skill.py         pack the skill into an archive, or verify one
@@ -222,10 +218,8 @@ This repository **is** the Skill. The guidance below is what an Agent reads;
 - `src/ainative/cli/` owns the acceptance-loop CLI and its durable state.
 - `src/ainative/model/`, `reading/`, and `acceptance/` own the data shapes,
   Workflow validation, and the deterministic verdict.
-- `guidance/` owns what the Agent reads about a lifecycle. It is a prompt asset,
-  not a runtime.
-- `templates/` owns the shapes: the Workflow spec the engine validates, the result
-  contract the Agent submits against, and how to write a guidance document.
+- `templates/` owns the shapes: the Workflow spec the engine validates and the
+  result contract the Agent submits against.
 - `integrity_gate.py` owns the required-file list every prompt asset must appear
   in.
 
@@ -240,9 +234,8 @@ call contract carries the target; the Agent's own MCP client resolves and runs
 it. Host capabilities — Blender, UE5, ComfyUI — are the Agent's MCP servers'
 business, and this repository ships no executable Toolset of its own.
 
-Host dependencies are declared in `docs/DEPENDENCIES.md`. There is no per-package
-recipe directory: the Agent reads `guidance/` for the matching lifecycle and
-confirms the host prerequisites itself.
+Host dependencies are declared in `docs/DEPENDENCIES.md`. The Agent confirms the
+host prerequisites itself.
 
 ## Acceptance loop
 

@@ -83,7 +83,7 @@ def _open_with(capsys, paths, *, task=None, workflow=None):
     return code, json.loads(capsys.readouterr().out)
 
 
-def test_an_unknown_guidance_name_reports_an_envelope(paths, capsys):
+def test_a_task_carrying_a_removed_field_reports_an_envelope(paths, capsys):
     """A task that names a lifecycle is ordinary prose now, not an error.
 
     `guidance` was removed from the task contract, so a document carrying it holds an

@@ -135,7 +135,7 @@
         },
         "arguments": {"type": "object"},
         "target": {
-          "description": "The MCP server and tool. Optional in a guidance document, where a call names a role and the caller binds the target after confirming the live server.",
+          "description": "The MCP server and tool. Optional while authoring, where a call names a role and the caller binds the target after confirming the live server.",
           "oneOf": [
             {"type": "null"},
             {

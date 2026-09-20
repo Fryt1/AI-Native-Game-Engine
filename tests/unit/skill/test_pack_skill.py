@@ -83,7 +83,7 @@ def test_the_archive_carries_the_engine_and_the_instructions(entries: set[str]):
     name = installer.skill_name()
 
     for required in ("SKILL.md", "pyproject.toml", "src/ainative/__init__.py",
-                     "templates/workflow.schema.json", "guidance/index.md",
+                     "templates/workflow.schema.json",
                      "docs/cli.md", "docs/DEPENDENCIES.md", "integrity_gate.py"):
         assert f"{name}/{required}" in entries, f"the archive omits {required}"
 

@@ -74,7 +74,7 @@ checklist summaries 持久化在 StageResult
 ## Ownership model
 
 ```text
-Skill 提示资产            → SKILL.md + guidance/ + templates/
+Skill 提示资产            → SKILL.md + templates/ + docs/
 Agent                   → 决定做什么、按什么顺序、调用哪一个，并亲自执行
 ToolCall contract       → 声明 call_id / target / arguments / depends_on
 StageAcceptanceEvaluator→ 产生 ExecutionItemResult / CheckResult / summaries

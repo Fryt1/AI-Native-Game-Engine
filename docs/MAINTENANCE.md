@@ -38,8 +38,7 @@ Task Contract
 ## 指引维护
 
 ```text
-guidance/*.md            仅当一条宏观生命周期的执行/验收行为不同
-templates/*.md           形状与写法：Workflow schema、结果契约、指引模板
+templates/*.md           形状与写法：Workflow schema、结果契约
 ```
 
 不要为每个 host/object/operation 组合维护单独文档。Agent 按 `SKILL.md` 的组合
@@ -61,7 +60,6 @@ needs_human        → 等待决策
 
 | 变更 | 权威 owner | 同步更新 |
 |---|---|---|
-| 生命周期指引 | `guidance/*.md` | `guidance/index.md`、integrity gate、examples |
 | 计划/清单格式 | `src/ainative/model/tree.py` | `templates/workflow.schema.json`、integrity gate、tests |
 | 调用契约（`ToolCall` / `CallTarget`） | `src/ainative/model/tools.py` | deserialize、contract tests |
 | 提交结果的形状 | `templates/result-contract.md` | `docs/cli.md`、deserialize、contract tests |
@@ -101,7 +99,6 @@ ruff check src/ainative tests
 |---|---|---|
 | 引擎校验的形状 | `templates/` | `open` 真的读它。spec 与它校验的数据是一对 |
 | Agent 提交上来的形状 | `templates/` | 契约的另一半，同上。结果文档目前没有 schema，但归这里 |
-| 某类任务怎么干 | `guidance/` | 领域流程，换掉引擎照样成立 |
 | 上面两种怎么写 | `templates/` | 模板就是"写的规则" |
 | 引擎内部机制 | `docs/` | 只有维护者读 |
 | 宿主前置条件与版本 | `docs/DEPENDENCIES.md` | 唯一一份 Agent 与维护者共读的 |
@@ -118,5 +115,5 @@ ruff check src/ainative tests
 - 宿主 MCP 行为变更：更新 `docs/DEPENDENCIES.md` 对应小节（本仓库不拥有 MCP
   Client，也不代 Agent 做前置检查）。
 - 计划语义变更：更新契约 + 架构文档（`docs/ARCHITECTURE.md`）+ fixtures。
-- 新增/删除提示资产：同步 `guidance/index.md`、`docs/` 各文件中的目录树，
-  以及 `integrity_gate.py` 的 required 列表。
+- 新增/删除提示资产：同步 `docs/` 各文件中的目录树，以及 `integrity_gate.py`
+  的 required 列表。
