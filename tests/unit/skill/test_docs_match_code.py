@@ -297,7 +297,10 @@ def test_every_top_level_directory_is_one_of_the_owned_categories():
         path.name for path in REPO_ROOT.iterdir()
         if path.is_dir()
         and not path.name.startswith(".")
-        and path.name not in {"__pycache__", "node_modules"}
+        # Build output and tool caches, not places a fact lives. Named here rather
+        # than silently skipped: each one is a decision, and a new one should force
+        # the same question the documents above must answer.
+        and path.name not in {"__pycache__", "node_modules", "dist", "build"}
     }
 
     assert present <= allowed, (
