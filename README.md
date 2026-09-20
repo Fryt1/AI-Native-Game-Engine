@@ -236,16 +236,35 @@ SKILL.md          the composition rule and the execution discipline
 templates/        the Workflow schema and the result contract
 ```
 
-There is no per-object or per-operation knowledge base and no recipe package in this repository. The Agent supplies the domain competence for the object and the operation; the repository supplies the contract, the guidance, and the deterministic acceptance engine.
+There is no per-object or per-operation knowledge base and no recipe package in this repository. The Agent supplies the domain competence for the object and the operation; the repository supplies the contract and the deterministic acceptance engine.
+
+### What the skill carries
+
+The install is filtered: it carries what **driving** the engine needs, not what **developing** it needs. A document an Agent will never open is weight in every recipient's skill root.
+
+```text
+carried                          not carried
+SKILL.md                         AGENTS.md            instructions for editing this repo
+src/ainative/     the engine     README.md            the repository's front page
+templates/                       docs/ARCHITECTURE.md how the engine is built
+docs/cli.md       the commands   docs/MAINTENANCE.md  placement tables for maintainers
+docs/DEPENDENCIES.md             docs/VALIDATION_REPORT.md
+integrity_gate.py                tests/  .github/  artifacts/  .venv/
+pyproject.toml                   *.egg-info/          pip's build output
+install_skill.py  pack_skill.py
+LICENSE
+```
+
+`docs/` is a file list, not a directory: `docs/cli.md` and `docs/DEPENDENCIES.md` are the two the loading order reaches. The exclusions are declared in `install_skill.py` as `DEVELOPMENT_ONLY`, with a reason each, and tests check that no top-level document is decided by omission.
 
 ### Documentation map
 
-- `AGENTS.md` — repository-wide Agent rules
+- `AGENTS.md` — repository-wide Agent rules (development; not installed)
 - `SKILL.md` — the skill's body: when to use it, and the working order
 - `templates/` — the Workflow schema and the result contract
-- `docs/ARCHITECTURE.md` — architecture and data flow
-- `docs/MAINTENANCE.md` — maintenance and extension rules
-- `docs/VALIDATION_REPORT.md` — current verification evidence
+- `docs/ARCHITECTURE.md` — architecture and data flow (development; not installed)
+- `docs/MAINTENANCE.md` — maintenance and extension rules (development; not installed)
+- `docs/VALIDATION_REPORT.md` — current verification evidence (development; not installed)
 - `docs/cli.md` — `python -m ainative.session` usage
 - `docs/DEPENDENCIES.md` — dependency contract overview
 - `install_skill.py` — install this project into a skill root, or check it

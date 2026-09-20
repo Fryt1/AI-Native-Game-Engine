@@ -3,11 +3,13 @@
 The repository is the source; a skill root is an install location, the way
 `site-packages` differs from a checkout. This script is the step between them.
 
-The whole project installs, because the whole project is the skill. That is not a
-turn of phrase: SKILL.md tells the Agent to run `python -m ainative.session`, and
-that program is what makes the instructions checkable rather than advisory. A
-bundle carrying the prose without the engine would send the Agent to a command that
-does not exist on a machine that has only the install.
+The skill installs what DRIVING the engine needs, not what developing it needs. The
+engine travels, because SKILL.md tells the Agent to run `python -m ainative.session`
+and that program is what makes the instructions checkable rather than advisory. The
+documents an Agent reads travel. The documents a maintainer reads do not: an Agent
+handed ARCHITECTURE.md, MAINTENANCE.md, or this repository's own AGENTS.md has been
+given weight it will never act on, and a recipient installing the skill is not
+maintaining it.
 
 What lands in the skill root is a copy, not a link, so the installed skill keeps
 working when the checkout moves or disappears. Engine changes reach it by
@@ -29,29 +31,49 @@ REPO_ROOT = Path(__file__).resolve().parent
 SKILL_MD = REPO_ROOT / "SKILL.md"
 
 #: Copied into the skill root. Directories are walked recursively.
-BUNDLE_DIRS = ("src", "templates", "docs")
+#:
+#: `docs` is a file list rather than the whole directory: SKILL.md's loading order
+#: reaches exactly two documents there, and the rest of `docs/` is maintainer
+#: material. A directory here would pull all of it in.
+BUNDLE_DIRS = ("src", "templates")
 
-#: Copied from the repository root. Everything the engine or its instructions need
-#: at run time; `pyproject.toml` is here so the installed copy can be pip-installed
-#: on its own.
+#: Copied from the repository root.
 BUNDLE_FILES = (
+    # The body the Agent reads, and what its loading order reaches.
     "SKILL.md",
-    "AGENTS.md",
-    "README.md",
-    "pyproject.toml",
     "integrity_gate.py",
+    "docs/cli.md",
+    "docs/DEPENDENCIES.md",
+    # The engine must be installable from the copy on a machine with no checkout.
+    "pyproject.toml",
+    # Both directions of distribution, so a recipient can reinstall or repack.
     "install_skill.py",
     "pack_skill.py",
     "LICENSE",
 )
+
+#: Present in the repository, deliberately absent from the skill. Each is a decision
+#: rather than an omission, and the tests check that every top-level document is
+#: either bundled or listed here.
+DEVELOPMENT_ONLY = {
+    "AGENTS.md": "instructions for editing this repository, not for using the skill",
+    "README.md": "the repository's front page: install, architecture, contributing",
+    "docs/ARCHITECTURE.md": "how the engine is built, for whoever changes it",
+    "docs/MAINTENANCE.md": "placement tables and change-ownership for maintainers",
+    "docs/VALIDATION_REPORT.md": "verification evidence recorded for this revision",
+}
 
 #: Never copied. Build outputs and local state, not part of the skill.
 EXCLUDED_DIRS = {
     ".git", ".github", ".venv", ".pytest_cache", ".ruff_cache", "__pycache__",
     "artifacts", ".agents", "node_modules", "dist", "build", "tests",
 }
-EXCLUDED_SUFFIXES = {".pyc", ".pyo"}
-EXCLUDED_NAMES = {"uv.lock", ".gitignore", ".installed-from"}
+#: Build output that `pip install -e .` drops INSIDE the source tree, so a
+#: directory-name exclusion does not catch it. It held six files -- PKG-INFO,
+#: SOURCES.txt, entry_points.txt and friends -- describing one machine's install,
+#: and it travelled into the archive until a listing was read closely enough.
+EXCLUDED_SUFFIXES = {".pyc", ".pyo", ".egg-info", ".egg-link"}
+EXCLUDED_NAMES = {"uv.lock", ".gitignore", ".installed-from", "PKG-INFO", "SOURCES.txt"}
 
 #: Written into the installed copy so a reader can tell it is generated.
 MARKER = ".installed-from"
@@ -89,9 +111,20 @@ def revision() -> str:
 
 
 def _excluded(path: Path) -> bool:
-    if path.name in EXCLUDED_NAMES or path.suffix in EXCLUDED_SUFFIXES:
-        return True
-    return any(part in EXCLUDED_DIRS for part in path.relative_to(REPO_ROOT).parts)
+    """Return whether a file inside a bundled directory is left out.
+
+    Matched on every path PART, not just the file's own name: build output such as
+    `src/*.egg-info/` is a directory, and its files look ordinary (`.txt`, `.py`) from
+    the inside. Checking only the basename let six of them travel into the archive.
+    """
+
+    parts = path.relative_to(REPO_ROOT).parts
+    for part in parts:
+        if part in EXCLUDED_NAMES or part in EXCLUDED_DIRS:
+            return True
+        if Path(part).suffix in EXCLUDED_SUFFIXES:
+            return True
+    return False
 
 
 def sources() -> list[tuple[Path, Path]]:

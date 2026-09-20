@@ -181,6 +181,76 @@ def test_every_top_level_script_is_in_the_bundle():
         "by name with a reason if they are not part of the skill")
 
 
+def test_every_top_level_document_is_bundled_or_declared_development_only():
+    """A document must be one or the other, and the choice must be written down.
+
+    The first version bundled `docs/` wholesale, which sent ARCHITECTURE.md,
+    MAINTENANCE.md, and the repository's own AGENTS.md to every recipient -- material
+    for whoever CHANGES the engine, handed to whoever USES it. The reverse risk is a
+    document an Agent needs left out by accident.
+
+    This is the join: nothing at the top level is decided by omission.
+    """
+
+    module = _installer()
+    carried = _carried()
+    declared = set(module.DEVELOPMENT_ONLY)
+
+    documents = {
+        path.relative_to(REPO_ROOT).as_posix()
+        for path in [*REPO_ROOT.glob("*.md"), *REPO_ROOT.glob("docs/*.md")]
+        if path.is_file()
+    }
+
+    unbundled = documents - carried
+    undeclared = sorted(unbundled - declared)
+    assert not undeclared, (
+        f"these documents are neither bundled nor declared development-only: "
+        f"{undeclared}. Add each to BUNDLE_FILES, or to DEVELOPMENT_ONLY with the "
+        "reason it is not part of the skill")
+
+    # And the other direction: a declaration for something that IS bundled, or no
+    # longer exists, would quietly widen the exclusion list.
+    stale = sorted(name for name in declared if name in carried)
+    assert not stale, f"declared development-only but bundled anyway: {stale}"
+
+    missing = sorted(name for name in declared if not (REPO_ROOT / name).is_file())
+    assert not missing, f"declared development-only but not in the repository: {missing}"
+
+
+def test_every_bundled_document_is_one_the_body_reaches():
+    """The other direction of the same join.
+
+    A document in the bundle that SKILL.md never points at is weight an Agent carries
+    and never opens. The loading order names four things; `docs/` contributes exactly
+    the two below, and this fails if a third is added without the body reaching it.
+    """
+
+    carried = _carried()
+    bundled_docs = sorted(
+        name for name in carried if name.startswith("docs/"))
+    skill = (REPO_ROOT / "SKILL.md").read_text(encoding="utf-8")
+
+    assert bundled_docs == ["docs/DEPENDENCIES.md", "docs/cli.md"], (
+        f"the bundle carries documents the body may not reach: {bundled_docs}")
+    for name in bundled_docs:
+        assert name in skill, f"SKILL.md never points at {name}"
+
+
+def test_the_bundle_carries_no_editable_install_metadata():
+    """`pip install -e .` drops `*.egg-info/` INSIDE `src/`, so it travelled.
+
+    Six files -- PKG-INFO, SOURCES.txt, entry_points.txt and friends -- describing one
+    machine's install. The directory-name exclusions did not catch it because the
+    files inside look ordinary, and it reached an archive before a listing was read.
+    """
+
+    carried = _carried()
+
+    offenders = sorted(name for name in carried if "egg-info" in name or "egg_link" in name)
+    assert not offenders, f"editable-install metadata reached the bundle: {offenders}"
+
+
 def test_the_default_target_is_the_projects_own_skill_root():
     """Project roots outrank user roots, so the default installs where it belongs.
 

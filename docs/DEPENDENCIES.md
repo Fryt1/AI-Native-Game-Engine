@@ -410,6 +410,6 @@ artifacts/evidence/comfyui-mcp-live/  (workflow JSON、verification.json、outpu
 
 ## 相关文档
 
-- `README.md`：仓库安装入口和边界说明；
-- `AGENTS.md`：加载顺序与仓库级规则；
-- `SKILL.md`：Workflow 怎么写，以及每个 Stage 的动态清单规则。
+- `SKILL.md`：Workflow 怎么写，以及每个 Stage 的动态清单规则；
+- `docs/cli.md`：八个命令、信封、退出码；
+- `templates/`：Workflow spec 与结果契约。

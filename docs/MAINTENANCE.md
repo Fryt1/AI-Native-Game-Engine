@@ -109,6 +109,16 @@ ruff check src/ainative tests
 
 `references/` 就是这样消失的：它装的两类事实，一类（提交结果的形状）归 `templates/`，另一类（宿主能调什么）不在本仓库。
 
+### 落点决定位置，但不决定是否随包发出
+
+上面这张表说的是文档**住哪**。打包另有一问：**它要不要跟着 skill 走**。
+
+`install_skill.py` 只装"驱动引擎"需要的东西，不装"开发引擎"需要的东西。判据是**加载顺序**：`SKILL.md` 第 2–5 步真正点到的文件才进包。`AGENTS.md`、`README.md`、`docs/ARCHITECTURE.md`、`docs/MAINTENANCE.md`、`docs/VALIDATION_REPORT.md` 都住在本仓库、都被维护者读，但没有一个在加载顺序里——它们进的是 `DEVELOPMENT_ONLY` 清单，每条带一句理由。
+
+新增一份顶层文档时，必须二选一：进 `BUNDLE_FILES`，或进 `DEVELOPMENT_ONLY`。两个测试分别把守两个方向：漏选会被 `test_every_top_level_document_is_bundled_or_declared_development_only` 拦下，多装会被 `test_every_bundled_document_is_one_the_body_reaches` 拦下——后者防的是把 ARCHITECTURE.md 之类发给只使用引擎的人。
+
+`docs/` 在包里是**文件清单而不是目录**：加载顺序只到 `cli.md` 和 `DEPENDENCIES.md` 两份，写成目录会把其余三份一起拖进去。
+
 ## 目录维护规则
 
 - 调用契约变更：更新 `model/tools.py` + deserialize + fixtures。
