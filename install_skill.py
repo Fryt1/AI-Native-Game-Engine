@@ -137,6 +137,8 @@ def install(destination: Path) -> int:
     size = sum(p.stat().st_size for p in files)
     print(f"installed {skill_name()} -> {target}")
     print(f"  {len(files)} files, {size} bytes")
+    print("  a harness working in this project scans this root; the install is a")
+    print("  build output and is gitignored -- rerun this script after pulling")
     print()
     # The engine is a Python package and `-e` points an install at one source tree.
     # Installing the COPY would repoint a working checkout at a snapshot: edits in
@@ -193,8 +195,10 @@ def check(destination: Path) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--dest", type=Path, default=Path.home() / ".agents" / "skills",
-        help="the skill root to install into (default: ~/.agents/skills)")
+        "--dest", type=Path, default=REPO_ROOT / ".agents" / "skills",
+        help="the skill root to install into (default: the project's own "
+             "<root>/.agents/skills, which a harness scans while working in this "
+             "project; pass ~/.agents/skills to make it available everywhere)")
     parser.add_argument(
         "--check", action="store_true",
         help="report whether the installed copy matches the source")

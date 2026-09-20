@@ -39,3 +39,6 @@ artifacts/scratch/*
 
 # --- uv (not used; pyproject/pip is the dependency workflow) ---
 uv.lock
+
+# --- Installed skill: a build output, refreshed by install_skill.py ---
+.agents/

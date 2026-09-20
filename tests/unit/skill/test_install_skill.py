@@ -185,6 +185,56 @@ def test_every_top_level_script_is_in_the_bundle():
         "by name with a reason if they are not part of the skill")
 
 
+def test_the_default_target_is_the_projects_own_skill_root():
+    """Project roots outrank user roots, so the default installs where it belongs.
+
+    A harness scans `<projectRoot>/.agents/skills` for sessions working in that
+    project, and the user's own root for every session on the machine. The default is
+    the project's: this skill IS this repository, so a copy of it belongs with the
+    repository rather than in one person's home directory.
+
+    Runs `main()` with no arguments, which is the documented `python
+    install_skill.py`, and checks where the files landed.
+    """
+
+    import sys
+
+    module = _installer()
+    expected = REPO_ROOT / ".agents" / "skills" / module.skill_name()
+    existed = expected.is_dir()
+
+    original_argv = sys.argv
+    sys.argv = ["install_skill.py"]
+    try:
+        with contextlib.redirect_stdout(io.StringIO()):
+            code = module.main()
+    finally:
+        sys.argv = original_argv
+
+    assert code == 0
+    assert expected.is_dir(), (
+        "the default install did not land in the project's own skill root")
+    assert existed or expected.is_dir()
+
+
+def test_the_install_is_gitignored():
+    """The install duplicates the repository, so committing it would double it.
+
+    `.agents/` holds a copy of every file here. Tracked, the repository would carry
+    two of everything, and the copy would drift against the original in history.
+    """
+
+    import subprocess
+
+    done = subprocess.run(
+        ["git", "check-ignore", "-q", ".agents"],
+        cwd=REPO_ROOT, capture_output=True, text=True, check=False,
+        encoding="utf-8", errors="replace")
+    assert done.returncode == 0, (
+        ".agents/ is not gitignored; the installed skill would be committed as a "
+        "second copy of the repository")
+
+
 def test_the_skill_name_is_read_from_the_frontmatter():
     """Discovery resolves `<name>/SKILL.md`, so the directory must match the name."""
 

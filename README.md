@@ -37,17 +37,26 @@ The project is not published on PyPI and has no third-party runtime dependencies
 
 ### Install as a skill
 
-The project **is** a skill: `SKILL.md` carries the frontmatter a harness discovers, and everything else in the repository is what that skill needs. An agent finds it only when it sits under a scanned skill root — `~/.agents/skills/`, `~/.dsh/skills/`, or the same path inside a project. Sitting in a checkout is not enough; discovery reads one level deep, `<root>/<name>/SKILL.md`, so a repository anywhere else is invisible.
+The project **is** a skill: `SKILL.md` carries the frontmatter a harness discovers, and everything else in the repository is what that skill needs. An agent finds it only when it sits under a scanned skill root. Sitting in a checkout is not enough — discovery reads one level deep, `<root>/<name>/SKILL.md`.
 
-Two scripts, one per direction:
+Project roots are scanned before user roots, so the default makes the skill available to sessions working in this project and nowhere else:
 
 ```powershell
-# From a checkout onto this machine
+# Into this project's own skill root, <root>/.agents/skills/
 python install_skill.py
-#   installed ai-native-game-engine -> <skill root>/ai-native-game-engine
+#   installed ai-native-game-engine -> <root>/.agents/skills/ai-native-game-engine
+#   a harness working in this project scans this root
 
 # Confirm the install still matches the checkout
 python install_skill.py --check
+```
+
+That install is a **build output**, and `.agents/` is gitignored with it: the skill is the repository, so committing a copy of the repository inside itself would duplicate every file. Pull, then rerun the script.
+
+To make it available to every session on this machine instead, name a user root:
+
+```powershell
+python install_skill.py --dest "$HOME/.agents/skills"
 ```
 
 **Do not then install the engine from the copy.** An editable install points at one
