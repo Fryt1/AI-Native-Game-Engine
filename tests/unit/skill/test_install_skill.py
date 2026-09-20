@@ -163,6 +163,28 @@ def test_the_bundle_carries_no_tests():
     assert not [name for name in carried if name.startswith("tests/")]
 
 
+def test_every_top_level_script_is_in_the_bundle():
+    """A script a reader would expect in the skill must actually travel with it.
+
+    `pack_skill.py` was left out when it was added, because a hand-maintained list
+    does not notice a new sibling. Both scripts are part of how this project is
+    distributed, and a recipient who receives only the archive should be able to
+    repack it or reinstall from it without fetching the repository.
+    """
+
+    carried = _carried()
+    scripts = {
+        path.name for path in REPO_ROOT.glob("*.py")
+        if path.is_file()
+    }
+
+    missing = sorted(scripts - {name.split("/")[-1] for name in carried})
+    assert not missing, (
+        f"these top-level scripts are in the repository but not in the skill: "
+        f"{missing}. Add them to BUNDLE_FILES in install_skill.py, or exclude them "
+        "by name with a reason if they are not part of the skill")
+
+
 def test_the_skill_name_is_read_from_the_frontmatter():
     """Discovery resolves `<name>/SKILL.md`, so the directory must match the name."""
 

@@ -41,6 +41,7 @@ BUNDLE_FILES = (
     "pyproject.toml",
     "integrity_gate.py",
     "install_skill.py",
+    "pack_skill.py",
     "LICENSE",
 )
 
