@@ -124,6 +124,12 @@ have already run a call against a live host. `supersede` reports those as
 saw can apply the same change twice. If a node must be undone, that is an
 explicit compensating call you author, not something this repository can do.
 
+Expect that refusal. A replacement that invalidates a node you already ran will
+refuse the next `record` for that node's call, because the node is new work against
+a host that already saw the old version — both facts are true at once, and
+`--confirm-side-effects` is the intended way to say you know. It is not an error to
+work around, and authoring a second replacement does not avoid it.
+
 Author the Workflow against `templates/workflow.schema.json`. That file **is** the
 definition of the data structure: it states every node kind, every field, and every
 operator. There is no separate fill-in template, because a template and a schema

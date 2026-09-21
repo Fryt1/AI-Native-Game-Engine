@@ -336,11 +336,20 @@ def command_record(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         already_run = state.calls_already_run()
         revision = already_run.get((node_path, result.call_id))
         if revision is not None:
+            # The remedy is the flag, and ONLY the flag. This message used to end
+            # "or author a replacement revision" -- which names the cause, not a
+            # cure: a replacement is what invalidated the node and brought the Agent
+            # here. An Agent that follows a refused supersede with a second
+            # replacement has done what the message asked and is still refused.
+            # `supersede` reports the same nodes as `side_effects_at_risk`; that is
+            # where the warning belongs.
             raise SessionStateError(
                 f"call {result.call_id} at {node_path} has already run against a live "
                 f"host (revision {revision}); reporting a new result for it could apply "
-                "the same change twice. Pass --confirm-side-effects to proceed, or "
-                "author a replacement revision"
+                "the same change twice. Pass --confirm-side-effects to report it again, "
+                "and only do that when this node's change must be applied a second "
+                "time -- a re-run after a replacement invalidated it, not a retry of "
+                "one that already succeeded"
             )
 
     # One rebuild, one check, one apply -- in that order. Checking against a

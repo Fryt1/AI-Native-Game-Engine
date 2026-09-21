@@ -302,6 +302,39 @@ def test_a_replaced_stage_refuses_its_call_again(workspace, tmp_path, capsys):
     assert "has already run against a live host" in payload["errors"][0]
 
 
+def test_the_refusal_names_the_flag_and_not_the_cause(workspace):
+    """The message must give a remedy an Agent can act on.
+
+    It used to end "Pass --confirm-side-effects to proceed, or author a replacement
+    revision". The second half names the CAUSE: a replacement is what invalidated
+    the node and produced this refusal. An Agent that reads the message, authors a
+    second replacement, and retries has done what it was told and is refused again --
+    which is exactly what happened during a real scene run, where the Agent had
+    already superseded before recording.
+
+    The flag is the only remedy. This pins that the message says so, and that it
+    carries the condition the flag is for.
+    """
+
+    workspace["open"](STAGES, revision=1)
+    workspace["record"]("c1", "do_thing")
+
+    changed = _stage(purpose="A different goal")
+    workspace["supersede"]([changed], revision=2, supersedes="t:workflow:r1")
+
+    code, payload = workspace["record"]("c1", "do_thing")
+
+    assert code == EXIT_UNUSABLE
+    message = payload["errors"][0]
+
+    assert "--confirm-side-effects" in message, "the remedy is not named"
+    assert "replacement revision" not in message, (
+        "the message names a replacement revision, which is the cause of this "
+        "refusal rather than a way past it")
+    # The flag is for a genuine re-run, not for retrying something that worked.
+    assert "must be applied a second time" in message
+
+
 def test_evaluating_a_stage_after_its_own_calls_is_not_refused(workspace):
     """The normal path must never trip the guard."""
 
