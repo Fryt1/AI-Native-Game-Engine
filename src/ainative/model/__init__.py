@@ -19,7 +19,7 @@ from .checklists import (
 )
 from .results import ExecutionResult, StageResult, TaskResult, TaskStatus
 from .task import TaskContract
-from .tools import CallTarget, ToolCall
+from .tools import CallTarget, ToolCall, call_digest
 from .tree import (
     ROOT_PATH,
     COMPLETE_STATUSES,
@@ -76,6 +76,7 @@ __all__ = [
     "WorkflowNode",
     "WorkflowStatus",
     "WorkflowTree",
+    "call_digest",
     "depth",
     "join_path",
     "leaves",

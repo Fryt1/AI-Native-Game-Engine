@@ -182,8 +182,8 @@ class SessionState:
             if previous.get(path) == fingerprint
         )
 
-    def calls_already_run(self) -> dict[tuple[str, str], str]:
-        """Return, per ``(node path, call id)``, the revision that recorded it.
+    def calls_already_run(self) -> dict[tuple[str, str], tuple[str, str]]:
+        """Return, per ``(node path, call id)``, the revision that ran it and what it did.
 
         Keyed by the pair, not by the call id alone. A call id is scoped to the
         STAGE that declares it -- two sibling towers may each declare a ``build``
@@ -197,11 +197,17 @@ class SessionState:
         its own revision's Workflow; when that is ambiguous the path is left empty,
         which fails closed rather than open.
 
-        @returns a mapping of ``(node path, call id)`` to the revision id that
-            recorded it.
+        The second element is the CALL DIGEST as declared when the call ran: its
+        target and arguments, which is what the host saw. The repeat guard compares
+        it against the call's digest now, because a call whose declaration changed
+        is a different host change however familiar its id looks. Without this, an
+        Agent that fixed a broken call and re-ran it was refused as a repeat and had
+        no way forward but a manual override.
+
+        @returns a mapping of ``(node path, call id)`` to ``(revision id, digest)``.
         """
 
-        recorded: dict[tuple[str, str], str] = {}
+        recorded: dict[tuple[str, str], tuple[str, str]] = {}
 
         def collect(workflow_document: Any, events: list[dict[str, Any]], label: str) -> None:
             workflow = _read_workflow(workflow_document)
@@ -215,7 +221,10 @@ class SessionState:
                 node_path = payload.get("node_path")
                 if not node_path and workflow is not None:
                     node_path = workflow.path_of_call(call_id)
-                recorded.setdefault((str(node_path or ""), call_id), label)
+                recorded.setdefault(
+                    (str(node_path or ""), call_id),
+                    (label, _declared_digest(workflow, call_id, node_path)),
+                )
 
         for entry in self.revisions:
             collect(entry.get("workflow"), entry.get("events", []),
@@ -384,6 +393,28 @@ def _read_workflow(document: Any) -> WorkflowTree | None:
         return workflow_from_dict(document)
     except Exception:  # noqa: BLE001 - reported as None, not raised
         return None
+
+
+def _declared_digest(workflow: WorkflowTree | None, call_id: str, node_path: Any) -> str:
+    """Return how the revision DECLARED a call, as a digest of what it would do.
+
+    Read from the revision that recorded the call, not from the current one: the
+    question is what the host saw when the call ran.
+
+    An empty string means "no declaration could be read". The guard treats that as
+    a difference, so a call whose declaration cannot be established is reported
+    again only when the Agent says so -- failing closed, because the alternative is
+    applying a host change twice on the strength of a document that would not parse.
+    """
+
+    if workflow is None:
+        return ""
+    node = workflow.node_at(str(node_path)) if node_path else None
+    if node is None:
+        return ""
+    declared = next(
+        (call for call in node.declared_calls if call.call_id == call_id), None)
+    return declared.digest if declared is not None else ""
 
 
 def _nodes_with_side_effects(

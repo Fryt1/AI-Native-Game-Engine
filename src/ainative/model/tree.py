@@ -369,6 +369,26 @@ class WorkflowTree:
         matches = [node for _p, node in walk(self.root) if node.node_id == path]
         return matches[0] if len(matches) == 1 else None
 
+    def call_digest(self, node_path: str, call_id: str) -> str | None:
+        """Return what a declared call would do on the host, or None.
+
+        The digest covers the call's target and arguments -- what the host sees --
+        and excludes ``call_id``, so renaming a call does not change it. None means
+        the node or the call is not declared here, which a caller must treat as
+        "cannot compare" rather than as "unchanged".
+
+        @param node_path: the node that declares the call.
+        @param call_id: the call to digest.
+        @returns the digest, or None when the declaration is absent.
+        """
+
+        node = self.node_at(node_path)
+        if node is None:
+            return None
+        declared = next(
+            (call for call in node.declared_calls if call.call_id == call_id), None)
+        return declared.digest if declared is not None else None
+
     def path_of_call(self, call_id: str) -> str | None:
         """Return the path of the STAGE that declares a call, or None.
 

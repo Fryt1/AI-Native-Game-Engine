@@ -151,11 +151,14 @@ def workspace(tmp_path, capsys):
         )
         return code, json.loads(capsys.readouterr().out)
 
-    def record(call_id, tool, *extra):
-        result = _write(tmp_path / f"{call_id}.json", {
+    def record(call_id, tool, *extra, arguments=None):
+        payload = {
             "call_id": call_id, "status": "succeeded",
             "target": {"owner": "ue5", "name": tool},
-        })
+        }
+        if arguments is not None:
+            payload["outputs"] = arguments
+        result = _write(tmp_path / f"{call_id}.json", payload)
         code = session_cli.main(["--state", state, "--result", result, *extra, "record"])
         return code, json.loads(capsys.readouterr().out)
 
@@ -333,6 +336,85 @@ def test_the_refusal_names_the_flag_and_not_the_cause(workspace):
         "refusal rather than a way past it")
     # The flag is for a genuine re-run, not for retrying something that worked.
     assert "must be applied a second time" in message
+
+
+def test_a_call_repaired_by_a_replacement_is_not_a_repeat(workspace):
+    """Fixing a call and re-running it must not be refused as a duplicate.
+
+    This is the shape a real scene run hit: a call ran, its arguments turned out to
+    be wrong, the Agent fixed the declaration, superseded, re-ran, and was refused --
+    with no way forward but a manual override that the message framed as the unusual
+    case.
+
+    The repeat guard asks whether reporting again could apply the SAME host change
+    twice. A call whose target or arguments changed is a different host change, so
+    the answer is no and the submission stands on its own.
+    """
+
+    repaired = _stage(calls=[{
+        "call_id": "c1",
+        "target": {"owner": "ue5", "name": "do_thing"},
+        "arguments": {"size": 16},
+    }])
+    paths = _paths([repaired])
+
+    workspace["open"](STAGES, revision=1)
+    workspace["record"]("c1", "do_thing")
+
+    workspace["supersede"]([repaired], revision=2, supersedes="t:workflow:r1")
+
+    code, payload = workspace["record"]("c1", "do_thing", arguments={"size": 16})
+
+    assert code == EXIT_OK, payload["errors"]
+    assert payload["verdict"] == "succeeded"
+
+    code, payload = workspace["stage"](paths["stage.a"])
+    assert code == EXIT_OK
+    assert payload["verdict"] == "succeeded"
+
+
+def test_a_replacement_that_changed_nothing_still_refuses_the_repeat(workspace):
+    """The digest is the CALL's, not the node's.
+
+    A replacement that rewords the goal but leaves the call's target and arguments
+    alone has not changed what the host would be asked to do. Treating that as a
+    repair would let a reworded purpose launder a genuine repeat, which is the
+    hazard the guard exists for.
+    """
+
+    reworded = _stage(purpose="A different goal")
+
+    workspace["open"](STAGES, revision=1)
+    workspace["record"]("c1", "do_thing")
+
+    workspace["supersede"]([reworded], revision=2, supersedes="t:workflow:r1")
+
+    code, payload = workspace["record"]("c1", "do_thing")
+
+    assert code == EXIT_UNUSABLE
+    assert "same target and arguments" in payload["errors"][0]
+
+
+def test_the_digest_ignores_a_renamed_call(workspace):
+    """Renaming a call does not change the host change it describes."""
+
+    renamed = _stage(calls=[{
+        "call_id": "c1-renamed",
+        "target": {"owner": "ue5", "name": "do_thing"},
+    }])
+    renamed["stage"]["execution_checklist"][0]["call_ids"] = ["c1-renamed"]
+    renamed["stage"]["acceptance_checklist"][0]["source_call_id"] = "c1-renamed"
+    renamed["stage"]["acceptance_checklist"][0]["call_ids"] = ["c1-renamed"]
+
+    workspace["open"](STAGES, revision=1)
+    workspace["record"]("c1", "do_thing")
+
+    workspace["supersede"]([renamed], revision=2, supersedes="t:workflow:r1")
+
+    # The old id is gone, so this is a different (node, call) pair either way; the
+    # point is that the NEW id's submission is not silently matched to the old run.
+    code, payload = workspace["record"]("c1-renamed", "do_thing")
+    assert code == EXIT_OK, payload["errors"]
 
 
 def test_evaluating_a_stage_after_its_own_calls_is_not_refused(workspace):

@@ -333,24 +333,33 @@ def command_record(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         # The repeat is a repeat of *this node's* call. The same id in a different
         # node is a different host change, which is the whole point of scoping a
         # call id to its STAGE.
+        #
+        # "Repeat" means the same HOST CHANGE, not the same id. A call whose target
+        # or arguments changed since it ran is a different change, however familiar
+        # its id looks, and refusing it left an Agent that fixed a broken call with
+        # no way forward but a manual override -- which is what happened during a
+        # real scene run: the call was re-declared with corrected arguments after a
+        # supersede, and the guard refused it as a repeat of work already done.
         already_run = state.calls_already_run()
-        revision = already_run.get((node_path, result.call_id))
-        if revision is not None:
-            # The remedy is the flag, and ONLY the flag. This message used to end
-            # "or author a replacement revision" -- which names the cause, not a
-            # cure: a replacement is what invalidated the node and brought the Agent
-            # here. An Agent that follows a refused supersede with a second
-            # replacement has done what the message asked and is still refused.
-            # `supersede` reports the same nodes as `side_effects_at_risk`; that is
-            # where the warning belongs.
-            raise SessionStateError(
-                f"call {result.call_id} at {node_path} has already run against a live "
-                f"host (revision {revision}); reporting a new result for it could apply "
-                "the same change twice. Pass --confirm-side-effects to report it again, "
-                "and only do that when this node's change must be applied a second "
-                "time -- a re-run after a replacement invalidated it, not a retry of "
-                "one that already succeeded"
-            )
+        recorded = already_run.get((node_path, result.call_id))
+        if recorded is not None:
+            revision, ran_digest = recorded
+            declared = state.workflow_object().call_digest(node_path, result.call_id)
+            if declared is not None and declared == ran_digest:
+                # The remedy is the flag. This message used to end "or author a
+                # replacement revision" -- which names the cause, not a cure: a
+                # replacement is what invalidated the node and brought the Agent
+                # here. `supersede` reports the same nodes as
+                # `side_effects_at_risk`; that is where the warning belongs.
+                raise SessionStateError(
+                    f"call {result.call_id} at {node_path} has already run against a live "
+                    f"host (revision {revision}) with the same target and arguments; "
+                    "reporting a result for it again could apply the same change twice. "
+                    "Pass --confirm-side-effects to report it anyway, and only do that "
+                    "when this node's change must be applied a second time -- a re-run "
+                    "after a replacement invalidated it, not a retry of one that already "
+                    "succeeded"
+                )
 
     # One rebuild, one check, one apply -- in that order. Checking against a
     # throwaway replay rebuilt the session twice for a single append, and appending
